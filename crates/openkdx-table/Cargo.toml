@@ -8,6 +8,7 @@ rust-version.workspace = true
 description = "Challenge tables: fetch, import, cache, and verify the Haxial stories."
 
 [dependencies]
+tempfile.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
 directories.workspace = true
@@ -17,3 +18,6 @@ anyhow.workspace = true
 reqwest.workspace = true
 zip.workspace = true
 hex.workspace = true
+
+[dev-dependencies]
+
