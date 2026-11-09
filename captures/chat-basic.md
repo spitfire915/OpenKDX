@@ -1,0 +1,25 @@
+# Capture: chat-basic
+
+Recorded 2026-11-09 in the lab (`lab/scenarios/chat-basic.sh`).
+Programs: KDX Server 1.620 (Linux), KDX Client 1.600 (Windows under Wine 6.0.3).
+Frames: 15. Screenshot at the end: `chat-basic.png`.
+
+## Steps
+
+1. Start KDX Server 1.620 (Linux) in the sandbox; first-run setup creates admin 'admin', guest access enabled.
+1. Start KDX Client 1.600 (Windows, under Wine); accept the licence; set user name 'labuser'.
+1. Connect → address '127.0.0.1', login 'admin', password (set); press Connect.
+1. Start capturing loopback.
+1. Open Chat; expand the server in the Chat List (shows Admin Lounge, Public Chat, Voice Chat).
+1. Click 'Public Chat' to join it; the window becomes 'Chat: 127.0.0.1:10700' with a tab per server.
+1. Type 'hello from the lab' in the input box and press Return.
+1. Type '/me waves' and press Return (action format).
+1. Click 'Topic:'; in the Set topic dialog type 'lab topic' and press Set.
+
+## Server log
+
+```
+26/11/09 09:50:11 PM [] KDX Server started o
+26/11/09 09:50:36 PM [1 unnamed] Incoming connection from 127.0.0.1:55088
+26/11/09 09:50:38 PM [1 unnamed] Set Name: <labuser> (admin)
+```

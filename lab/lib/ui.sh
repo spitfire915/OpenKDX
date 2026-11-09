@@ -98,3 +98,28 @@ ui_dismiss_dcc_error() {
   fi
 }
 ui_first_run_winclient() { ui_first_run_client "${1:-labuser}" kdxclient.exe; }
+
+# Haxial popup menus are Mac-style: press on the control, drag to the item,
+# release, then one more click commits. ui_popup WIN X Y ROW: open the popup
+# at X,Y (relative to WIN) and choose the ROWth item (1-based, 16 px rows).
+ui_popup() {
+  local win=$1 x=$2 y=$3 row=$4 wx wy ax ay i
+  read -r wx wy <<<"$(X xdotool getwindowgeometry --shell "$win" | awk -F= '/^X=/{x=$2}/^Y=/{y=$2}END{print x, y}')"
+  ax=$((wx + x)); ay=$((wy + y))
+  X xdotool mousemove "$ax" "$ay" mousedown 1; sleep 0.6
+  for ((i = 1; i <= row; i++)); do X xdotool mousemove $((ax - 20)) $((ay + 5 + i * 16)); sleep 0.12; done
+  X xdotool mouseup 1; sleep 0.4
+  X xdotool click 1; sleep 1
+}
+
+# ui_menu_path: open the palette Commands menu, hover the first (server) item,
+# and move down ROW rows in its submenu; click.
+ui_commands_server_item() {
+  local palette=$1 row=$2 px py i
+  read -r px py <<<"$(X xdotool getwindowgeometry --shell "$palette" | awk -F= '/^X=/{x=$2}/^Y=/{y=$2}END{print x, y}')"
+  ui_focus "$palette"; ui_click "$palette" 80 79; sleep 1
+  X xdotool mousemove $((px + 100)) $((py + 105)) click 1; sleep 1
+  X xdotool mousemove $((px + 290)) $((py + 108)); sleep 0.4
+  for ((i = 1; i <= row; i++)); do X xdotool mousemove $((px + 290)) $((py + 108 + i * 19)); sleep 0.05; done
+  sleep 0.3; X xdotool click 1; sleep 1.5
+}

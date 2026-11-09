@@ -14,6 +14,7 @@ RUN="${OPENKDX_LAB_RUN:-$HOME/lab/run}"
 source "${OPENKDX_LAB_ENV:-$HOME/haxial/lab.env}"
 
 SCENARIO=""
+STEP_N=0
 NOTES=""
 
 step() {
