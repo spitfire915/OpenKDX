@@ -18,6 +18,7 @@ samples of the client-side formats.
 | `News.dat` | server | newsgroups and messages (created empty at first run) | unknown | `news-dat.md` |
 | `News Archives/` | server | archived news, text | unknown | `news-archives.md` |
 | `History/` | server | tab-separated history logs | unknown | `history.md` |
+| `Downloads/` (client) | client | downloaded files, optionally auto-sorted | from docs | — |
 | catalog | server | file catalog for Search | unknown | `catalog.md` |
 | `Bases/` conventions | server | `[UL]`, `[DB]`, `[<item>]` suffixes; drop-box owner | from docs | `bases.md` |
 | `KDX.stg` | client | identity, icon, address book, settings, window positions, registration | unknown | `client-stg.md` |
