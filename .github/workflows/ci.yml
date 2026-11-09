@@ -24,7 +24,7 @@ jobs:
           python-version: "3.12"
       - run: python3 ci/check-deps.py
       - run: python3 ci/check-blocklist.py
-      - run: python3 -m unittest discover -s ci -p '*_test.py' -v
+      - run: for t in ci/*_test.py; do python3 -m unittest -v "$t"; done
 
   rust:
     name: Rust (${{ matrix.os }})
