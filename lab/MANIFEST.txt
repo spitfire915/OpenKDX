@@ -1,0 +1,24 @@
+# Haxial archives the lab uses. Never committed; fetched by lab/fetch-binaries.sh.
+#
+# Format: sha256  filename  url
+#
+# Hashes verified 2026-11-09. The first six match scottanderson/kdx
+# vendor/MANIFEST.md (Wayback captures of haxial.com) byte for byte.
+# kdx.technowiki.info hosts "unlocked" repacks of some programs; where that is
+# the only source (the editors) the hash is of the repack, noted as such.
+
+# Core programs: the compatibility targets
+a270a27180b9551b31e3d09fe99d863e88e93926fc7595fb62e975681ce12e74  KDXServer1620-Lnx.zip        https://preterhuman.net/download/KDXServer1620-Lnx.zip
+1410b1dfc60094ef3ddb408dcd0077db065bf49125d9518d718c5578a3ba49cd  KDXTrackerServ1110-Lnx.zip   https://preterhuman.net/download/KDXTrackerServ1110-Lnx.zip
+efe6d9c3a96784129dc8e49e41863487d441fe9db89ab1ee7a4ad12de6972fd9  KDXClient-Lnx-beta5.zip      https://preterhuman.net/download/KDXClient-Lnx-beta5.zip
+cc6ec09bad1969e354ed5778ad594a0f8639ae8e3aa05e169916cc4b8d4f038b  KDXClient1600-Win.zip        https://preterhuman.net/download/KDXClient-Win.zip
+1fca4b462ccefb70025c5353e7c9da1d7346cc49860cfebf9a6b8296569d67eb  KDXServer1600-Win.zip        https://preterhuman.net/download/KDXServer1600-Win.zip
+8f50ef0cd4f82fc5b071340932c498a9df3556ed6cff6f23ecd6c36c43683583  KDXTrackerServ1110-Win.zip   https://preterhuman.net/download/KDXTrackerServ1110-Win.zip
+
+# Editors (technowiki repacks; Wayback originals are ade24eb5… and 7c03f446…)
+8414c0e03ef14558f6bd2e3a2b68a8d5e832c58a97b650ae768c2729129cff26  AppearanceEdit1240-Win.zip   https://kdx.technowiki.info/downloads/AppearanceEdit1240-Win.zip
+2a3e9da9a965fc8049bd5d11a7d96e010b2c3973414ca7978528398ad833e6ac  KDXSoundListEdit1000-Win.zip https://kdx.technowiki.info/downloads/KDXSoundListEdit1000-Win.zip
+
+# Unlocked client (technowiki repack): no licence nag, for cleaner captures.
+# Not a compatibility reference; compare against the stock build above.
+7366c49f6d8a0788afe38b584d773f823b9710fc062f68592332c24323eefdaa  KDXClient1600-Win-unlocked.zip https://kdx.technowiki.info/downloads/KDXClient1600-Win.zip
