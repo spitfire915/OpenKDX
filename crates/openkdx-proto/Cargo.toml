@@ -1,0 +1,10 @@
+[package]
+name = "openkdx-proto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "KDX wire format: handshake, encryption, framing, typed payloads. No I/O."
+
+[dependencies]

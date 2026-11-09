@@ -1,0 +1,12 @@
+[package]
+name = "openkdx-codec"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "tokio-util codecs for KDX handshake and session framing."
+
+[dependencies]
+openkdx-proto.workspace = true
+tokio.workspace = true
