@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+"""Generate the OpenKDX logo SVGs. Run from the repository root:
+
+    python3 assets/logo/generate.py
+
+Writes mark.svg (bare mark, gold) and client.svg / server.svg / tracker.svg
+(full lockups). Hand-authored geometry; no Haxial artwork is involved.
+"""
+from pathlib import Path
+
+ROLES = {
+    "client": ("Client", "#fff4c0", "#ffd650", "#d68c00", "#7a4600"),
+    "server": ("Server", "#e2ffc2", "#86f542", "#1aa51a", "#0a5a12"),
+    "tracker": ("Tracker", "#f0d6ff", "#c66cff", "#7a1fd0", "#3a0a78"),
+}
+
+DEFS = """<defs>
+ <linearGradient id="blk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a8a8a8"/><stop offset=".15" stop-color="#444"/><stop offset=".55" stop-color="#0e0e0e"/><stop offset="1" stop-color="#303030"/></linearGradient>
+ <linearGradient id="role" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{c0}"/><stop offset=".15" stop-color="{c1}"/><stop offset=".6" stop-color="{c2}"/><stop offset="1" stop-color="{c3}"/></linearGradient>
+ <linearGradient id="stl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f4f4"/><stop offset=".35" stop-color="#9a9a9a"/><stop offset=".5" stop-color="#dcdcdc"/><stop offset=".7" stop-color="#6e6e6e"/><stop offset="1" stop-color="#c8c8c8"/></linearGradient>
+ <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".6"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+ <filter id="drop" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#000" flood-opacity=".7"/></filter>
+</defs>"""
+
+MARK = """<g filter="url(#drop)">
+ <g stroke="#000" stroke-width="1.5" stroke-linejoin="round">
+  <path fill="url(#blk)" d="M-52-36 L-36-52 L-20-52 L0-30 L20-52 L36-52 L52-36 L52-20 L8 0 L-8 0 L-52-20 Z"/>
+  <path fill="url(#role)" d="M-52 36 L-36 52 L-20 52 L0 30 L20 52 L36 52 L52 36 L52 20 L8 0 L-8 0 L-52 20 Z"/>
+ </g>
+ <path fill="url(#gloss)" d="M-52-36 L-36-52 L-20-52 L0-30 L20-52 L36-52 L52-36 L52-30 L0-14 L-52-30 Z"/>
+ <path fill="url(#gloss)" opacity=".45" d="M-52 20 L-8 0 L8 0 L52 20 L52 27 L8 8 L-8 8 L-52 27 Z"/>
+ <circle r="9.5" fill="#0a0a0a"/>
+ <circle r="9" fill="none" stroke="url(#stl)" stroke-width="4"/>
+ <circle r="9" fill="none" stroke="#000" stroke-width=".8" opacity=".6"/>
+</g>"""
+
+
+def mark_svg(colors):
+    c0, c1, c2, c3 = colors
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="-64 -64 128 128" width="128" height="128">
+{DEFS.format(c0=c0, c1=c1, c2=c2, c3=c3)}
+{MARK}
+</svg>
+"""
+
+
+def lockup_svg(word, colors):
+    c0, c1, c2, c3 = colors
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 150" width="360" height="150">
+{DEFS.format(c0=c0, c1=c1, c2=c2, c3=c3)}
+<g transform="translate(62 68) scale(.95)">
+{MARK}
+</g>
+<text x="132" y="46" font-family="Verdana, 'DejaVu Sans', sans-serif" font-weight="700" font-size="18" letter-spacing="6" fill="{c1}" opacity=".85">OPEN</text>
+<text x="130" y="100" font-family="Impact, 'Arial Black', 'DejaVu Sans Condensed', sans-serif" font-weight="900" font-size="68" letter-spacing="2" fill="url(#stl)" stroke="#1c1c1c" stroke-width="2" filter="url(#drop)">KDX</text>
+<text x="132" y="130" font-family="'Courier New', 'DejaVu Sans Mono', monospace" font-weight="700" font-size="22" letter-spacing="3" fill="{c1}">{word}</text>
+</svg>
+"""
+
+
+def main():
+    out = Path(__file__).parent
+    (out / "mark.svg").write_text(mark_svg(ROLES["client"][1:]))
+    for key, (word, *colors) in ROLES.items():
+        (out / f"{key}.svg").write_text(lockup_svg(word, colors))
+    print("wrote mark.svg, client.svg, server.svg, tracker.svg")
+
+
+if __name__ == "__main__":
+    main()
