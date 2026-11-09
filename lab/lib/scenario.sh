@@ -44,12 +44,39 @@ start_tracker() {
 }
 
 # Fresh Windows client through licence + name dialogs; leaves the palette up.
+WINCLASS=kdxclient.exe
+LNXCLASS=KDX
 start_winclient() {
   local name=${1:-labuser}
   "$LAB" winclient start >/dev/null
-  ui_first_run_winclient "$name"
-  PALETTE=$(ui_wait_sized KDX 164x310 20) || { echo "no palette window" >&2; exit 1; }
+  ui_first_run_client "$name" $WINCLASS
+  PALETTE=$(ui_wait_sized KDX 164x310 20 $WINCLASS) || { echo "no palette window" >&2; exit 1; }
+  CLASS=$WINCLASS
   step "Start KDX Client 1.600 (Windows, under Wine); accept the licence; set user name '$name'."
+}
+
+# Fresh Linux client (1.620 beta 5), same dialogs.
+start_lnxclient() {
+  local name=${1:-lnxuser}
+  "$LAB" client start >/dev/null
+  ui_first_run_client "$name" $LNXCLASS
+  PALETTE=$(ui_wait_sized KDX 164x310 20 $LNXCLASS) || { echo "no palette window" >&2; exit 1; }
+  CLASS=$LNXCLASS
+  # Keep the two clients apart on the shared display: Linux lives on the right.
+  for id in $(X xdotool search --class "^$LNXCLASS\$" 2>/dev/null || true); do
+    read -r x y <<<"$(X xdotool getwindowgeometry --shell "$id" | awk -F= '/^X=/{x=$2}/^Y=/{y=$2}END{print x, y}')"
+    [[ "$x" -lt 640 ]] && X xdotool windowmove "$id" $((x + 640)) "$y" 2>/dev/null || true
+  done
+  PALETTE=$(ui_win_sized KDX 164x310 $LNXCLASS)
+  step "Start KDX Client 1.620 beta 5 (Linux); accept the licence; set user name '$name'."
+}
+
+# use_client win|lnx : make subsequent palette_click/connect_to target that client.
+use_client() {
+  case $1 in
+    win) CLASS=$WINCLASS;; lnx) CLASS=$LNXCLASS;;
+  esac
+  PALETTE=$(ui_win_sized KDX 164x310 $CLASS)
 }
 
 # Palette buttons (164x310 window), y centres.
@@ -67,16 +94,19 @@ palette_click() {
 connect_to() { # connect_to ADDRESS LOGIN PASSWORD
   local c
   for _ in 1 2 3; do
+    [[ -n "$(ui_win "KDX Connect" "${CLASS:-}")" ]] && break
     palette_click connect
-    if ui_wait "KDX Connect" 4; then break; fi
+    ui_wait "KDX Connect" 8 "${CLASS:-}" && break
   done
-  c=$(ui_win "KDX Connect"); [[ -n "$c" ]] || { echo "connect dialog did not open" >&2; return 1; }
+  c=$(ui_win "KDX Connect" "${CLASS:-}"); [[ -n "$c" ]] || { echo "connect dialog did not open" >&2; return 1; }
   ui_focus "$c"
   ui_click "$c" 240 97;  ui_type "$1"
   ui_click "$c" 240 127; [[ -n "$2" ]] && ui_type "$2"
   ui_click "$c" 240 157; [[ -n "$3" ]] && ui_type "$3"
   ui_click "$c" 312 190
   sleep 5
+  # A second dialog from a retried click would otherwise linger.
+  for c in $(X xdotool search --name '^KDX Connect$' 2>/dev/null || true); do ui_close "$c"; done
   local pw="<empty>"; [[ -n "$3" ]] && pw="(set)"
   step "Connect → address '$1', login '${2:-<empty>}', password $pw; press Connect."
 }
