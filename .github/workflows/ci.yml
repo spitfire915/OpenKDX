@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Repository checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 ci/check-deps.py
+      - run: python3 ci/check-blocklist.py
+      - run: python3 -m unittest discover -s ci -p '*_test.py' -v
+
+  rust:
+    name: Rust (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+
+  lab:
+    name: Lab (self-hosted)
+    # Haxial binaries live only on the lab machine. Forked PRs must not run there.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, lab]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Smoke test the original KDX Server in the sandbox
+        run: |
+          if [ -x lab/ci-smoke.sh ]; then lab/ci-smoke.sh; else echo "lab/ci-smoke.sh not yet present"; fi
