@@ -7,9 +7,13 @@
 //! caches them under the user's cache directory.
 
 mod cache;
+mod fetch;
+mod import;
 mod story;
 
 pub use cache::Cache;
+pub use fetch::{Source, fetch, fetch_from, sources};
+pub use import::{import, scan_blob};
 pub use story::{Story, extract};
 
 use base64::Engine;
@@ -27,6 +31,12 @@ pub enum TableError {
         expected: [u8; 32],
         actual: [u8; 32],
     },
+    #[error("no download source is known for {0:?}")]
+    NoSource(Story),
+    #[error("{url}: HTTP {status}")]
+    HttpStatus { url: String, status: u16 },
+    #[error(transparent)]
+    Http(#[from] reqwest::Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("invalid base64 in environment variable: {0}")]
