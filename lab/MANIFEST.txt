@@ -2,10 +2,10 @@
 #
 # Format: sha256  filename  url
 #
-# Hashes verified 2026-11-09. The first six match scottanderson/kdx
+# Hashes verified 2026-11-09. All but the last match scottanderson/kdx
 # vendor/MANIFEST.md (Wayback captures of haxial.com) byte for byte.
-# kdx.technowiki.info hosts "unlocked" repacks of some programs; where that is
-# the only source (the editors) the hash is of the repack, noted as such.
+# kdx.technowiki.info hosts "unlocked" repacks of some programs; only its
+# client is used here, as an extra, and its hash is of that repack.
 
 # Core programs: the compatibility targets
 a270a27180b9551b31e3d09fe99d863e88e93926fc7595fb62e975681ce12e74  KDXServer1620-Lnx.zip        https://preterhuman.net/download/KDXServer1620-Lnx.zip
@@ -15,9 +15,10 @@ cc6ec09bad1969e354ed5778ad594a0f8639ae8e3aa05e169916cc4b8d4f038b  KDXClient1600-
 1fca4b462ccefb70025c5353e7c9da1d7346cc49860cfebf9a6b8296569d67eb  KDXServer1600-Win.zip        https://preterhuman.net/download/KDXServer1600-Win.zip
 8f50ef0cd4f82fc5b071340932c498a9df3556ed6cff6f23ecd6c36c43683583  KDXTrackerServ1110-Win.zip   https://preterhuman.net/download/KDXTrackerServ1110-Win.zip
 
-# Editors (technowiki repacks; Wayback originals are ade24eb5… and 7c03f446…)
-8414c0e03ef14558f6bd2e3a2b68a8d5e832c58a97b650ae768c2729129cff26  AppearanceEdit1240-Win.zip   https://kdx.technowiki.info/downloads/AppearanceEdit1240-Win.zip
-2a3e9da9a965fc8049bd5d11a7d96e010b2c3973414ca7978528398ad833e6ac  KDXSoundListEdit1000-Win.zip https://kdx.technowiki.info/downloads/KDXSoundListEdit1000-Win.zip
+# Editors (Wayback captures of haxial.com; the kdx.technowiki.info repacks of
+# these two have corrupt executables, CRC errors, so they are not used)
+ade24eb5daa728e2aa950692458dd28a9dce0cdf90afb5758ce3f95b69760d57  AppearanceEdit1240-Win.zip   https://web.archive.org/web/20051014065431id_/http://www.haxial.com:80/download/AppearanceEdit1240-Win.zip
+7c03f446e34e7a0af6af5343cebfbdf9c323497523b90a1052ca333c1a3fa26b  KDXSoundListEdit1000-Win.zip https://web.archive.org/web/20051014065758id_/http://www.haxial.com:80/download/KDXSoundListEdit1000-Win.zip
 
 # Unlocked client (technowiki repack): no licence nag, for cleaner captures.
 # Not a compatibility reference; compare against the stock build above.
