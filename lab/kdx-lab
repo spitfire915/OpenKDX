@@ -11,6 +11,9 @@
 #   kdx-lab tracker start|stop|status|log  KDX Tracker 1.110 (Linux)
 #   kdx-lab client start|stop|status|log   KDX Client 1.620b5 (Linux, X11 via Xvfb)
 #   kdx-lab winclient start|stop|status|log  KDX Client 1.600 (Windows, Wine via Xvfb)
+#   kdx-lab x start|stop|status            the shared Xvfb display inside the namespace
+#   kdx-lab x run CMD...                   run CMD with DISPLAY set (xdotool, xwininfo)
+#   kdx-lab x shot NAME                    screenshot → $CAPTURES/NAME.png
 #   kdx-lab capture start NAME|stop        dumpcap on lo → $CAPTURES/NAME.pcapng
 #   kdx-lab exec CMD...                    run a command inside the namespace
 #   kdx-lab selftest                       prove isolation, capture, and pidfile guard
@@ -65,7 +68,7 @@ ns_start() {
 }
 
 ns_stop() {
-  for n in winclient client tracker server capture; do
+  for n in winclient client tracker server capture x; do
     alive "$(pidfile $n)" && comp_stop "$n" || true
   done
   if alive "$(pidfile ns)"; then
@@ -183,20 +186,48 @@ tracker_start() {
 
 client_start() {
   ns_require
+  x_require
   local work; work=$(comp_dir client)
   mkdir -p "$work"
   [[ -x "$work/KDXClient.lexe" ]] || cp -r "$CLIENT_SRC"/. "$work/"
-  start_component client "$work" xvfb-run -a -s "-screen 0 1280x1024x24" ./KDXClient.lexe
+  start_component client "$work" env DISPLAY="$X_DISPLAY" ./KDXClient.lexe
 }
 
 winclient_start() {
   ns_require
+  x_require
   local work; work=$(comp_dir winclient)
   mkdir -p "$work/prefix"
   [[ -f "$work/KDXClient.exe" ]] || cp -r "$WINCLIENT_SRC"/. "$work/"
-  start_component winclient "$work" env WINEPREFIX="$work/prefix" WINEDEBUG=-all \
-    xvfb-run -a -s "-screen 0 1280x1024x24" wine ./KDXClient.exe
+  start_component winclient "$work" env DISPLAY="$X_DISPLAY" WINEPREFIX="$work/prefix" WINEDEBUG=-all \
+    wine ./KDXClient.exe
 }
+
+# ---------------------------------------------------------------- X display
+#
+# One Xvfb inside the namespace, shared by every GUI component and by the
+# automation (xdotool, import). Its socket lives in the namespace's own
+# abstract socket space, so DISPLAY works only via `kdx-lab exec` / `x run`.
+
+X_DISPLAY=":99"
+
+x_start() {
+  ns_require
+  guard x
+  in_ns Xvfb "$X_DISPLAY" -screen 0 1280x1024x24 -nolisten tcp >"$RUN/x.log" 2>&1 &
+  echo $! > "$(pidfile x)"
+  for _ in $(seq 1 30); do in_ns env DISPLAY="$X_DISPLAY" xdpyinfo >/dev/null 2>&1 && break; sleep 0.2; done
+  in_ns env DISPLAY="$X_DISPLAY" xdpyinfo >/dev/null 2>&1 || { cat "$RUN/x.log" >&2; die "Xvfb did not start"; }
+  echo "x: started ($X_DISPLAY)"
+}
+
+x_require() { alive "$(pidfile x)" || x_start; }
+
+# x run CMD... : run CMD inside the namespace with DISPLAY set (xdotool, import).
+x_run() { in_ns env DISPLAY="$X_DISPLAY" "$@"; }
+
+# x shot NAME : screenshot the whole display to $CAPTURES/NAME.png
+x_shot() { x_run import -window root "$CAPTURES/$1.png" && echo "shot: $CAPTURES/$1.png"; }
 
 # ---------------------------------------------------------------- capture
 
@@ -297,6 +328,7 @@ case "$cmd" in
     esac ;;
   capture) case "$sub" in start) capture_start "${3:-}";; stop) capture_stop;; *) die "capture start NAME|stop";; esac ;;
   exec) shift; in_ns "$@" ;;
+  x) case "$sub" in start) x_start;; stop) comp_stop x;; status) comp_status x;; run) shift 2; x_run "$@";; shot) x_shot "${3:-shot}";; *) die "x start|stop|status|run CMD...|shot NAME";; esac ;;
   selftest) selftest ;;
   reset) reset_component "${sub:-}" ;;
   *) sed -n '2,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//' ;;
