@@ -1,0 +1,51 @@
+# Haxial material that must never appear in this repository.
+#
+# Format:  sha256  length  anchor_hex  label
+#   sha256     SHA-256 of the whole blob
+#   length     blob length in bytes, or - when only whole-file matching applies
+#   anchor_hex first 32 bytes of the blob as hex, or - ; used to find the blob
+#              embedded inside a larger file (then `length` bytes from each
+#              anchor hit are hashed)
+#   label      what it is
+#
+# Story hashes verified 2026-11-09 against KDXServer.lexe 1.620 and
+# KDXClient.exe 1.600 (archives from preterhuman.net, byte-identical to the
+# Wayback captures listed in scottanderson/kdx vendor/MANIFEST.md).
+
+# Challenge tables (the stories)
+4fca7636e77e85fdde95862a6be66e12e5e031ad61add65c5e975d3daff4b9e7  1739  546869732070726f6772616d20696e636c7564696e672074686520666f6c6c6f  KDX story (challenge table, all programs)
+b43f22222971a57a0d8bdb3a5af2747c7ff511ea88f0ba8c24e38e9edc029c36  3193  54686520666f6c6c6f77696e672073746f727920697320436f70797269676874  GConsole story (challenge table, clients)
+
+# Program archives, last Haxial builds
+a270a27180b9551b31e3d09fe99d863e88e93926fc7595fb62e975681ce12e74  -  -  KDXServer1620-Lnx.zip
+1fca4b462ccefb70025c5353e7c9da1d7346cc49860cfebf9a6b8296569d67eb  -  -  KDXServer1600-Win.zip
+8d76c97b199c10ffc889643ee3e7c041b09a66bc806ca0aa0df65234d2013845  -  -  KDXServer1600-Mac.sit
+d01478822c4b68b2ed0d13126c96ac511d3630392ebd035b5bfdba40a5cd936b  -  -  KDXServer1600-MacUnix.zip
+cc6ec09bad1969e354ed5778ad594a0f8639ae8e3aa05e169916cc4b8d4f038b  -  -  KDXClient1600-Win.zip
+cfdd587f9d73580868d66065ebbde5a166aa2b5e25a8a0ef3d8c3b27136ec282  -  -  KDXClient1600-Mac.sit
+efe6d9c3a96784129dc8e49e41863487d441fe9db89ab1ee7a4ad12de6972fd9  -  -  KDXClient-Lnx-beta5.zip
+943d7c3c85a5a8af26f33fcbf9de00fd3c43f12edb0869cfcc0ce6fa868ff3f9  -  -  KDXClient-Lnx-beta4.zip
+1410b1dfc60094ef3ddb408dcd0077db065bf49125d9518d718c5578a3ba49cd  -  -  KDXTrackerServ1110-Lnx.zip
+8f50ef0cd4f82fc5b071340932c498a9df3556ed6cff6f23ecd6c36c43683583  -  -  KDXTrackerServ1110-Win.zip
+4ccf77333baf50d9f9e66dc59797d0c716451aaef2ee58bb5beefc47ab369d09  -  -  KDXTrackerServ1110-Mac.sit
+06437455a9b33ff4e0891380855c3552d6d562bb05c49b74c47ac9c44e81afa7  -  -  KDXTrackerServ1110-MacUnix.zip
+
+# Editors and appearance packs
+ade24eb5daa728e2aa950692458dd28a9dce0cdf90afb5758ce3f95b69760d57  -  -  AppearanceEdit1240-Win.zip
+59cd7b3bbd212d4cf1997195fc921ac6880e5d0b8fc88b0ba5f282f4d74ae72e  -  -  AppearanceEdit1240-Mac.sit
+7c03f446e34e7a0af6af5343cebfbdf9c323497523b90a1052ca333c1a3fa26b  -  -  KDXSoundListEdit1000-Win.zip
+736c6057f13c2a6f228b9e4873d51f34d196af8c9a40738a86f6b7e8fdddd636  -  -  KDXSoundListEdit1000-Mac.sit
+ece210af318a0cc175420f76931131f388be3234c8cea98e880c43bdf660ecd8  -  -  Appearances040521.zip
+8d62a7577f78c561643a903d85baa624a56c9b64f639041a61413773208bb1bd  -  -  Appearances041205.zip
+
+# Older builds
+75cfe75a26b625ec6ff767491b2e863fc74b0cc5f5a186c483e9d3d22d47b937  -  -  old/KDXServer1600-Lnx.zip
+86081323d65c71c3ef9ba4ce0da41531f3880538b4f6d8a44e34293b142f0279  -  -  old/KDXServer1300-Win.zip
+02d885c29ea686c156f6aeff710f2c8d2bfae1340a77f69bda29646500da9e56  -  -  old/KDXServer1500-Win.zip
+f043b9963669b4a6504bb27c1c7b0facf52be2edb2d887c54deabd29a333df4d  -  -  old/KDXServer1520-Win.zip
+ddf299370288401177fda5debc54d47d29a4c145751631e45541af1480144f2b  -  -  old/KDXServer1520-Lnx.zip
+8a1a4d1af741beec1ae6f099065d099a43d17fc68cc216e090349a1ba60a8154  -  -  old/KDXClient1320-Win.zip
+d2adb07d710773d5308e54d88c5bc017b4563076eeaf2a6355dc5aeea3af830b  -  -  old/KDXClient1400-Win.zip
+8cdd7d1df28730f139acacce9fce3e31a1b2ed4d3a1d6c32b67777e1f0900aa5  -  -  old/KDXClient1500-Win.zip
+268f75a070dc29b24cab8bb5d0509d623bf0dd8a5dd3edf046508e2bfcc65ba5  -  -  old/KDXClient1520-Win.zip
+ca81ce0a8a0cf1e550fb953f676cef3fe34d7acf755fbee0c6ef9fb7901c8d4a  -  -  downloadstatic/KDXClient-Win.zip (Client 1.110)

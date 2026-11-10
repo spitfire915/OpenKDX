@@ -1,0 +1,35 @@
+# Haxial archives the lab uses. Never committed; fetched by lab/fetch-binaries.sh.
+#
+# Format: sha256  filename  url
+#
+# Hashes verified 2026-11-09. All but the last match scottanderson/kdx
+# vendor/MANIFEST.md (Wayback captures of haxial.com) byte for byte.
+# kdx.technowiki.info hosts "unlocked" repacks of some programs; only its
+# client is used here, as an extra, and its hash is of that repack.
+
+# Core programs: the compatibility targets
+a270a27180b9551b31e3d09fe99d863e88e93926fc7595fb62e975681ce12e74  KDXServer1620-Lnx.zip        https://preterhuman.net/download/KDXServer1620-Lnx.zip
+1410b1dfc60094ef3ddb408dcd0077db065bf49125d9518d718c5578a3ba49cd  KDXTrackerServ1110-Lnx.zip   https://preterhuman.net/download/KDXTrackerServ1110-Lnx.zip
+efe6d9c3a96784129dc8e49e41863487d441fe9db89ab1ee7a4ad12de6972fd9  KDXClient-Lnx-beta5.zip      https://preterhuman.net/download/KDXClient-Lnx-beta5.zip
+cc6ec09bad1969e354ed5778ad594a0f8639ae8e3aa05e169916cc4b8d4f038b  KDXClient1600-Win.zip        https://preterhuman.net/download/KDXClient-Win.zip
+1fca4b462ccefb70025c5353e7c9da1d7346cc49860cfebf9a6b8296569d67eb  KDXServer1600-Win.zip        https://preterhuman.net/download/KDXServer1600-Win.zip
+8f50ef0cd4f82fc5b071340932c498a9df3556ed6cff6f23ecd6c36c43683583  KDXTrackerServ1110-Win.zip   https://preterhuman.net/download/KDXTrackerServ1110-Win.zip
+
+# Editors (Wayback captures of haxial.com; the kdx.technowiki.info repacks of
+# these two have corrupt executables, CRC errors, so they are not used)
+ade24eb5daa728e2aa950692458dd28a9dce0cdf90afb5758ce3f95b69760d57  AppearanceEdit1240-Win.zip   https://web.archive.org/web/20051014065431id_/http://www.haxial.com:80/download/AppearanceEdit1240-Win.zip
+7c03f446e34e7a0af6af5343cebfbdf9c323497523b90a1052ca333c1a3fa26b  KDXSoundListEdit1000-Win.zip https://web.archive.org/web/20051014065758id_/http://www.haxial.com:80/download/KDXSoundListEdit1000-Win.zip
+
+# Unlocked client (technowiki repack): no licence nag, for cleaner captures.
+# Not a compatibility reference; compare against the stock build above.
+7366c49f6d8a0788afe38b584d773f823b9710fc062f68592332c24323eefdaa  KDXClient1600-Win-unlocked.zip https://kdx.technowiki.info/downloads/KDXClient1600-Win.zip
+
+# Manual downloads (the site gates downloads behind a browser timer; fetch by
+# hand into ~/haxial/bin/). Hashes from scottanderson/kdx vendor/MANIFEST.md.
+# Appearances041205.sit: Haxial's official appearance pack, same files as the
+#   .zip twin (8d62a7577f78c561643a903d85baa624a56c9b64f639041a61413773208bb1bd).
+#   https://www.macintoshrepository.org/download.php?id=70117
+# KDX___Haxial_Bundle.sit: a user's collection of Mac builds, appearances and
+#   sound lists. Its KDX client/server are MODIFIED builds: never a reference.
+#   6648c9c3328ecb34f1bf7a51a5435572a6f913653b3a29a0becb8d56ddfc081f
+#   https://www.macintoshrepository.org/download.php?id=10413

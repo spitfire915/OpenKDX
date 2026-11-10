@@ -1,0 +1,11 @@
+[package]
+name = "openkdx-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Haxial-look widget set on egui, with the .hap theme engine."
+
+[dependencies]
+openkdx-legacy.workspace = true

@@ -1,0 +1,28 @@
+# Rust
+/target
+**/*.rs.bk
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Lab scratch (captures/*.pcapng ARE committed)
+/lab/run/
+/lab/bin/
+
+# Haxial material: never committed
+*.hap
+*.lexe
+*.exe
+*.sit
+*.zip
+kdx.bin
+hgc.bin
+
+# Plan workspaces
+/.superpowers/
+
+# Screenshots of the original programs (Haxial artwork) stay on the lab machine
+captures/*.png
+__pycache__/
+*.pyc

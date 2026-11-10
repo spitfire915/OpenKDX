@@ -1,0 +1,12 @@
+[package]
+name = "openkdx-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "The OpenKDX desktop client."
+
+[dependencies]
+openkdx-client.workspace = true
+openkdx-ui.workspace = true

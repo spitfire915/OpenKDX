@@ -1,0 +1,372 @@
+#!/usr/bin/env bash
+# kdx-lab: run the original Haxial KDX programs in a sandbox and capture them.
+#
+# One private network namespace per lab session, with only loopback. Every
+# component runs inside it, in a bubblewrap sandbox with the host filesystem
+# read-only and its own working directory writable. dumpcap records loopback
+# from inside the namespace.
+#
+#   kdx-lab ns start|stop|status           the namespace holder
+#   kdx-lab server start|stop|status|log   KDX Server 1.620 (Linux)
+#   kdx-lab tracker start|stop|status|log  KDX Tracker 1.110 (Linux)
+#   kdx-lab client start|stop|status|log   KDX Client 1.620b5 (Linux, X11 via Xvfb)
+#   kdx-lab winclient start|stop|status|log  KDX Client 1.600 (Windows, Wine via Xvfb)
+#   kdx-lab x start|stop|status            the shared Xvfb display inside the namespace
+#   kdx-lab x run CMD...                   run CMD with DISPLAY set (xdotool, xwininfo)
+#   kdx-lab x shot NAME                    screenshot → $CAPTURES/NAME.png
+#   kdx-lab capture start NAME|stop        dumpcap on lo → $CAPTURES/NAME.pcapng
+#   kdx-lab exec CMD...                    run a command inside the namespace
+#   kdx-lab selftest [--force]             prove isolation, capture, teardown, and the guards
+#   kdx-lab env                            create ~/haxial/lab.env (fixed lab password) if missing
+#   kdx-lab reset server|tracker|client|winclient|all   wipe a component's state
+set -euo pipefail
+
+# A scenario's lab lock (fd 9) must not leak into the daemons we start.
+exec 9>&- 2>/dev/null || true
+
+LAB_HOME="${OPENKDX_LAB_HOME:-$HOME}"
+BIN="${OPENKDX_LAB_BIN:-$LAB_HOME/haxial/bin}"
+RUN="${OPENKDX_LAB_RUN:-$LAB_HOME/lab/run}"
+CAPTURES="${OPENKDX_LAB_CAPTURES:-$LAB_HOME/captures}"
+ENV_FILE="${OPENKDX_LAB_ENV:-$LAB_HOME/haxial/lab.env}"
+mkdir -p "$RUN" "$CAPTURES"
+
+SERVER_SRC="$BIN/KDXServer1620-Lnx/KDXServer1620-Lnx"
+TRACKER_SRC="$BIN/KDXTrackerServ1110-Lnx/KDXTrackerServ1110-Lnx"
+CLIENT_SRC="$BIN/KDXClient-Lnx-beta5/KDXClientBETA5-Lnx"
+WINCLIENT_SRC="$BIN/KDXClient1600-Win/KDXClient1600-Win"
+
+die() { echo "kdx-lab: $*" >&2; exit 1; }
+pidfile() { echo "$RUN/$1.pid"; }
+
+alive() { # alive PIDFILE
+  local f=$1 pid
+  [[ -f "$f" ]] || return 1
+  pid=$(cat "$f")
+  [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+}
+
+descendants() { # descendants PID : all transitive children, deepest first
+  local kids; kids=$(pgrep -P "$1" 2>/dev/null || true)
+  for k in $kids; do descendants "$k"; done
+  echo "$kids"
+}
+
+# lock_lab : hold the lab for this process tree; fail loudly if someone else has it.
+lock_lab() {
+  exec 9>"$RUN/lab.lock"
+  flock -n 9 || die "the lab is in use by another session (lock $RUN/lab.lock); stop it first"
+}
+
+guard() { # guard NAME : refuse if NAME is already running
+  if alive "$(pidfile "$1")"; then
+    die "$1 is already running (pid $(cat "$(pidfile "$1")")); stop it first"
+  fi
+  rm -f "$(pidfile "$1")"
+}
+
+# ---------------------------------------------------------------- namespace
+
+ns_start() {
+  guard ns
+  # The holder owns the user+net+pid+mount namespaces. Everything else joins it.
+  unshare -rn --fork --kill-child --pid --mount-proc \
+    sh -c 'ip link set lo up; exec sleep infinity' >/dev/null 2>&1 &
+  local wrapper=$!
+  sleep 0.3
+  # The PID we need is the child of the unshare wrapper (the sh/sleep).
+  local holder
+  holder=$(pgrep -P "$wrapper" | head -1)
+  [[ -n "$holder" ]] || die "namespace holder did not start"
+  echo "$holder" > "$(pidfile ns)"
+  echo "$wrapper" > "$(pidfile ns-wrapper)"
+  echo "ns: started (holder pid $holder)"
+}
+
+ns_stop() {
+  for n in winclient client tracker server capture x; do
+    alive "$(pidfile $n)" && comp_stop "$n" || true
+  done
+  if alive "$(pidfile ns)"; then
+    # SIGKILL is the one signal always delivered to a PID-namespace init from
+    # outside; with --kill-child it takes the whole namespace down.
+    kill -KILL "$(cat "$(pidfile ns)")" 2>/dev/null || true
+    kill -KILL "$(cat "$(pidfile ns-wrapper)")" 2>/dev/null || true
+    for _ in $(seq 1 25); do alive "$(pidfile ns)" || break; sleep 0.2; done
+    rm -f "$(pidfile ns)" "$(pidfile ns-wrapper)"
+    echo "ns: stopped"
+  else
+    echo "ns: not running"
+  fi
+}
+
+ns_require() { alive "$(pidfile ns)" || die "namespace not running; run 'kdx-lab ns start'"; }
+
+# in_ns CMD... : run CMD inside the namespace, on the host filesystem.
+in_ns() {
+  ns_require
+  nsenter --preserve-credentials -U -n -p -m -t "$(cat "$(pidfile ns)")" "$@"
+}
+
+# sandboxed WORKDIR CMD... : run CMD inside the namespace, in bwrap, with
+# WORKDIR as the only writable directory besides /tmp.
+sandboxed() {
+  local work=$1; shift
+  in_ns bwrap --die-with-parent --unshare-pid \
+    --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp --tmpfs "$LAB_HOME" \
+    --bind "$work" "$work" --chdir "$work" \
+    --setenv HOME "$work" \
+    "$@"
+}
+
+# ---------------------------------------------------------------- components
+
+comp_dir() { echo "$RUN/$1"; }
+
+admin_env() {
+  if [[ ! -f "$ENV_FILE" ]]; then
+    mkdir -p "$(dirname "$ENV_FILE")"
+    # Fixed and published (captures/README.md) so anyone can decrypt the
+    # committed captures. It protects nothing: the server only ever listens
+    # on the sandbox loopback.
+    printf 'KDX_ADMIN_LOGIN=admin\nKDX_ADMIN_PASSWORD=%s\n' "openkdx-lab" > "$ENV_FILE"
+    chmod 600 "$ENV_FILE"
+  fi
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+}
+
+# start_component NAME WORKDIR CMD... : background CMD under a pty, log to NAME.log
+start_component() {
+  local name=$1 work=$2; shift 2
+  guard "$name"
+  mkdir -p "$work"
+  local log="$RUN/$name.log"
+  : > "$log"
+  # script gives the program a pty so its stdout is line-buffered.
+  sandboxed "$work" script -qfc "$(printf '%q ' "$@")" /dev/null </dev/null >>"$log" 2>&1 &
+  echo $! > "$(pidfile "$name")"
+  sleep 0.5
+  alive "$(pidfile "$name")" || { tail -5 "$log" >&2; die "$name exited immediately"; }
+  echo "$name: started (pid $(cat "$(pidfile "$name")"), log $log)"
+}
+
+comp_stop() {
+  local name=$1 f
+  f=$(pidfile "$name")
+  if alive "$f"; then
+    local pid; pid=$(cat "$f")
+    # Kill everything below the launcher (nsenter → bwrap → script → program).
+    kill -TERM -- $(descendants "$pid") "$pid" 2>/dev/null || true
+    for _ in $(seq 1 30); do alive "$f" || break; sleep 0.2; done
+    alive "$f" && { kill -KILL -- $(descendants "$pid") "$pid" 2>/dev/null || true; }
+    echo "$name: stopped"
+  else
+    echo "$name: not running"
+  fi
+  rm -f "$f"
+}
+
+comp_status() {
+  local name=$1
+  if alive "$(pidfile "$name")"; then echo "$name: running (pid $(cat "$(pidfile "$name")"))"; else echo "$name: stopped"; fi
+}
+
+comp_log() { tail -n "${2:-40}" "$RUN/$1.log"; }
+
+server_start() {
+  ns_require
+  admin_env
+  local work; work=$(comp_dir server)
+  mkdir -p "$work"
+  [[ -x "$work/KDXServer.lexe" ]] || cp "$SERVER_SRC"/*.lexe "$work/"
+  if [[ ! -f "$work/Accounts.dat" ]]; then
+    # First run: answer the interactive setup, then let it exit; the real
+    # start follows with no stdin so the server just serves.
+    printf '\n%s\n%s\n%s\ny\n' "$KDX_ADMIN_LOGIN" "$KDX_ADMIN_PASSWORD" "$KDX_ADMIN_PASSWORD" \
+      | sandboxed "$work" timeout 8 ./KDXServer.lexe >"$RUN/server-setup.log" 2>&1 || true
+    grep -q "Setup complete" "$RUN/server-setup.log" || { cat "$RUN/server-setup.log" >&2; die "server first-run setup failed"; }
+  fi
+  start_component server "$work" ./KDXServer.lexe
+}
+
+tracker_start() {
+  ns_require
+  local work; work=$(comp_dir tracker)
+  mkdir -p "$work"
+  [[ -x "$work/KDXTrackerServ.lexe" ]] || cp "$TRACKER_SRC"/*.lexe "$work/"
+  if [[ ! -f "$work/Accounts.dat" && ! -f "$work/KDXTrackerServ.stg" ]]; then
+    admin_env
+    printf '\n%s\n%s\n%s\ny\n' "$KDX_ADMIN_LOGIN" "$KDX_ADMIN_PASSWORD" "$KDX_ADMIN_PASSWORD" \
+      | sandboxed "$work" timeout 8 ./KDXTrackerServ.lexe >"$RUN/tracker-setup.log" 2>&1 || true
+  fi
+  start_component tracker "$work" ./KDXTrackerServ.lexe
+}
+
+client_start() {
+  ns_require
+  x_require
+  local work; work=$(comp_dir client)
+  mkdir -p "$work"
+  [[ -x "$work/KDXClient.lexe" ]] || cp -r "$CLIENT_SRC"/. "$work/"
+  start_component client "$work" env DISPLAY="$X_DISPLAY" ./KDXClient.lexe
+}
+
+winclient_start() {
+  ns_require
+  x_require
+  local work; work=$(comp_dir winclient)
+  mkdir -p "$work/prefix"
+  [[ -f "$work/KDXClient.exe" ]] || cp -r "$WINCLIENT_SRC"/. "$work/"
+  start_component winclient "$work" env DISPLAY="$X_DISPLAY" WINEPREFIX="$work/prefix" WINEDEBUG=-all \
+    wine ./KDXClient.exe
+}
+
+# ---------------------------------------------------------------- X display
+#
+# One Xvfb inside the namespace, shared by every GUI component and by the
+# automation (xdotool, import). Its socket lives in the namespace's own
+# abstract socket space, so DISPLAY works only via `kdx-lab exec` / `x run`.
+
+X_DISPLAY=":99"
+
+x_start() {
+  ns_require
+  guard x
+  # A killed Xvfb leaves its lock behind on the shared /tmp.
+  pgrep -u "$(id -u)" -x Xvfb >/dev/null 2>&1 || rm -f "/tmp/.X${X_DISPLAY#:}-lock" "/tmp/.X11-unix/X${X_DISPLAY#:}"
+  in_ns Xvfb "$X_DISPLAY" -screen 0 1280x1024x24 -nolisten tcp >"$RUN/x.log" 2>&1 &
+  echo $! > "$(pidfile x)"
+  for _ in $(seq 1 30); do in_ns env DISPLAY="$X_DISPLAY" xdpyinfo >/dev/null 2>&1 && break; sleep 0.2; done
+  in_ns env DISPLAY="$X_DISPLAY" xdpyinfo >/dev/null 2>&1 || { cat "$RUN/x.log" >&2; die "Xvfb did not start"; }
+  echo "x: started ($X_DISPLAY)"
+}
+
+x_require() { alive "$(pidfile x)" || x_start; }
+
+# x run CMD... : run CMD inside the namespace with DISPLAY set (xdotool, import).
+x_run() { in_ns env DISPLAY="$X_DISPLAY" "$@"; }
+
+# x shot NAME : screenshot the whole display to $CAPTURES/NAME.png
+x_shot() { x_run import -window root "$CAPTURES/$1.png" && echo "shot: $CAPTURES/$1.png"; }
+
+# ---------------------------------------------------------------- capture
+
+capture_start() {
+  ns_require
+  local name=${1:-}; [[ -n "$name" ]] || die "capture start NAME"
+  guard capture
+  local out="$CAPTURES/$name.pcapng"
+  in_ns dumpcap -q -i lo -w "$out" >"$RUN/capture.log" 2>&1 &
+  echo $! > "$(pidfile capture)"
+  echo "$out" > "$RUN/capture.current"
+  sleep 1
+  alive "$(pidfile capture)" || { cat "$RUN/capture.log" >&2; die "dumpcap did not start"; }
+  echo "capture: started → $out"
+}
+
+capture_stop() {
+  if alive "$(pidfile capture)"; then
+    in_ns pkill -INT -x dumpcap 2>/dev/null || true
+    for _ in $(seq 1 50); do alive "$(pidfile capture)" || break; sleep 0.2; done
+  fi
+  comp_stop capture
+  if [[ -f "$RUN/capture.current" ]]; then
+    local out; out=$(cat "$RUN/capture.current")
+    if [[ -f "$out" ]]; then
+      echo "capture: $out ($(tshark -r "$out" 2>/dev/null | wc -l | tr -d ' ') frames)"
+    fi
+    rm -f "$RUN/capture.current"
+  fi
+}
+
+# ---------------------------------------------------------------- selftest
+
+selftest() {
+  local fails=0
+  check() { if "$@" 2>/dev/null; then echo "  ok   $desc"; else echo "  FAIL $desc"; fails=$((fails+1)); fi; }
+  not() { ! "$@"; }
+
+  echo "selftest:"
+  if alive "$(pidfile ns)" && [[ "${1:-}" != "--force" ]]; then
+    die "a lab session is running; stop it (kdx-lab ns stop) or pass --force"
+  fi
+  ns_stop >/dev/null 2>&1 || true
+  ns_start >/dev/null
+
+  desc="only loopback is visible inside the namespace"
+  check test "$(in_ns ip -o link | wc -l)" -eq 1
+  desc="loopback is up inside the namespace"
+  check test "$(in_ns ip link show lo | grep -c 'UP')" -ge 1
+  desc="host network is untouched"
+  check test "$(ip -o link | wc -l)" -gt 1
+  desc="bwrap denies writes outside the work directory"
+  local w="$RUN/selftest"; mkdir -p "$w"
+  check not sandboxed "$w" touch /usr/selftest-should-fail
+  check sandboxed "$w" touch "$w/ok"
+  desc="dumpcap captures a packet on lo inside the namespace"
+  local pc="$CAPTURES/selftest.pcapng"; rm -f "$pc"
+  in_ns timeout 8 dumpcap -q -i lo -c 1 -w "$pc" >/dev/null 2>&1 &
+  local dp=$!; sleep 1.5
+  in_ns bash -c 'exec 3<>/dev/tcp/127.0.0.1/9' 2>/dev/null || true
+  in_ns bash -c 'echo ping > /dev/udp/127.0.0.1/9' 2>/dev/null || true
+  wait $dp 2>/dev/null || true
+  check test -s "$pc"
+  rm -f "$pc"
+  desc="capture stop ends dumpcap and leaves a complete file"
+  capture_start selftest-cap >/dev/null
+  in_ns bash -c 'exec 3<>/dev/tcp/127.0.0.1/9' 2>/dev/null || true
+  capture_stop >/dev/null
+  check bash -c "! in_ns pgrep -x dumpcap >/dev/null 2>&1 && test -s '$CAPTURES/selftest-cap.pcapng'"
+  rm -f "$CAPTURES/selftest-cap.pcapng"
+  desc="start refuses when the pidfile names a live process"
+  echo $$ > "$(pidfile selftest-guard)"
+  check not bash -c "guard selftest-guard"
+  rm -f "$(pidfile selftest-guard)"
+
+  local holder; holder=$(cat "$(pidfile ns)")
+  ns_stop >/dev/null
+  desc="ns stop leaves no namespace holder or dumpcap behind"
+  check bash -c "! kill -0 $holder 2>/dev/null && ! pgrep -u \$(id -u) -x dumpcap >/dev/null"
+  if [[ $fails -eq 0 ]]; then echo "selftest: ok"; else echo "selftest: $fails failure(s)"; exit 1; fi
+}
+
+# ---------------------------------------------------------------- reset
+
+reset_component() {
+  local which=$1
+  case $which in
+    all) for c in server tracker client winclient; do reset_component $c; done ;;
+    server|tracker|client|winclient)
+      alive "$(pidfile "$which")" && die "$which is running; stop it first"
+      rm -rf "$(comp_dir "$which")" "$RUN/$which.log" "$RUN/$which-setup.log"
+      echo "$which: reset" ;;
+    *) die "reset server|tracker|client|winclient|all" ;;
+  esac
+}
+
+# ---------------------------------------------------------------- main
+
+# Export functions for the selftest's bash -c calls.
+export -f guard alive pidfile die sandboxed in_ns ns_require descendants
+export RUN LAB_HOME
+
+cmd=${1:-help}; sub=${2:-}
+case "$cmd" in
+  ns) case "$sub" in start) ns_start;; stop) ns_stop;; status) comp_status ns;; *) die "ns start|stop|status";; esac ;;
+  server|tracker|client|winclient)
+    case "$sub" in
+      start) "${cmd}_start" ;;
+      stop) comp_stop "$cmd" ;;
+      status) comp_status "$cmd" ;;
+      log) comp_log "$cmd" "${3:-40}" ;;
+      *) die "$cmd start|stop|status|log" ;;
+    esac ;;
+  capture) case "$sub" in start) capture_start "${3:-}";; stop) capture_stop;; *) die "capture start NAME|stop";; esac ;;
+  exec) shift; in_ns "$@" ;;
+  env) admin_env; echo "$ENV_FILE" ;;
+  x) case "$sub" in start) x_start;; stop) comp_stop x;; status) comp_status x;; run) shift 2; x_run "$@";; shot) x_shot "${3:-shot}";; *) die "x start|stop|status|run CMD...|shot NAME";; esac ;;
+  selftest) selftest "${2:-}" ;;
+  reset) reset_component "${sub:-}" ;;
+  *) sed -n '2,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//' ;;
+esac
