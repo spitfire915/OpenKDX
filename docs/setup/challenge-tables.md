@@ -18,8 +18,10 @@ corrupt or tampered file is treated as missing.
 Three ways, in the order the tools try them:
 
 1. **Environment variables.** `OPENKDX_KDX_TABLE` and `OPENKDX_HGC_TABLE`,
-   each the table base64-encoded. This is how CI supplies them (from
-   repository secrets) without the lab machine.
+   each the table base64-encoded. The self-hosted lab job sets
+   `OPENKDX_KDX_TABLE` from its cache (imported once from the server binary
+   that lives there) before it runs the protocol tests; hosted runners have
+   no table, and those tests skip.
 2. **Fetch.** `openkdx-table fetch` downloads the smallest Haxial archive that
    holds each table — Tracker 1.110 for Windows (248 KB) and Client 1.600 for
    Windows (793 KB) — from preterhuman.net, kdx.technowiki.info, or the
@@ -45,4 +47,10 @@ mismatch.
 Tests that need a table read it through `openkdx_table::from_env`, then the
 default cache, and **skip** (printing `skipped: no … table available`) when
 neither has it. Run `cargo run -p openkdx-table -- fetch` once to make them
-real.
+real. The dissector works the same way: with a table it checks the challenge
+bytes of every proof in a capture; without one it checks only the key proofs
+and says so.
+
+Crates that must not carry an HTTP client depend on `openkdx-table` with
+`default-features = false`, which leaves out `fetch` (the `reqwest`
+dependency) and the `openkdx-table` binary; import and the cache still work.
