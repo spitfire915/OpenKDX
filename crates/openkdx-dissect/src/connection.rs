@@ -135,7 +135,7 @@ pub enum Record {
         frame: usize,
         header: Header,
         payload: Vec<u8>,
-        message: Result<Message, DecodeError>,
+        message: Result<Box<Message>, DecodeError>,
     },
     /// A 414 or 417 header: the bytes that follow are transfer data.
     DataHeader {
@@ -537,7 +537,7 @@ fn decode_session(
             .open_payload(&header, blocks)
             .expect("block count checked");
         off += padded;
-        let message = Message::decode(MessageType(header.kind), &payload);
+        let message = Message::decode(MessageType(header.kind), &payload).map(Box::new);
         if dir == Dir::ServerToClient
             && header.kind == MessageType::SERVER_INFO.0
             && let Some(key) = session_key_of_server_info(&payload)

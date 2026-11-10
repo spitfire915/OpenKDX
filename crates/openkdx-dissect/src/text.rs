@@ -453,7 +453,47 @@ pub fn message_summary(m: &Message) -> String {
                 .collect::<Vec<_>>()
                 .join("; ")
         ),
-        Message::UploadFileComplete(_)
+        Message::TrackerGroupList(m) => format!(
+            "{} groups: {}",
+            m.groups.len(),
+            m.groups
+                .iter()
+                .map(|g| format!("{} ({} servers)", quoted(&g.name), g.servers))
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Message::GetServerList(m) => format!("group {}", quoted(&m.group)),
+        Message::TrackerServerList(m) => format!(
+            "{} servers: {}",
+            m.servers.len(),
+            m.servers
+                .iter()
+                .map(|s| format!(
+                    "{} at {} ({} users, since {})",
+                    quoted(&s.name),
+                    s.socket_addr(),
+                    s.users,
+                    time_1900(s.first_seen)
+                ))
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Message::TrackerSettingsInfo(m) => tracker_settings(&m.settings),
+        Message::SetTrackerSettings(m) => tracker_settings(&m.settings),
+        Message::TrackerStats(m) => format!(
+            "started {} accepted {} datagrams {} hours {} connections {} servers {}",
+            time_1900(m.start_time),
+            m.connections_accepted,
+            m.datagrams_received,
+            m.hours,
+            m.connections,
+            m.servers
+        ),
+        Message::GetTrackerGroupList(_)
+        | Message::GetTrackerSettings(_)
+        | Message::SetTrackerSettingsDone(_)
+        | Message::GetTrackerStatistics(_)
+        | Message::UploadFileComplete(_)
         | Message::EmptyTrash(_)
         | Message::GetNewsgroupList(_)
         | Message::CreatePrivateChat(_)
@@ -497,6 +537,16 @@ fn chat_record_summary(c: &openkdx_proto::msg::common::ChatRecord) -> String {
         quoted(&c.irc_server),
         quoted(&c.irc_channel)
     )
+}
+
+fn tracker_settings(s: &openkdx_proto::msg::tracker::TrackerSettings) -> String {
+    let present: Vec<String> = s
+        .sections
+        .iter()
+        .enumerate()
+        .filter_map(|(i, d)| d.as_ref().map(|d| format!("{i}: {} bytes", d.len())))
+        .collect();
+    format!("version {} sections [{}]", s.version, present.join(", "))
 }
 
 /// A path as `a/b/c`, or `/` for the root.

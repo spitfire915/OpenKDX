@@ -127,7 +127,7 @@ fn messages(cap: &Capture, conn: usize) -> Vec<&Message> {
         .records
         .iter()
         .filter_map(|r| match r {
-            Record::Message { message: Ok(m), .. } => Some(m),
+            Record::Message { message: Ok(m), .. } => Some(m.as_ref()),
             _ => None,
         })
         .collect()
@@ -244,6 +244,37 @@ fn tracker_basic_registration_is_byte_exact() {
     assert_eq!(c.key.as_ref().unwrap().label, "empty password");
     assert_clean(&cap, "tracker-basic");
     assert_eq!(kinds(&cap, 0), vec![700, 701, 702, 703]);
+    assert_exact(&cap, "tracker-basic");
+    let msgs = messages(&cap, 0);
+    let Message::TrackerGroupList(groups) = msgs[1] else {
+        panic!("{:?}", msgs[1].kind())
+    };
+    let names: Vec<&[u8]> = groups.groups.iter().map(|g| g.name.as_slice()).collect();
+    assert_eq!(
+        names,
+        [
+            &b"Business"[..],
+            b"Chat",
+            b"Education",
+            b"Games",
+            b"General",
+            b"Macintosh",
+            b"Trackers",
+            b"Windows"
+        ]
+    );
+    assert_eq!(groups.groups[4].servers, 1, "General holds the lab server");
+    let Message::GetServerList(req) = msgs[2] else {
+        panic!("{:?}", msgs[2].kind())
+    };
+    assert_eq!(req.group, b"General");
+    let Message::TrackerServerList(servers) = msgs[3] else {
+        panic!("{:?}", msgs[3].kind())
+    };
+    assert_eq!(servers.servers.len(), 1);
+    assert_eq!(servers.servers[0].name, b"New Server");
+    assert_eq!(servers.servers[0].address, 0x7f00_0001);
+    assert_eq!(servers.servers[0].port, 10700);
 }
 
 #[test]
@@ -417,7 +448,11 @@ fn files_basic_is_byte_exact() {
     assert_eq!(info.rsrc_size, 0);
     assert_eq!(info.strings.name, b"tiny.txt");
     assert_eq!(info.strings.second, b"text/plain", "a MIME type for .txt");
-    assert_eq!(req.rsrc_offset, u64::MAX, "Client 1.600 asks for no resource fork");
+    assert_eq!(
+        req.rsrc_offset,
+        u64::MAX,
+        "Client 1.600 asks for no resource fork"
+    );
     // the data headers: 3 bytes for the data fork, 0 for the resource fork
     let data: Vec<(u64, bool)> = transfer
         .records

@@ -10,6 +10,7 @@ pub mod common;
 pub mod files;
 pub mod news;
 pub mod session;
+pub mod tracker;
 
 use std::fmt;
 
@@ -349,4 +350,14 @@ messages! {
     GenerateCatalogStatus(files::GenerateCatalogStatus);
     FileSearch(files::FileSearch);
     FileSearchReply(files::FileSearchReply);
+    GetTrackerGroupList(tracker::GetTrackerGroupList);
+    TrackerGroupList(tracker::TrackerGroupList);
+    GetServerList(tracker::GetServerList);
+    TrackerServerList(tracker::TrackerServerList);
+    GetTrackerSettings(tracker::GetTrackerSettings);
+    TrackerSettingsInfo(tracker::TrackerSettingsInfo);
+    SetTrackerSettings(tracker::SetTrackerSettings);
+    SetTrackerSettingsDone(tracker::SetTrackerSettingsDone);
+    GetTrackerStatistics(tracker::GetTrackerStatistics);
+    TrackerStats(tracker::TrackerStats);
 }

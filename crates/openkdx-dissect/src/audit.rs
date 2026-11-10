@@ -19,8 +19,8 @@ pub enum Audit {
     Unknown,
 }
 
-pub fn audit(message: &Result<Message, DecodeError>, payload: &[u8]) -> Audit {
-    match message {
+pub fn audit(message: &Result<Box<Message>, DecodeError>, payload: &[u8]) -> Audit {
+    match message.as_deref() {
         Err(e) => Audit::Undecoded(e.clone()),
         Ok(Message::Unknown { .. }) => Audit::Unknown,
         Ok(m) => {
