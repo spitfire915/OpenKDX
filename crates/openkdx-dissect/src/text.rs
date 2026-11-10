@@ -337,7 +337,125 @@ pub fn message_summary(m: &Message) -> String {
             "group {} message {} now {} messages",
             m.group_id, m.message_id, m.message_count
         ),
-        Message::GetNewsgroupList(_)
+        Message::GetFileList(m) => format!("path {}", path(&m.path)),
+        Message::GetFileFolderInfo(m) => format!("path {}", path(&m.path)),
+        Message::LaunchFile(m) => format!("path {}", path(&m.path)),
+        Message::FileList(m) => format!(
+            "{} entries: {}",
+            m.entries.len(),
+            m.entries
+                .iter()
+                .map(|e| format!(
+                    "{} ({}{} bytes{})",
+                    quoted(&e.name),
+                    if e.is_folder() { "folder, " } else { "" },
+                    e.size,
+                    if e.kind.is_empty() {
+                        String::new()
+                    } else {
+                        format!(", {}", quoted(&e.kind))
+                    }
+                ))
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Message::CreateFolder(m) => format!(
+            "name {} access {} owner {} in {}",
+            quoted(&m.name),
+            quoted(&m.access),
+            quoted(&m.owner),
+            path(&m.path)
+        ),
+        Message::CreateAlias(m) => move_items(&m.items),
+        Message::MoveFileFolder(m) => move_items(&m.items),
+        Message::MoveToTrash(m) => format!("from {} items {}", path(&m.folder), names(&m.names)),
+        Message::DeleteFileFolder(m) => {
+            format!("{} bytes (unhandled by Server 1.620)", m.ignored.len())
+        }
+        Message::RenameFileFolder(m) => {
+            format!("{} bytes (unhandled by Server 1.620)", m.ignored.len())
+        }
+        Message::CopyFileFolder(m) => {
+            format!("{} bytes (unhandled by Server 1.620)", m.ignored.len())
+        }
+        Message::FileInfo(m) => format!(
+            "name {} kind {} size {} created {} modified {}",
+            quoted(&m.name),
+            quoted(&m.kind),
+            m.size,
+            time_1900(m.created),
+            time_1900(m.modified)
+        ),
+        Message::SetFileInfo(m) => format!(
+            "flags {:#x} path {} name {}",
+            m.flags,
+            path(&m.path),
+            quoted(&m.name)
+        ),
+        Message::DownloadFile(m) => format!(
+            "path {} data offset {} rsrc offset {} options {:#x}",
+            path(&m.path),
+            m.data_offset,
+            m.rsrc_offset,
+            m.options
+        ),
+        Message::DownloadInfo(m) => format!(
+            "name {} type {} data {} bytes rsrc {} bytes modified {}",
+            quoted(&m.strings.name),
+            quoted(&m.strings.second),
+            m.data_size,
+            m.rsrc_size,
+            time_1900(m.modified)
+        ),
+        Message::DownloadFileData(m) => format!("{} bytes", m.data.len()),
+        Message::UploadFileData(m) => format!("{} bytes", m.data.len()),
+        Message::UploadFile(m) => format!(
+            "name {} into {} data {} bytes rsrc {} bytes options {:#x}",
+            quoted(&m.strings.name),
+            path(&m.folder),
+            m.data_size,
+            m.rsrc_size,
+            m.options
+        ),
+        Message::UploadReply(m) => format!(
+            "resume data at {} rsrc at {:#x}",
+            m.data_offset, m.rsrc_offset
+        ),
+        Message::NotifySpeedLimit(m) => format!("{} bytes/s", m.bytes_per_second),
+        Message::VolumeInfo(m) => format!(
+            "name {} format {} total {} free {} items {} type {}",
+            quoted(&m.name),
+            quoted(&m.format),
+            m.total,
+            m.free,
+            m.item_count,
+            m.disk_type
+        ),
+        Message::SetVolumeInfo(m) => format!(
+            "flags {:#x} name {} new name {} comments {}",
+            m.flags,
+            quoted(&m.name),
+            quoted(&m.new_name),
+            quoted(&m.comments)
+        ),
+        Message::GenerateCatalog(m) => match m.flags {
+            Some(f) => format!("flags {f:#x}"),
+            None => String::new(),
+        },
+        Message::GenerateCatalogStatus(m) => format!("flags {:#x} items {}", m.flags, m.items),
+        Message::FileSearch(m) => format!("query {}", quoted(&m.query)),
+        Message::FileSearchReply(m) => format!(
+            "{} matches: {}",
+            m.entries.len(),
+            m.entries
+                .iter()
+                .map(|e| format!("{} ({} bytes)", path(&e.path), e.size))
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Message::UploadFileComplete(_)
+        | Message::EmptyTrash(_)
+        | Message::GetNewsgroupList(_)
         | Message::CreatePrivateChat(_)
         | Message::MustJoinChat(_)
         | Message::GetChatList(_)
@@ -378,6 +496,29 @@ fn chat_record_summary(c: &openkdx_proto::msg::common::ChatRecord) -> String {
         c.topic_classes,
         quoted(&c.irc_server),
         quoted(&c.irc_channel)
+    )
+}
+
+/// A path as `a/b/c`, or `/` for the root.
+pub fn path(p: &openkdx_proto::msg::common::FilePath) -> String {
+    if p.is_root() {
+        "/".to_string()
+    } else {
+        p.to_string()
+    }
+}
+
+fn names(p: &openkdx_proto::msg::common::FilePath) -> String {
+    let v: Vec<String> = p.names.iter().map(|n| quoted(&n.name)).collect();
+    format!("[{}]", v.join(", "))
+}
+
+fn move_items(m: &openkdx_proto::msg::files::MoveItems) -> String {
+    format!(
+        "from {} to {} items {}",
+        path(&m.source),
+        path(&m.destination),
+        names(&m.names)
     )
 }
 

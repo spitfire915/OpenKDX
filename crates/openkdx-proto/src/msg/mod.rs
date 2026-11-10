@@ -7,6 +7,7 @@
 
 pub mod chat;
 pub mod common;
+pub mod files;
 pub mod news;
 pub mod session;
 
@@ -320,4 +321,32 @@ messages! {
     DeleteNewsMessage(news::DeleteNewsMessage);
     NewsMessagePosted(news::NewsMessagePosted);
     NewsMessageDeleted(news::NewsMessageDeleted);
+    GetFileList(files::GetFileList);
+    FileList(files::FileList);
+    CreateFolder(files::CreateFolder);
+    CreateAlias(files::CreateAlias);
+    DeleteFileFolder(files::DeleteFileFolder);
+    MoveToTrash(files::MoveToTrash);
+    RenameFileFolder(files::RenameFileFolder);
+    MoveFileFolder(files::MoveFileFolder);
+    CopyFileFolder(files::CopyFileFolder);
+    GetFileFolderInfo(files::GetFileFolderInfo);
+    FileInfo(files::FileInfo);
+    SetFileInfo(files::SetFileInfo);
+    DownloadFile(files::DownloadFile);
+    DownloadInfo(files::DownloadInfo);
+    DownloadFileData(files::DownloadFileData);
+    UploadFile(files::UploadFile);
+    UploadReply(files::UploadReply);
+    UploadFileData(files::UploadFileData);
+    UploadFileComplete(files::UploadFileComplete);
+    NotifySpeedLimit(files::NotifySpeedLimit);
+    LaunchFile(files::LaunchFile);
+    EmptyTrash(files::EmptyTrash);
+    VolumeInfo(files::VolumeInfo);
+    SetVolumeInfo(files::SetVolumeInfo);
+    GenerateCatalog(files::GenerateCatalog);
+    GenerateCatalogStatus(files::GenerateCatalogStatus);
+    FileSearch(files::FileSearch);
+    FileSearchReply(files::FileSearchReply);
 }

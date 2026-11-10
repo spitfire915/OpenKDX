@@ -362,6 +362,81 @@ fn news_basic_is_byte_exact() {
 }
 
 #[test]
+fn files_basic_is_byte_exact() {
+    let cap = load("files-basic");
+    assert_eq!(cap.connections.len(), 2);
+    assert_clean(&cap, "files-basic");
+    assert_exact(&cap, "files-basic");
+    let main = &cap.connections[0];
+    let transfer = &cap.connections[1];
+    assert_eq!(main.key.as_ref().unwrap().label, "--password #1");
+    assert!(
+        transfer
+            .key
+            .as_ref()
+            .unwrap()
+            .label
+            .starts_with("105 Server Info of"),
+        "{}",
+        transfer.key.as_ref().unwrap().label
+    );
+    assert_eq!(kinds(&cap, 0), vec![100, 101, 105, 400, 401, 400, 401]);
+    assert_eq!(kinds(&cap, 1), vec![412, 413, 414, 414]);
+
+    let msgs = messages(&cap, 0);
+    let Message::FileList(list) = msgs[4] else {
+        panic!("{:?}", msgs[4].kind())
+    };
+    let names: Vec<(&[u8], u64)> = list
+        .entries
+        .iter()
+        .map(|e| (e.name.as_slice(), e.size))
+        .collect();
+    // readdir order, unsorted; the client sorts for display
+    assert_eq!(
+        names,
+        [
+            (&b"tiny.txt"[..], 3),
+            (b"Uploads [UL]", 0x1000),
+            (b"Admin Dropbox [DB]", 0x1000)
+        ]
+    );
+    assert_eq!(list.entries[1].access_item, 0x2b);
+    assert_eq!(list.entries[2].access_item, 0x2c);
+    assert_eq!(list.entries[0].kind, b"", "401 carries no type for a .txt");
+
+    let t = messages(&cap, 1);
+    let Message::DownloadFile(req) = t[0] else {
+        panic!("{:?}", t[0].kind())
+    };
+    assert_eq!(req.path.to_string(), "tiny.txt");
+    let Message::DownloadInfo(info) = t[1] else {
+        panic!("{:?}", t[1].kind())
+    };
+    assert_eq!(info.data_size, 3);
+    assert_eq!(info.rsrc_size, 0);
+    assert_eq!(info.strings.name, b"tiny.txt");
+    assert_eq!(info.strings.second, b"text/plain", "a MIME type for .txt");
+    assert_eq!(req.rsrc_offset, u64::MAX, "Client 1.600 asks for no resource fork");
+    // the data headers: 3 bytes for the data fork, 0 for the resource fork
+    let data: Vec<(u64, bool)> = transfer
+        .records
+        .iter()
+        .filter_map(|r| match r {
+            Record::DataHeader { header, .. } => Some((header.len, header.reply)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(data, [(3, true), (0, false)]);
+    assert!(
+        transfer
+            .records
+            .iter()
+            .any(|r| matches!(r, Record::Data { len: 3, .. }))
+    );
+}
+
+#[test]
 fn every_capture_has_no_stopped_connection() {
     for name in CAPTURES {
         let cap = load(name);

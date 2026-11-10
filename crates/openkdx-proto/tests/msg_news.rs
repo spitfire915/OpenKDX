@@ -126,7 +126,11 @@ fn news_messages_list_and_single() {
         messages: vec![m.clone(), m.clone()],
     });
     assert_eq!(bytes.len(), 0x10 + 64 + 64);
-    assert_eq!(&bytes[0x28..0x2a], &[0, 10], "body_len is a u16 at 0x18 of the record");
+    assert_eq!(
+        &bytes[0x28..0x2a],
+        &[0, 10],
+        "body_len is a u16 at 0x18 of the record"
+    );
 
     // a user who may post but not read gets only the 16-byte header
     let mut header = bytes[..16].to_vec();
