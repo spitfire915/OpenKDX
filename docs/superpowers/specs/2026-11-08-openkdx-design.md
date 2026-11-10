@@ -197,6 +197,8 @@ Each phase is planned in detail (superpowers:writing-plans) when it starts. Late
 
 **Phase 0 complete:** 2026-11-09, branch `phase0/repo-and-lab` (PR #1). Repository, CI (hosted ×4 + self-hosted lab), `openkdx-table`, lab runner, seven captures, fixtures, docs.
 
+**Phase 1 complete:** 2026-11-10, branch `phase1/protocol-core` (PR #2). `openkdx-proto` (handshake, session framing, UDP registration, every message type 1–1107 and 4000–4201 typed), `openkdx-codec`, `openkdx-dissect`; all seven captures decode and re-encode byte-exact, with four deltas to the reference spec recorded in `docs/protocol/README.md`. MSRV 1.88; fetching feature-gated in `openkdx-table`.
+
 ## 9. Decisions already taken (by the user unless marked "our call")
 
 - New project; scottanderson/kdx spec is the reference.

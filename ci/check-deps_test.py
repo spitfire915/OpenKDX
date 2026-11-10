@@ -34,5 +34,18 @@ class TransitiveTest(unittest.TestCase):
         self.assertEqual([], check_deps.forbidden_transitive(m, "openkdx-proto", {"tokio", "egui"}))
 
 
+class FeatureGateTest(unittest.TestCase):
+    def test_reqwest_in_no_default_tree_is_a_problem(self):
+        tree = "openkdx-table v0.0.1\nreqwest v0.12.0\nsha2 v0.10.0\n"
+        self.assertEqual(
+            ["openkdx-table: without default features still depends on reqwest"],
+            check_deps.check_feature_gate("openkdx-table", "reqwest", tree),
+        )
+
+    def test_clean_no_default_tree_passes(self):
+        tree = "openkdx-table v0.0.1\nsha2 v0.10.0\n"
+        self.assertEqual([], check_deps.check_feature_gate("openkdx-table", "reqwest", tree))
+
+
 if __name__ == "__main__":
     unittest.main()

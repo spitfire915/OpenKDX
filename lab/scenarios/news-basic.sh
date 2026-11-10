@@ -4,8 +4,8 @@ source "$(dirname "$0")/../lib/scenario.sh"
 scenario_begin news-basic
 start_server
 start_winclient
-connect_to 127.0.0.1 "$KDX_ADMIN_LOGIN" "$KDX_ADMIN_PASSWORD"
 capture_begin
+connect_to 127.0.0.1 "$KDX_ADMIN_LOGIN" "$KDX_ADMIN_PASSWORD"
 palette_click news
 ui_wait "KDX News" 10
 N=$(ui_win "KDX News"); ui_focus "$N"

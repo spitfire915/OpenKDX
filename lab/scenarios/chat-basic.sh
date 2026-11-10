@@ -4,8 +4,8 @@ source "$(dirname "$0")/../lib/scenario.sh"
 scenario_begin chat-basic
 start_server
 start_winclient
-connect_to 127.0.0.1 "$KDX_ADMIN_LOGIN" "$KDX_ADMIN_PASSWORD"
 capture_begin
+connect_to 127.0.0.1 "$KDX_ADMIN_LOGIN" "$KDX_ADMIN_PASSWORD"
 palette_click chat
 ui_wait "KDX Chat" 10
 C=$(ui_win "KDX Chat"); ui_focus "$C"

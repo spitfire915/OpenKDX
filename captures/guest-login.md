@@ -19,3 +19,17 @@ Frames: 14.
 26/11/10 12:04:20 AM [1 unnamed] Incoming connection from 127.0.0.1:50750
 26/11/10 12:04:22 AM [1 unnamed] Set Name: <guestuser> (guest)
 ```
+
+## Messages
+
+Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/guest-login.pcapng`; checked by `crates/openkdx-dissect/tests/captures.rs`.
+
+```
+4  C->S  127.0.0.1:50750 -> 127.0.0.1:10700  hello
+6  S->C  127.0.0.1:50750 -> 127.0.0.1:10700  hello
+8  C->S  127.0.0.1:50750 -> 127.0.0.1:10700  proof
+9  S->C  127.0.0.1:50750 -> 127.0.0.1:10700  proof
+10  C->S  127.0.0.1:50750 -> 127.0.0.1:10700  100 Set Identity
+12  S->C  127.0.0.1:50750 -> 127.0.0.1:10700  101 User List
+13  S->C  127.0.0.1:50750 -> 127.0.0.1:10700  105 Server Info
+```

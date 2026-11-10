@@ -8,8 +8,8 @@ start_server
 printf 'abc' > "$RUN/server/Bases/Default/tiny.txt"
 step "Seed the server's base folder with tiny.txt (3 bytes, 'abc')."
 start_winclient
-connect_to 127.0.0.1 "$KDX_ADMIN_LOGIN" "$KDX_ADMIN_PASSWORD"
 capture_begin
+connect_to 127.0.0.1 "$KDX_ADMIN_LOGIN" "$KDX_ADMIN_PASSWORD"
 palette_click files
 ui_wait "Files @ 127.0.0.1:10700" 10
 F=$(ui_win "Files @ 127.0.0.1:10700"); ui_focus "$F"; sleep 1

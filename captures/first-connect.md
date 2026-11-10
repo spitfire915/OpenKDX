@@ -28,3 +28,17 @@ Frames: 14.
 - server → client, 36 bytes: protocol `%TXP` sub `%KDX` version 1 sub_version 0x20 name_len 0 challenge 0x373 nonce `d51503a414c2987f0d832176` name ``
 
 The lab admin password is `openkdx-lab` (see `captures/README.md`), so the session after the handshake can be decrypted with the reference spec's `account_key`.
+
+## Messages
+
+Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/first-connect.pcapng`; checked by `crates/openkdx-dissect/tests/captures.rs`.
+
+```
+4  C->S  127.0.0.1:58652 -> 127.0.0.1:10700  hello
+6  S->C  127.0.0.1:58652 -> 127.0.0.1:10700  hello
+8  C->S  127.0.0.1:58652 -> 127.0.0.1:10700  proof
+9  S->C  127.0.0.1:58652 -> 127.0.0.1:10700  proof
+10  C->S  127.0.0.1:58652 -> 127.0.0.1:10700  100 Set Identity
+12  S->C  127.0.0.1:58652 -> 127.0.0.1:10700  101 User List
+13  S->C  127.0.0.1:58652 -> 127.0.0.1:10700  105 Server Info
+```
