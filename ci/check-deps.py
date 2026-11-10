@@ -89,6 +89,28 @@ def cargo_metadata() -> dict:
     return json.loads(out)
 
 
+# Crates whose optional dependency must vanish without default features.
+FEATURE_GATED = {"openkdx-table": "reqwest"}
+
+
+def cargo_tree_no_default(crate: str) -> str:
+    return subprocess.run(
+        ["cargo", "tree", "-p", crate, "--no-default-features", "-e", "normal", "--prefix", "none", "--locked"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+
+
+def check_feature_gate(crate: str, gated: str, tree: str) -> list[str]:
+    """`tree` is `cargo tree --prefix none` output: one `name vX.Y.Z` per line."""
+    names = {line.split()[0] for line in tree.splitlines() if line.strip()}
+    if gated in names:
+        return [f"{crate}: without default features still depends on {gated}"]
+    return []
+
+
 def main() -> int:
     manifests = crate_manifests()
     if not manifests:
@@ -99,6 +121,8 @@ def main() -> int:
     for crate, forbidden in FORBIDDEN.items():
         for bad in forbidden_transitive(meta, crate, forbidden):
             problems.append(f"{crate}: must not depend (even transitively) on {bad}")
+    for crate, gated in FEATURE_GATED.items():
+        problems.extend(check_feature_gate(crate, gated, cargo_tree_no_default(crate)))
     for p in problems:
         print(f"check-deps: {p}", file=sys.stderr)
     if problems:

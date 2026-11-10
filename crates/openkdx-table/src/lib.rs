@@ -7,11 +7,13 @@
 //! caches them under the user's cache directory.
 
 mod cache;
+#[cfg(feature = "fetch")]
 mod fetch;
 mod import;
 mod story;
 
 pub use cache::Cache;
+#[cfg(feature = "fetch")]
 pub use fetch::{Source, fetch, fetch_from, sources};
 pub use import::{import, scan_blob};
 pub use story::{Story, extract};
@@ -33,8 +35,10 @@ pub enum TableError {
     },
     #[error("no download source is known for {0:?}")]
     NoSource(Story),
+    #[cfg(feature = "fetch")]
     #[error("{url}: HTTP {status}")]
     HttpStatus { url: String, status: u16 },
+    #[cfg(feature = "fetch")]
     #[error(transparent)]
     Http(#[from] reqwest::Error),
     #[error(transparent)]

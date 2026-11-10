@@ -9,4 +9,4 @@ description = "Decode KDX connections in pcap and pcapng captures."
 
 [dependencies]
 openkdx-proto.workspace = true
-openkdx-table.workspace = true
+openkdx-table = { workspace = true, default-features = false }

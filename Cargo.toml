@@ -7,7 +7,7 @@ version = "0.0.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/spitfire915/OpenKDX"
-rust-version = "1.85"
+rust-version = "1.88"
 
 [workspace.dependencies]
 openkdx-proto = { path = "crates/openkdx-proto" }
@@ -17,6 +17,8 @@ openkdx-table = { path = "crates/openkdx-table" }
 openkdx-client = { path = "crates/openkdx-client" }
 openkdx-server = { path = "crates/openkdx-server" }
 openkdx-ui = { path = "crates/openkdx-ui" }
+openkdx-tracker = { path = "crates/openkdx-tracker" }
+openkdx-dissect = { path = "crates/openkdx-dissect" }
 
 tokio = { version = "1", features = ["full"] }
 thiserror = "2"
@@ -29,3 +31,10 @@ directories = "6"
 base64 = "0.22"
 tempfile = "3"
 hex = "0.4"
+twofish = "0.8"
+sha1 = "0.10"
+tokio-util = { version = "0.7", features = ["codec"] }
+bytes = "1"
+futures-util = "0.3"
+pcap-file = "2"
+etherparse = "0.21"
