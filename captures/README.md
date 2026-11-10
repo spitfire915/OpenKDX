@@ -15,16 +15,20 @@ lists the steps and the server log. Screenshots stay on the lab machine: they sh
 |---|---|---|
 | `first-connect` | Handshake and login as the administrator; idle session | 14 |
 | `guest-login` | Handshake and login with empty login and password (guest) | 14 |
-| `chat-basic` | Chat list, join Public Chat, a line, a `/me` action, set topic | 15 |
-| `pm-basic` | Two clients; user list; a private message each way | 8 |
-| `news-basic` | List newsgroups, read General News, post a message, re-read | 12 |
-| `files-basic` | List the base folder; download a 3-byte file on a second connection; refresh | 24 |
+| `chat-basic` | Chat list, join Public Chat, a line, a `/me` action, set topic | 29 |
+| `pm-basic` | Two clients; user list; a private message each way | 38 |
+| `news-basic` | List newsgroups, read General News, post a message, re-read | 27 |
+| `files-basic` | List the base folder; download a 3-byte file on a second connection; refresh | 38 |
 | `tracker-basic` | Server registers with the tracker over UDP on startup; client browses groups and servers over TCP | 20 |
 
 Not yet captured: an upload (the Windows client's own file chooser shows no
 volumes under Wine; the Rust client will capture uploads in Phase 2), DCC and
 voice between clients, view display, accounts and administration, and
 GConsole.
+
+Every capture starts before the client connects, so each holds the full
+handshake; a transfer connection (`files-basic`) is keyed by the session key
+its parent received in 105 Server Info.
 
 Decoding: `openkdx-dissect` (Phase 1) reads these files. Until then,
 `first-connect.md` shows the two hellos decoded by hand.
