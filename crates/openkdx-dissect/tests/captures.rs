@@ -562,7 +562,8 @@ fn inventory_matches_capture_notes() {
         let notes = std::fs::read_to_string(
             Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("../../captures/{name}.md")),
         )
-        .unwrap();
+        .unwrap()
+        .replace("\r\n", "\n"); // a CRLF checkout on Windows
         let section = notes
             .split("## Messages\n")
             .nth(1)
