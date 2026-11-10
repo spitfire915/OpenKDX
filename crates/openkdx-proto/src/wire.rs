@@ -95,11 +95,22 @@ impl<'a> Reader<'a> {
     }
 
     /// The `pad4` bytes of a struct that began at `struct_start`: zero to three
-    /// bytes up to a multiple of 4. If the input ends sooner, what is there.
+    /// bytes up to a multiple of 4. The input must hold them all.
     pub fn pad4(&mut self, struct_start: usize) -> Result<Vec<u8>, DecodeError> {
         let want = pad4_len(self.pos - struct_start);
-        let n = want.min(self.remaining());
-        self.bytes(n)
+        self.bytes(want)
+    }
+
+    /// Like [`pad4`](Self::pad4), but for a record the originals send either
+    /// padded or, at the very end of a payload, not at all (a client's 100 Set
+    /// Identity). Returns the empty vector when the input ends exactly here;
+    /// a partial padding is still an error. Encoders pair it with
+    /// `if !padding.is_empty() { w.pad4(..) }` so both forms re-encode exactly.
+    pub fn pad4_lenient(&mut self, struct_start: usize) -> Result<Vec<u8>, DecodeError> {
+        if self.is_empty() {
+            return Ok(Vec::new());
+        }
+        self.pad4(struct_start)
     }
 
     /// Succeeds only if every byte was consumed.
@@ -198,11 +209,29 @@ mod tests {
     }
 
     #[test]
-    fn pad4_at_end_of_input_is_short() {
+    fn pad4_requires_every_byte() {
         let mut r = Reader::new(&[1, 2, 3, 4, 5, 0xaa]);
         r.bytes(5).unwrap();
-        assert_eq!(r.pad4(0).unwrap(), vec![0xaa]);
-        assert!(r.is_empty());
+        assert_eq!(
+            r.pad4(0),
+            Err(DecodeError::Truncated {
+                offset: 5,
+                needed: 2
+            })
+        );
+    }
+
+    #[test]
+    fn pad4_lenient_accepts_none_at_the_end_but_not_a_partial() {
+        let mut r = Reader::new(&[1, 2, 3, 4, 5]);
+        r.bytes(5).unwrap();
+        assert_eq!(r.pad4_lenient(0).unwrap(), Vec::<u8>::new());
+        let mut r = Reader::new(&[1, 2, 3, 4, 5, 0xaa]);
+        r.bytes(5).unwrap();
+        assert!(r.pad4_lenient(0).is_err());
+        let mut r = Reader::new(&[1, 2, 3, 4, 5, 0xaa, 0xbb, 0xcc, 9]);
+        r.bytes(5).unwrap();
+        assert_eq!(r.pad4_lenient(0).unwrap(), vec![0xaa, 0xbb, 0xcc]);
     }
 
     #[test]

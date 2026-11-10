@@ -274,8 +274,9 @@ Error codes as associated consts on `HandshakeError`: 0x40070 auth, 0x40071, 0x4
 #[test] fn proof_round_trip_and_failure_shape() { /* encode/decode; failure(): auth[0..4] == nonce[4..8] ^ 0x201f7790 BE, rest zero */ }
 #[test] fn challenge_table_bounds() { /* default table len 31: response(11) Some, response(12) None; verify */ }
 #[test] fn challenge_response_matches_capture_when_table_available() {
-    // skip unless openkdx_table::from_env(Story::Kdx) or Cache default has kdx.bin; then table.response(883) == b"nderous sound rocked" and response(1037) == b"want to jump in here"
-    // NOTE: these two 20-byte excerpts are in the public reference spec's examples; keep them ONLY in this test, never the table itself
+    // skip unless openkdx_table::from_env(Story::Kdx) or Cache default has kdx.bin; then compare the
+    // SHA-1 of table.response(883) and table.response(1037) with the digests of the first-connect
+    // responses (frames 8, 9). No excerpt of the table goes in the repository, not even 20 bytes.
 }
 ```
 `openkdx-table` is allowed as a **dev**-dependency of proto for the skip-if-absent helper (check-deps looks at normal/build edges only); `hex` as dev-dep; a tiny `hex!` via `hex::decode` is fine.

@@ -305,7 +305,7 @@ impl NewsMessage {
             login: r.bytes(login_len)?,
             subject: r.bytes(subject_len)?,
             body: r.bytes(body_len)?,
-            padding: r.pad4(start)?,
+            padding: r.pad4_lenient(start)?,
         })
     }
 

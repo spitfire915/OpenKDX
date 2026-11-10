@@ -352,7 +352,7 @@ impl Payload for UserInfo {
             name_3f: r.bytes(name_3f_len)?,
             login: r.bytes(login_len)?,
             name_41: r.bytes(name_41_len)?,
-            padding: r.pad4(0)?,
+            padding: r.pad4_lenient(0)?,
         };
         r.finish()?;
         Ok(out)
@@ -706,7 +706,7 @@ impl HistoryRecord {
             login: r.bytes(login_len)?,
             detail: r.bytes(detail_len)?,
             path: sized_path(r, path_len)?,
-            padding: r.pad4(start)?,
+            padding: r.pad4_lenient(start)?,
         })
     }
 

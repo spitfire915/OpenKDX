@@ -204,7 +204,7 @@ impl UserRecord {
         let extra = r.bytes(extra_len)?;
         let nick = r.bytes(nick_len)?;
         let info = r.bytes(info_len)?;
-        let padding = r.pad4(start)?;
+        let padding = r.pad4_lenient(start)?;
         Ok(UserRecord {
             user_id,
             status,

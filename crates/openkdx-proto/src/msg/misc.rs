@@ -489,7 +489,7 @@ impl FolderAccess {
             owner: r.bytes(owner_len)?,
             description: r.bytes(description_len)?,
             current_name: r.bytes(current_name_len)?,
-            padding: r.pad4(start)?,
+            padding: r.pad4_lenient(start)?,
         })
     }
 

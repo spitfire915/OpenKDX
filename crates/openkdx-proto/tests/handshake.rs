@@ -270,17 +270,24 @@ fn challenge_table_bounds() {
 
 #[test]
 fn challenge_response_matches_capture_when_table_available() {
-    // The excerpts below are the two 20-byte responses in first-connect frames
-    // 8 and 9; they also appear in the public reference spec. Only the test
-    // holds them, never the table itself.
+    // first-connect frames 8 and 9: the client answers the server's challenge
+    // 883 and the server answers the client's 1037. The responses are 20 bytes
+    // of Haxial's story, so the test holds only their SHA-1 digests.
     let Some(bytes) = lab_table() else {
         eprintln!("skipped: no KDX challenge table (OPENKDX_KDX_TABLE or cache)");
         return;
     };
+    use sha1::{Digest, Sha1};
     let table = ChallengeTable::new(bytes);
     assert_eq!(table.len(), 1739);
-    assert_eq!(&table.response(883).unwrap(), b"nderous sound rocked");
-    assert_eq!(&table.response(1037).unwrap(), b"want to jump in here");
+    assert_eq!(
+        hex::encode(Sha1::digest(table.response(883).unwrap())),
+        "6214169f17a8b20b8a32e99af8073a8b79cc8460"
+    );
+    assert_eq!(
+        hex::encode(Sha1::digest(table.response(1037).unwrap())),
+        "8e3af7c43a50b9b936896d00baaba06046c2a113"
+    );
 }
 
 fn lab_table() -> Option<Vec<u8>> {

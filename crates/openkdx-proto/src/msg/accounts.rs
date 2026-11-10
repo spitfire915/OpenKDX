@@ -283,7 +283,7 @@ impl AccountClassInfo {
             name: r.bytes(name_len)?,
             second_string: r.bytes(second_string_len)?,
             editor_login: r.bytes(editor_login_len)?,
-            padding: r.pad4(start)?,
+            padding: r.pad4_lenient(start)?,
         })
     }
 
@@ -490,7 +490,7 @@ impl Account {
             name: r.bytes(name_len)?,
             third: r.bytes(third_len)?,
             editor: r.bytes(editor_len)?,
-            padding: r.pad4(start)?,
+            padding: r.pad4_lenient(start)?,
         })
     }
 
