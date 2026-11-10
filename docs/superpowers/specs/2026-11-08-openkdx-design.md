@@ -195,6 +195,8 @@ Each phase is planned in detail (superpowers:writing-plans) when it starts. Late
 10. **DCC, voice, view display, GConsole.** Reverse-engineer what the reference spec lacks; implement. GConsole needs the second challenge table (clients only) and the `%HGC` message set; verified against a Haxial GConsole binary in the lab if one can be obtained, else against captures.
 11. **Release 1.0.** Signed/notarised builds, Docker, docs, migration guide for `.lexe` operators.
 
+**Phase 0 complete:** 2026-11-09, branch `phase0/repo-and-lab` (PR #1). Repository, CI (hosted ×4 + self-hosted lab), `openkdx-table`, lab runner, seven captures, fixtures, docs.
+
 ## 9. Decisions already taken (by the user unless marked "our call")
 
 - New project; scottanderson/kdx spec is the reference.
