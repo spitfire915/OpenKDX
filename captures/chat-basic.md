@@ -23,3 +23,27 @@ Frames: 29.
 26/11/10 02:03:49 PM [1 unnamed] Incoming connection from 127.0.0.1:37182
 26/11/10 02:03:51 PM [1 unnamed] Set Name: <labuser> (admin)
 ```
+
+## Messages
+
+Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/chat-basic.pcapng`; checked by `crates/openkdx-dissect/tests/captures.rs`.
+
+```
+4  C->S  127.0.0.1:37182 -> 127.0.0.1:10700  hello
+6  S->C  127.0.0.1:37182 -> 127.0.0.1:10700  hello
+8  C->S  127.0.0.1:37182 -> 127.0.0.1:10700  proof
+9  S->C  127.0.0.1:37182 -> 127.0.0.1:10700  proof
+10  C->S  127.0.0.1:37182 -> 127.0.0.1:10700  100 Set Identity
+12  S->C  127.0.0.1:37182 -> 127.0.0.1:10700  101 User List
+13  S->C  127.0.0.1:37182 -> 127.0.0.1:10700  105 Server Info
+15  C->S  127.0.0.1:37182 -> 127.0.0.1:10700  214 Get Chat List
+16  S->C  127.0.0.1:37182 -> 127.0.0.1:10700  215 Chat List (reply)
+18  C->S  127.0.0.1:37182 -> 127.0.0.1:10700  202 Join Chat
+19  S->C  127.0.0.1:37182 -> 127.0.0.1:10700  203 Chat Window Info (reply)
+21  C->S  127.0.0.1:37182 -> 127.0.0.1:10700  207 Send Chat Text
+22  S->C  127.0.0.1:37182 -> 127.0.0.1:10700  208 Receive Chat Text
+24  C->S  127.0.0.1:37182 -> 127.0.0.1:10700  207 Send Chat Text
+25  S->C  127.0.0.1:37182 -> 127.0.0.1:10700  208 Receive Chat Text
+27  C->S  127.0.0.1:37182 -> 127.0.0.1:10700  209 Set Chat Topic
+28  S->C  127.0.0.1:37182 -> 127.0.0.1:10700  210 Chat Topic Changed
+```

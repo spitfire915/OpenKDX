@@ -5,7 +5,9 @@
 use std::path::{Path, PathBuf};
 
 use openkdx_dissect::audit::Audit;
-use openkdx_dissect::connection::{Capture, ConnectionKind, Options, Record, dissect_capture};
+use openkdx_dissect::connection::{
+    Capture, ConnectionKind, Options, Ports, Record, dissect_capture,
+};
 use openkdx_proto::ChallengeTable;
 use openkdx_proto::message_type::MessageType;
 use openkdx_proto::msg::Message;
@@ -469,6 +471,113 @@ fn files_basic_is_byte_exact() {
             .iter()
             .any(|r| matches!(r, Record::Data { len: 3, .. }))
     );
+}
+
+#[test]
+fn all_seven_captures_are_byte_exact() {
+    for name in CAPTURES {
+        let cap = load(name);
+        assert_clean(&cap, name);
+        assert_exact(&cap, name);
+        for r in &cap.registrations {
+            let reg = r
+                .registration
+                .as_ref()
+                .unwrap_or_else(|e| panic!("{name}: registration: {e}"));
+            assert_eq!(
+                reg.encode(),
+                r.datagram,
+                "{name}: registration frame {}",
+                r.frame
+            );
+        }
+        for c in &cap.connections {
+            for r in &c.records {
+                if let Record::Message {
+                    message,
+                    header,
+                    frame,
+                    ..
+                } = r
+                {
+                    let m = message.as_ref().unwrap();
+                    assert!(
+                        !matches!(**m, Message::Unknown { .. }),
+                        "{name}: frame {frame} {} is not modeled",
+                        MessageType(header.kind)
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn every_payload_prefix_decodes_without_panic() {
+    for name in CAPTURES {
+        let cap = load(name);
+        for c in &cap.connections {
+            for r in &c.records {
+                if let Record::Message {
+                    header, payload, ..
+                } = r
+                {
+                    for n in 0..payload.len() {
+                        let _ = Message::decode(MessageType(header.kind), &payload[..n]);
+                    }
+                }
+            }
+        }
+        for r in &cap.registrations {
+            for n in 0..r.datagram.len() {
+                let _ = Registration::decode(&r.datagram[..n]);
+            }
+        }
+    }
+}
+
+#[test]
+fn export_writes_both_streams() {
+    let dir = tempfile::tempdir().unwrap();
+    openkdx_dissect::connection::export_streams(
+        &capture_path("first-connect"),
+        &Ports::default(),
+        dir.path(),
+    )
+    .unwrap();
+    let c2s = std::fs::read(dir.path().join("58652.c2s.bin")).unwrap();
+    let s2c = std::fs::read(dir.path().join("58652.s2c.bin")).unwrap();
+    assert_eq!(c2s.len(), 44 + 44 + 16 + 560);
+    assert!(s2c.len() > 36 + 44);
+    let (hello, used) = openkdx_proto::handshake::Hello::decode(&c2s).unwrap();
+    assert_eq!(used, 44);
+    assert_eq!(hello.name, b"admin");
+}
+
+#[test]
+fn inventory_matches_capture_notes() {
+    for name in CAPTURES {
+        let cap = load(name);
+        let inventory = openkdx_dissect::text::inventory(&cap);
+        let notes = std::fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("../../captures/{name}.md")),
+        )
+        .unwrap();
+        let section = notes
+            .split("## Messages\n")
+            .nth(1)
+            .unwrap_or_else(|| panic!("{name}.md has no '## Messages' section"));
+        let section = section.split("\n## ").next().unwrap();
+        // the fenced block, after the lead sentence
+        let fence = section
+            .find("```")
+            .unwrap_or_else(|| panic!("{name}.md: no fenced block"));
+        assert_eq!(
+            section[fence..].trim_end(),
+            inventory.trim_end(),
+            "{name}.md's Messages section is stale; regenerate it with `openkdx-dissect --inventory`"
+        );
+    }
 }
 
 #[test]

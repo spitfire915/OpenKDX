@@ -25,3 +25,29 @@ Frames: 38.
 26/11/10 02:05:58 PM [2 unnamed] Incoming connection from 127.0.0.1:41754
 26/11/10 02:06:00 PM [2 unnamed] Set Name: <labuser> (admin)
 ```
+
+## Messages
+
+Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/pm-basic.pcapng`; checked by `crates/openkdx-dissect/tests/captures.rs`.
+
+```
+4  C->S  127.0.0.1:58420 -> 127.0.0.1:10700  hello
+6  S->C  127.0.0.1:58420 -> 127.0.0.1:10700  hello
+8  C->S  127.0.0.1:58420 -> 127.0.0.1:10700  proof
+9  S->C  127.0.0.1:58420 -> 127.0.0.1:10700  proof
+10  C->S  127.0.0.1:58420 -> 127.0.0.1:10700  100 Set Identity
+12  S->C  127.0.0.1:58420 -> 127.0.0.1:10700  101 User List
+13  S->C  127.0.0.1:58420 -> 127.0.0.1:10700  105 Server Info
+18  C->S  127.0.0.1:41754 -> 127.0.0.1:10700  hello
+20  S->C  127.0.0.1:41754 -> 127.0.0.1:10700  hello
+22  C->S  127.0.0.1:41754 -> 127.0.0.1:10700  proof
+23  S->C  127.0.0.1:41754 -> 127.0.0.1:10700  proof
+24  C->S  127.0.0.1:41754 -> 127.0.0.1:10700  100 Set Identity
+26  S->C  127.0.0.1:41754 -> 127.0.0.1:10700  101 User List
+27  S->C  127.0.0.1:41754 -> 127.0.0.1:10700  105 Server Info
+29  S->C  127.0.0.1:58420 -> 127.0.0.1:10700  103 User Joined
+31  C->S  127.0.0.1:41754 -> 127.0.0.1:10700  300 Send Private Message
+32  S->C  127.0.0.1:58420 -> 127.0.0.1:10700  301 Incoming Private Message
+35  C->S  127.0.0.1:58420 -> 127.0.0.1:10700  300 Send Private Message
+36  S->C  127.0.0.1:41754 -> 127.0.0.1:10700  301 Incoming Private Message
+```

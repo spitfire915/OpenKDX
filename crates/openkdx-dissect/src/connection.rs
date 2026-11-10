@@ -276,6 +276,21 @@ pub fn dissect_capture(path: &Path, opts: &Options) -> anyhow::Result<Capture> {
     })
 }
 
+/// Writes each KDX flow's reassembled streams to `dir` as
+/// `<client port>.c2s.bin` and `<client port>.s2c.bin`.
+pub fn export_streams(path: &Path, ports: &Ports, dir: &Path) -> anyhow::Result<usize> {
+    std::fs::create_dir_all(dir)?;
+    let frames = capture::read_capture(path)?;
+    let packets = capture::parse_packets(&frames);
+    let flows = capture::tcp_flows(&packets, |p| ports.kind_of(p).is_some());
+    for flow in &flows {
+        let port = flow.client.port();
+        std::fs::write(dir.join(format!("{port}.c2s.bin")), &flow.c2s.data)?;
+        std::fs::write(dir.join(format!("{port}.s2c.bin")), &flow.s2c.data)?;
+    }
+    Ok(flows.len())
+}
+
 /// Decodes one TCP flow. `extra_keys` are tried first.
 pub fn dissect_flow(
     flow_index: usize,

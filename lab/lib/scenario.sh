@@ -144,6 +144,19 @@ scenario_end() {
     sed 's/\x1b\[[0-9;]*[A-Za-z]//g' "$RUN/server.log" | tr -d '\r' | head -40
     echo '```'
   } > "$CAPTURES/$SCENARIO.md"
+  # The decoded message inventory; crates/openkdx-dissect/tests/captures.rs checks it.
+  if command -v cargo >/dev/null 2>&1 || [[ -x "$HOME/.cargo/bin/cargo" ]]; then
+    {
+      echo
+      echo "## Messages"
+      echo
+      echo "Decoded by \`openkdx-dissect --inventory -p openkdx-lab captures/$SCENARIO.pcapng\`; checked by \`crates/openkdx-dissect/tests/captures.rs\`."
+      echo
+      PATH="$HOME/.cargo/bin:$PATH" cargo run -q -p openkdx-dissect --manifest-path "$HERE/../Cargo.toml" -- \
+        --inventory -p "$KDX_ADMIN_PASSWORD" "$CAPTURES/$SCENARIO.pcapng" 2>/dev/null \
+        || echo "(openkdx-dissect failed; run it by hand and paste the inventory here)"
+    } >> "$CAPTURES/$SCENARIO.md"
+  fi
   "$LAB" ns stop >/dev/null
   echo "scenario $SCENARIO: done ($frames frames)"
 }

@@ -30,8 +30,13 @@ Every capture starts before the client connects, so each holds the full
 handshake; a transfer connection (`files-basic`) is keyed by the session key
 its parent received in 105 Server Info.
 
-Decoding: `openkdx-dissect` (Phase 1) reads these files. Until then,
-`first-connect.md` shows the two hellos decoded by hand.
+Decoding: `cargo run -p openkdx-dissect -- -p openkdx-lab --audit captures/<name>.pcapng`
+prints every hello, proof, and message, and `--audit` confirms each payload
+re-encodes byte for byte. With the KDX challenge table available (the
+`openkdx-table` cache or `OPENKDX_KDX_TABLE`), the proofs' challenge bytes are
+checked too. Each `.md` ends with a `## Messages` inventory that
+`crates/openkdx-dissect/tests/captures.rs` checks against the bytes; the
+scenario framework regenerates it, or run `openkdx-dissect --inventory`.
 
 ## Rules
 

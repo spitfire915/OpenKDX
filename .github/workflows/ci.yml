@@ -72,3 +72,12 @@ jobs:
       - name: Smoke test the original KDX Server in the sandbox
         run: |
           if [ -x lab/ci-smoke.sh ]; then lab/ci-smoke.sh; else echo "lab/ci-smoke.sh not yet present"; fi
+      - name: Protocol tests with the KDX challenge table
+        # The table is Haxial's text; it lives only here. Import it from the
+        # server binary if the cache is empty, then hand it to the tests.
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo run -q -p openkdx-table -- path | grep -q "kdx.bin: present" \
+            || cargo run -q -p openkdx-table -- import "$HOME/haxial/bin/KDXServer1620-Lnx/KDXServer1620-Lnx/KDXServer.lexe"
+          export OPENKDX_KDX_TABLE="$(base64 -w0 "$(cargo run -q -p openkdx-table -- path | head -1)/kdx.bin")"
+          cargo test -q -p openkdx-proto -p openkdx-codec -p openkdx-dissect

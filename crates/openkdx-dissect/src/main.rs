@@ -33,6 +33,9 @@ struct Cli {
     /// Hexdump every payload
     #[arg(long)]
     hex: bool,
+    /// Print only the `## Messages` inventory for the capture's notes
+    #[arg(long)]
+    inventory: bool,
     /// Write each connection's reassembled streams to DIR as
     /// `<client port>.c2s.bin` and `.s2c.bin`
     #[arg(long, value_name = "DIR")]
@@ -101,6 +104,10 @@ fn run(cli: &Cli) -> anyhow::Result<bool> {
         table,
     };
     let cap = dissect_capture(&cli.capture, &opts)?;
+    if cli.inventory {
+        print!("{}", openkdx_dissect::text::inventory(&cap));
+        return Ok(true);
+    }
     let mut clean = true;
 
     for r in &cap.registrations {
@@ -168,15 +175,8 @@ fn run(cli: &Cli) -> anyhow::Result<bool> {
     }
 
     if let Some(dir) = &cli.export {
-        std::fs::create_dir_all(dir)?;
-        let frames = openkdx_dissect::capture::read_capture(&cli.capture)?;
-        let packets = openkdx_dissect::capture::parse_packets(&frames);
-        let ports = opts.ports;
-        for flow in openkdx_dissect::capture::tcp_flows(&packets, |p| ports.kind_of(p).is_some()) {
-            let port = flow.client.port();
-            std::fs::write(dir.join(format!("{port}.c2s.bin")), &flow.c2s.data)?;
-            std::fs::write(dir.join(format!("{port}.s2c.bin")), &flow.s2c.data)?;
-        }
+        let n = openkdx_dissect::connection::export_streams(&cli.capture, &opts.ports, dir)?;
+        eprintln!("exported {n} connections to {}", dir.display());
     }
     Ok(clean)
 }

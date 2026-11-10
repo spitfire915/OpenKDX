@@ -8,7 +8,58 @@ use openkdx_proto::message_type::MessageType;
 use openkdx_proto::msg::common::{Time1900, UserRecord};
 use openkdx_proto::msg::{Message, error_name};
 
-use crate::connection::Record;
+use crate::connection::{Capture, Record};
+
+/// The `## Messages` section of a capture's notes: one line per registration,
+/// handshake message, message, or data header, in frame order, as
+/// `frame  direction  type name`. Stable across runs, so the notes can be
+/// checked against the bytes.
+pub fn inventory(cap: &Capture) -> String {
+    let mut lines: Vec<(usize, usize, String)> = Vec::new();
+    for r in &cap.registrations {
+        lines.push((
+            r.frame,
+            0,
+            format!("{}  {} -> {}  UDP registration", r.frame, r.src, r.dst),
+        ));
+    }
+    for c in &cap.connections {
+        let conn = format!("{} -> {}", c.client, c.server);
+        for r in &c.records {
+            let what = match r {
+                Record::Hello { .. } => "hello".to_string(),
+                Record::Proof { .. } => "proof".to_string(),
+                Record::Message { header, .. } => format!(
+                    "{}{}",
+                    MessageType(header.kind),
+                    if header.reply { " (reply)" } else { "" }
+                ),
+                Record::DataHeader { header, .. } => {
+                    format!(
+                        "{} data header, {} bytes",
+                        MessageType(header.kind),
+                        header.len
+                    )
+                }
+                Record::Data { len, .. } => format!("transfer data, {len} bytes"),
+                Record::Stopped { reason, .. } => format!("stopped: {reason}"),
+            };
+            lines.push((
+                r.frame(),
+                c.flow_index + 1,
+                format!("{}  {}  {}  {}", r.frame(), r.dir(), conn, what),
+            ));
+        }
+    }
+    lines.sort_by_key(|(frame, flow, _)| (*frame, *flow));
+    let mut out = String::from("```\n");
+    for (_, _, line) in lines {
+        out.push_str(&line);
+        out.push('\n');
+    }
+    out.push_str("```\n");
+    out
+}
 
 /// Bytes as a double-quoted string, printable ASCII kept and the rest as `\xNN`.
 pub fn quoted(bytes: &[u8]) -> String {

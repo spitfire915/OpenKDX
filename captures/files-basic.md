@@ -26,3 +26,30 @@ Frames: 38.
 26/11/10 02:07:12 PM [2 labuser] Download "tiny.txt".
 26/11/10 02:07:12 PM [2 labuser] Transfer Disconnect
 ```
+
+## Messages
+
+Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/files-basic.pcapng`; checked by `crates/openkdx-dissect/tests/captures.rs`.
+
+```
+4  C->S  127.0.0.1:55866 -> 127.0.0.1:10700  hello
+6  S->C  127.0.0.1:55866 -> 127.0.0.1:10700  hello
+8  C->S  127.0.0.1:55866 -> 127.0.0.1:10700  proof
+9  S->C  127.0.0.1:55866 -> 127.0.0.1:10700  proof
+10  C->S  127.0.0.1:55866 -> 127.0.0.1:10700  100 Set Identity
+12  S->C  127.0.0.1:55866 -> 127.0.0.1:10700  101 User List
+13  S->C  127.0.0.1:55866 -> 127.0.0.1:10700  105 Server Info
+15  C->S  127.0.0.1:55866 -> 127.0.0.1:10700  400 Get File List
+16  S->C  127.0.0.1:55866 -> 127.0.0.1:10700  401 File List (reply)
+21  C->S  127.0.0.1:46914 -> 127.0.0.1:10700  hello
+23  S->C  127.0.0.1:46914 -> 127.0.0.1:10700  hello
+25  C->S  127.0.0.1:46914 -> 127.0.0.1:10700  proof
+26  S->C  127.0.0.1:46914 -> 127.0.0.1:10700  proof
+27  C->S  127.0.0.1:46914 -> 127.0.0.1:10700  412 Download File
+28  S->C  127.0.0.1:46914 -> 127.0.0.1:10700  413 Download File (R) (reply)
+29  S->C  127.0.0.1:46914 -> 127.0.0.1:10700  414 Download File (D) data header, 3 bytes
+30  S->C  127.0.0.1:46914 -> 127.0.0.1:10700  transfer data, 3 bytes
+31  S->C  127.0.0.1:46914 -> 127.0.0.1:10700  414 Download File (D) data header, 0 bytes
+36  C->S  127.0.0.1:55866 -> 127.0.0.1:10700  400 Get File List
+37  S->C  127.0.0.1:55866 -> 127.0.0.1:10700  401 File List (reply)
+```

@@ -26,3 +26,19 @@ Frames: 20.
 ```
 26/11/10 12:09:48 AM [] KDX Server started o
 ```
+
+## Messages
+
+Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/tracker-basic.pcapng`; checked by `crates/openkdx-dissect/tests/captures.rs`.
+
+```
+1  127.0.0.1:44251 -> 127.0.0.1:10800  UDP registration
+9  C->S  127.0.0.1:41300 -> 127.0.0.1:10800  hello
+11  S->C  127.0.0.1:41300 -> 127.0.0.1:10800  hello
+13  C->S  127.0.0.1:41300 -> 127.0.0.1:10800  proof
+14  S->C  127.0.0.1:41300 -> 127.0.0.1:10800  proof
+15  C->S  127.0.0.1:41300 -> 127.0.0.1:10800  700 Get Tracker Group List
+16  S->C  127.0.0.1:41300 -> 127.0.0.1:10800  701 Tracker Group List (reply)
+18  C->S  127.0.0.1:41300 -> 127.0.0.1:10800  702 Get Tracker Server List
+19  S->C  127.0.0.1:41300 -> 127.0.0.1:10800  703 Tracker Server List (reply)
+```
