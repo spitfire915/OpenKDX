@@ -489,7 +489,44 @@ pub fn message_summary(m: &Message) -> String {
             m.connections,
             m.servers
         ),
-        Message::GetTrackerGroupList(_)
+        Message::GetAccountClass(m) => format!("class {}", m.class_index),
+        Message::AccountClassInfo(m) => class_summary(m),
+        Message::SetAccountClass(m) => class_summary(&m.class),
+        Message::AccountClassList(m) => format!(
+            "{} classes: {}",
+            m.classes.len(),
+            m.classes
+                .iter()
+                .map(|c| format!("{} {}", c.class_index, quoted(&c.name)))
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Message::CreateAccount(m) => account_summary(&m.account),
+        Message::AccountInfo(m) => account_summary(&m.account),
+        Message::SetAccount(m) => account_summary(&m.account),
+        Message::DeleteAccount(m) => format!("login {}", quoted(&m.login)),
+        Message::GetAccount(m) => format!("login {}", quoted(&m.login)),
+        Message::AccountDeleted(m) => format!("login {}", quoted(&m.login)),
+        Message::AccountList(m) => format!(
+            "{} accounts: {}",
+            m.accounts.len(),
+            m.accounts
+                .iter()
+                .map(|a| format!(
+                    "{} ({}, class {})",
+                    quoted(&a.login),
+                    quoted(&a.name),
+                    a.class_index
+                ))
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Message::AccountChanged(m) => format!("{} bytes", m.ignored.len()),
+        Message::ChangeOwnPassword(m) => format!("key {}", hex(&m.account_key)),
+        Message::GetAccountClassList(_)
+        | Message::GetAccountList(_)
+        | Message::ChangeOwnPasswordDone(_)
+        | Message::GetTrackerGroupList(_)
         | Message::GetTrackerSettings(_)
         | Message::SetTrackerSettingsDone(_)
         | Message::GetTrackerStatistics(_)
@@ -536,6 +573,43 @@ fn chat_record_summary(c: &openkdx_proto::msg::common::ChatRecord) -> String {
         c.topic_classes,
         quoted(&c.irc_server),
         quoted(&c.irc_channel)
+    )
+}
+
+fn privileges(p: &openkdx_proto::msg::accounts::Privileges) -> String {
+    let names: Vec<&str> = p.set_bits().iter().map(|b| b.name()).collect();
+    format!("[{}]", names.join(", "))
+}
+
+fn class_summary(c: &openkdx_proto::msg::accounts::AccountClassInfo) -> String {
+    format!(
+        "class {} {} flood {} speed {} colour {:02x}{:02x}{:02x} editor {} privileges {}",
+        c.class_index,
+        quoted(&c.name),
+        c.flood_protection,
+        c.speed_limit,
+        c.color.r,
+        c.color.g,
+        c.color.b,
+        quoted(&c.editor_login),
+        privileges(&c.privileges)
+    )
+}
+
+fn account_summary(a: &openkdx_proto::msg::accounts::Account) -> String {
+    format!(
+        "login {} name {} class {} editor {} password {} privileges {} mask {}",
+        quoted(&a.login),
+        quoted(&a.name),
+        a.class_index,
+        quoted(&a.editor),
+        if a.key == [0; 32] {
+            "unchanged/none"
+        } else {
+            "set"
+        },
+        privileges(&a.privileges),
+        privileges(&a.privilege_mask)
     )
 }
 

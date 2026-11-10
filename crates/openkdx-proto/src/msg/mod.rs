@@ -5,6 +5,7 @@
 //! `extra`, and `padding` bytes are kept as fields and written back. Bytes a
 //! struct does not account for fail decoding with [`DecodeError::Trailing`].
 
+pub mod accounts;
 pub mod chat;
 pub mod common;
 pub mod files;
@@ -360,4 +361,20 @@ messages! {
     SetTrackerSettingsDone(tracker::SetTrackerSettingsDone);
     GetTrackerStatistics(tracker::GetTrackerStatistics);
     TrackerStats(tracker::TrackerStats);
+    GetAccountClass(accounts::GetAccountClass);
+    AccountClassInfo(accounts::AccountClassInfo);
+    SetAccountClass(accounts::SetAccountClass);
+    GetAccountClassList(accounts::GetAccountClassList);
+    AccountClassList(accounts::AccountClassList);
+    CreateAccount(accounts::CreateAccount);
+    DeleteAccount(accounts::DeleteAccount);
+    GetAccount(accounts::GetAccount);
+    AccountInfo(accounts::AccountInfo);
+    SetAccount(accounts::SetAccount);
+    GetAccountList(accounts::GetAccountList);
+    AccountList(accounts::AccountList);
+    AccountChanged(accounts::AccountChanged);
+    AccountDeleted(accounts::AccountDeleted);
+    ChangeOwnPassword(accounts::ChangeOwnPassword);
+    ChangeOwnPasswordDone(accounts::ChangeOwnPasswordDone);
 }
