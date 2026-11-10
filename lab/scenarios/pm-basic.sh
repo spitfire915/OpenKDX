@@ -6,10 +6,12 @@ source "$(dirname "$0")/../lib/scenario.sh"
 scenario_begin pm-basic
 start_server
 start_lnxclient lnxuser
-connect_to 127.0.0.1 "" ""
 start_winclient labuser
-connect_to 127.0.0.1 "$KDX_ADMIN_LOGIN" "$KDX_ADMIN_PASSWORD"
 capture_begin
+use_client lnx
+connect_to 127.0.0.1 "" ""
+use_client win
+connect_to 127.0.0.1 "$KDX_ADMIN_LOGIN" "$KDX_ADMIN_PASSWORD"
 use_client win
 palette_click userlist
 U=$(ui_win "KDX User List" $WINCLASS); ui_focus "$U"
