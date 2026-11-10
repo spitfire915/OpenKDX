@@ -212,13 +212,121 @@ pub fn message_summary(m: &Message) -> String {
             hex(&m.key)
         ),
         Message::LicenseReport(m) => format!("value {}", m.value),
-        Message::Ping(_)
+        Message::DeleteChat(m) => format!("chat {}", m.chat_id),
+        Message::LeaveChat(m) => format!("chat {}", m.chat_id),
+        Message::GetChat(m) => format!("chat {}", m.chat_id),
+        Message::GetChatDccAddresses(m) => format!("chat {}", m.chat_id),
+        Message::JoinChat(m) => format!("chat {} key {:#x}", m.chat_id, m.key),
+        Message::ChatWindowInfo(m) => window_info_summary(m),
+        Message::CreatePrivateChatReply(m) => window_info_summary(&m.info),
+        Message::ChatUserJoined(m) => format!("chat {} user {}", m.chat_id, m.user_id),
+        Message::ChatUserDeparted(m) => format!("chat {} user {}", m.chat_id, m.user_id),
+        Message::SendChatText(m) => format!(
+            "chat {} {}{}",
+            m.chat_id,
+            if m.is_action() { "action " } else { "" },
+            quoted(&m.text)
+        ),
+        Message::ReceiveChatText(m) => format!(
+            "chat {} user {} {}{}",
+            m.chat_id,
+            m.user_id,
+            if m.is_action() { "action " } else { "" },
+            quoted(&m.text)
+        ),
+        Message::SetChatTopic(m) => format!("chat {} topic {}", m.chat_id, quoted(&m.topic)),
+        Message::ChatTopicChanged(m) => format!(
+            "chat {} user {} nick {} topic {} at {}",
+            m.chat_id,
+            m.user_id,
+            quoted(&m.nick),
+            quoted(&m.topic),
+            time_1900(m.time)
+        ),
+        Message::ChatInvite(m) => format!(
+            "chat {} users {:?} message {}",
+            m.chat_id,
+            m.user_ids,
+            quoted(&m.message)
+        ),
+        Message::ChatInvitation(m) => format!(
+            "chat {} key {:#x} from user {} name {}",
+            m.chat_id,
+            m.key,
+            m.user_id,
+            quoted(&m.name)
+        ),
+        Message::ChatList(m) => format!(
+            "{} chats: {}",
+            m.chats.len(),
+            m.chats
+                .iter()
+                .map(|c| format!(
+                    "{} {} ({}, {} members, flags {:#x})",
+                    c.chat_id,
+                    quoted(&c.name),
+                    quoted(&c.description),
+                    c.member_count,
+                    c.flags
+                ))
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Message::CreateChat(m) => chat_record_summary(&m.chat),
+        Message::ChatInfo(m) => chat_record_summary(&m.chat),
+        Message::SetChat(m) => chat_record_summary(&m.chat),
+        Message::ChatDeleted(m) => format!("chat {} by user {}", m.chat_id, m.user_id),
+        Message::ChatDccAddresses(m) => m
+            .addresses
+            .iter()
+            .map(|a| format!("user {} at {}", a.user_id, quoted(&a.address)))
+            .collect::<Vec<_>>()
+            .join("; "),
+        Message::SendPrivateMessage(m) => format!("to user {} {}", m.user_id, quoted(&m.text)),
+        Message::IncomingPrivateMessage(m) => {
+            format!("from user {} {}", m.user_id, quoted(&m.text))
+        }
+        Message::CreatePrivateChat(_)
+        | Message::MustJoinChat(_)
+        | Message::GetChatList(_)
+        | Message::Ping(_)
         | Message::Pong(_)
         | Message::RequestGreeting(_)
         | Message::GetExtraServerInfo(_)
         | Message::GetMyAddress(_)
         | Message::Unknown { .. } => String::new(),
     }
+}
+
+fn window_info_summary(m: &openkdx_proto::msg::chat::ChatWindowInfo) -> String {
+    format!(
+        "chat {} key {:#x} flags {:#x} name {} topic {} by {} members {:?} irc {} {}",
+        m.chat_id,
+        m.key,
+        m.flags,
+        quoted(&m.name),
+        quoted(&m.topic),
+        quoted(&m.topic_setter),
+        m.members,
+        quoted(&m.irc_server),
+        quoted(&m.irc_channel)
+    )
+}
+
+fn chat_record_summary(c: &openkdx_proto::msg::common::ChatRecord) -> String {
+    format!(
+        "chat {} key {:#x} flags {:#x} name {} description {} classes join {:#010x} send {:#010x} topic {:#010x} irc {} {}",
+        c.chat_id,
+        c.key,
+        c.flags,
+        quoted(&c.name),
+        quoted(&c.description),
+        c.join_classes,
+        c.send_classes,
+        c.topic_classes,
+        quoted(&c.irc_server),
+        quoted(&c.irc_channel)
+    )
 }
 
 fn user_summary(u: &UserRecord) -> String {

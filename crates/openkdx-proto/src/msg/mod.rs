@@ -5,6 +5,7 @@
 //! `extra`, and `padding` bytes are kept as fields and written back. Bytes a
 //! struct does not account for fail decoding with [`DecodeError::Trailing`].
 
+pub mod chat;
 pub mod common;
 pub mod session;
 
@@ -277,4 +278,30 @@ messages! {
     YourAddress(session::YourAddress);
     Skpk(session::Skpk);
     LicenseReport(session::LicenseReport);
+    CreatePrivateChat(chat::CreatePrivateChat);
+    DeleteChat(chat::DeleteChat);
+    JoinChat(chat::JoinChat);
+    ChatWindowInfo(chat::ChatWindowInfo);
+    LeaveChat(chat::LeaveChat);
+    ChatUserJoined(chat::ChatUserJoined);
+    ChatUserDeparted(chat::ChatUserDeparted);
+    SendChatText(chat::SendChatText);
+    ReceiveChatText(chat::ReceiveChatText);
+    SetChatTopic(chat::SetChatTopic);
+    ChatTopicChanged(chat::ChatTopicChanged);
+    ChatInvite(chat::ChatInvite);
+    ChatInvitation(chat::ChatInvitation);
+    MustJoinChat(chat::MustJoinChat);
+    GetChatList(chat::GetChatList);
+    ChatList(chat::ChatList);
+    CreatePrivateChatReply(chat::CreatePrivateChatReply);
+    CreateChat(chat::CreateChat);
+    GetChat(chat::GetChat);
+    ChatInfo(chat::ChatInfo);
+    SetChat(chat::SetChat);
+    ChatDeleted(chat::ChatDeleted);
+    GetChatDccAddresses(chat::GetChatDccAddresses);
+    ChatDccAddresses(chat::ChatDccAddresses);
+    SendPrivateMessage(chat::SendPrivateMessage);
+    IncomingPrivateMessage(chat::IncomingPrivateMessage);
 }

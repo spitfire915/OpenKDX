@@ -247,6 +247,81 @@ fn tracker_basic_registration_is_byte_exact() {
 }
 
 #[test]
+fn chat_basic_is_byte_exact() {
+    let cap = load("chat-basic");
+    assert_eq!(cap.connections.len(), 1);
+    assert_clean(&cap, "chat-basic");
+    assert_exact(&cap, "chat-basic");
+    assert_eq!(
+        kinds(&cap, 0),
+        vec![
+            100, 101, 105, 214, 215, 202, 203, 207, 208, 207, 208, 209, 210
+        ]
+    );
+    let msgs = messages(&cap, 0);
+    let Message::ChatList(list) = msgs[4] else {
+        panic!("{:?}", msgs[4].kind())
+    };
+    let names: Vec<&[u8]> = list.chats.iter().map(|c| c.name.as_slice()).collect();
+    // creation order; the client sorts them for display
+    assert_eq!(names, [&b"Public Chat"[..], b"Voice Chat", b"Admin Lounge"]);
+    let Message::ChatWindowInfo(info) = msgs[6] else {
+        panic!("{:?}", msgs[6].kind())
+    };
+    assert_eq!(info.name, b"Public Chat");
+    assert_eq!(info.members, vec![1]);
+    let texts: Vec<(&[u8], bool)> = msgs
+        .iter()
+        .filter_map(|m| match m {
+            Message::ReceiveChatText(t) => Some((t.text.as_slice(), t.is_action())),
+            _ => None,
+        })
+        .collect();
+    // the client strips `/me ` and sets the action flag instead
+    assert_eq!(
+        texts,
+        [(&b"hello from the lab"[..], false), (b"waves", true)]
+    );
+    let Message::ChatTopicChanged(topic) = msgs[12] else {
+        panic!("{:?}", msgs[12].kind())
+    };
+    assert_eq!(topic.topic, b"lab topic");
+    assert_eq!(topic.nick, b"labuser");
+}
+
+#[test]
+fn pm_basic_is_byte_exact() {
+    let cap = load("pm-basic");
+    assert_eq!(cap.connections.len(), 2);
+    assert_clean(&cap, "pm-basic");
+    assert_exact(&cap, "pm-basic");
+    // flows are ordered by first frame: the Linux guest connected first
+    assert_eq!(
+        cap.connections[0].key.as_ref().unwrap().label,
+        "empty password"
+    );
+    assert_eq!(
+        cap.connections[1].key.as_ref().unwrap().label,
+        "--password #1"
+    );
+    assert_eq!(kinds(&cap, 0), vec![100, 101, 105, 103, 301, 300]);
+    assert_eq!(kinds(&cap, 1), vec![100, 101, 105, 300, 301]);
+    let admin = messages(&cap, 1);
+    let Message::UserList(list) = admin[1] else {
+        panic!("{:?}", admin[1].kind())
+    };
+    assert_eq!(list.users.len(), 2);
+    let Message::SendPrivateMessage(pm) = admin[3] else {
+        panic!("{:?}", admin[3].kind())
+    };
+    assert_eq!(pm.text, b"hi from admin");
+    let Message::IncomingPrivateMessage(pm) = admin[4] else {
+        panic!("{:?}", admin[4].kind())
+    };
+    assert_eq!(pm.text, b"hello back");
+}
+
+#[test]
 fn every_capture_has_no_stopped_connection() {
     for name in CAPTURES {
         let cap = load(name);
