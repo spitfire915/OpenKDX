@@ -849,6 +849,8 @@ version = "0.0.1"
 name = "openkdx-proto"
 version = "0.0.1"
 dependencies = [
+ "hex",
+ "openkdx-table",
  "sha1",
  "thiserror",
  "twofish",

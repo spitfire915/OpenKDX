@@ -11,3 +11,7 @@ description = "KDX wire format: handshake, encryption, framing, typed payloads. 
 thiserror.workspace = true
 twofish.workspace = true
 sha1.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+openkdx-table = { workspace = true, default-features = false }
