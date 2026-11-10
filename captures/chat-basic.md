@@ -1,8 +1,8 @@
 # Capture: chat-basic
 
-Recorded 2026-11-09 in the lab (`lab/scenarios/chat-basic.sh`).
+Recorded 2026-11-10 in the lab (`lab/scenarios/chat-basic.sh`).
 Programs: KDX Server 1.620 (Linux), KDX Client 1.600 (Windows under Wine 6.0.3).
-Frames: 15. Screenshot at the end: `chat-basic.png`.
+Frames: 15.
 
 ## Steps
 
@@ -19,7 +19,7 @@ Frames: 15. Screenshot at the end: `chat-basic.png`.
 ## Server log
 
 ```
-26/11/09 09:50:11 PM [] KDX Server started o
-26/11/09 09:50:36 PM [1 unnamed] Incoming connection from 127.0.0.1:55088
-26/11/09 09:50:38 PM [1 unnamed] Set Name: <labuser> (admin)
+26/11/10 12:04:43 AM [] KDX Server started o
+26/11/10 12:05:03 AM [1 unnamed] Incoming connection from 127.0.0.1:57816
+26/11/10 12:05:05 AM [1 unnamed] Set Name: <labuser> (admin)
 ```

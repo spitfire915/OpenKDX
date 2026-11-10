@@ -43,8 +43,9 @@ apt-get install -y \
   libxext6:i386 \
   libgcc-s1:i386
 
-echo "==> Wine (32-bit) for the Windows client"
-apt-get install -y wine wine32:i386 winetricks xvfb
+echo "==> Wine (32-bit) for the Windows client, and X tools to drive the GUIs"
+apt-get install -y wine wine32:i386 winetricks xvfb \
+  xdotool x11-utils imagemagick expect netcat-openbsd xxd
 
 echo "==> sandbox, capture, and namespace tools"
 # preseed so wireshark-common does not prompt; "yes" = non-root users may capture
@@ -67,11 +68,11 @@ apt-get install -y \
 echo "==> allowing $LAB_USER to capture packets without root"
 usermod -aG wireshark "$LAB_USER"
 
-echo "==> allowing $LAB_USER to use docker (image build/test for openkdxd)"
-if getent group docker >/dev/null; then
-  usermod -aG docker "$LAB_USER"
-else
-  echo "    docker group not found; skipping (install Docker first if you want this)"
+# The runner user is deliberately NOT added to the docker group: membership
+# is equivalent to root, and this machine runs code from pull requests.
+if id -nG "$LAB_USER" | tr " " "\n" | grep -qx docker; then
+  echo "==> removing $LAB_USER from the docker group (equivalent to root)"
+  gpasswd -d "$LAB_USER" docker
 fi
 
 echo "==> unprivileged user namespaces (needed by bwrap/unshare without root)"

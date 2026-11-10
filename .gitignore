@@ -21,3 +21,8 @@ hgc.bin
 
 # Plan workspaces
 /.superpowers/
+
+# Screenshots of the original programs (Haxial artwork) stay on the lab machine
+captures/*.png
+__pycache__/
+*.pyc

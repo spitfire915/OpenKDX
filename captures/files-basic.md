@@ -1,8 +1,8 @@
 # Capture: files-basic
 
-Recorded 2026-11-09 in the lab (`lab/scenarios/files-basic.sh`).
+Recorded 2026-11-10 in the lab (`lab/scenarios/files-basic.sh`).
 Programs: KDX Server 1.620 (Linux), KDX Client 1.600 (Windows under Wine 6.0.3).
-Frames: 24. Screenshot at the end: `files-basic.png`.
+Frames: 24.
 
 ## Steps
 
@@ -19,10 +19,10 @@ Frames: 24. Screenshot at the end: `files-basic.png`.
 ## Server log
 
 ```
-26/11/09 09:57:19 PM [] KDX Server started o
-26/11/09 09:57:44 PM [1 unnamed] Incoming connection from 127.0.0.1:60786
-26/11/09 09:57:46 PM [1 unnamed] Set Name: <labuser> (admin)
-26/11/09 09:57:57 PM [2 unnamed] Incoming connection from 127.0.0.1:47840
-26/11/09 09:57:57 PM [2 labuser] Download "tiny.txt".
-26/11/09 09:57:57 PM [2 labuser] Transfer Disconnect
+26/11/10 12:07:53 AM [] KDX Server started o
+26/11/10 12:08:13 AM [1 unnamed] Incoming connection from 127.0.0.1:38378
+26/11/10 12:08:15 AM [1 unnamed] Set Name: <labuser> (admin)
+26/11/10 12:08:26 AM [2 unnamed] Incoming connection from 127.0.0.1:46228
+26/11/10 12:08:26 AM [2 labuser] Download "tiny.txt".
+26/11/10 12:08:26 AM [2 labuser] Transfer Disconnect
 ```

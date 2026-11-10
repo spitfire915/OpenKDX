@@ -22,8 +22,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
       - run: python3 ci/check-deps.py
-      - run: python3 ci/check-blocklist.py
+      - name: Haxial blocklist (tree and every blob in the change)
+        run: |
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            python3 ci/check-blocklist.py --range "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
+          else
+            python3 ci/check-blocklist.py --range "${{ github.event.before }}" "${{ github.sha }}"
+          fi
       - run: for t in ci/*_test.py; do python3 -m unittest -v "$t"; done
 
   rust:
@@ -45,7 +52,10 @@ jobs:
 
   lab:
     name: Lab (self-hosted)
-    # Haxial binaries live only on the lab machine. Forked PRs must not run there.
+    # Haxial binaries live only on the lab machine. Forked PRs must not run
+    # there. This guard is a convenience only: a fork can edit this file. The
+    # real protection is the repository setting that requires approval for
+    # all outside collaborators' workflows (see lab/README.md).
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, lab]
     steps:

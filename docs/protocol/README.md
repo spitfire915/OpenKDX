@@ -29,5 +29,5 @@ Every claim we add carries its evidence, in the reference spec's style:
 | Client HELLO: `%TXP%KDX`, version 1, sub-version 0x10, login name in clear after the XOR stream | `[O first-connect 4]`, decoded in `captures/first-connect.md` |
 | Server HELLO: sub-version 0x20, empty name, nonce shares bytes 2–9 with the client's | `[O first-connect 6]` |
 | A 64-byte junk hello is rejected with `The network protocol is unknown. (ID 4/113 @ TRN941)`; an 8-byte one only disconnects | `lab/ci-smoke.sh`, server log |
-| Server registers with the tracker by one 84-byte UDP datagram to 10800 on startup | `[O tracker-basic 4]` |
+| Server registers with the tracker by one 84-byte UDP datagram to 10800 on startup | `[O tracker-basic 1]` |
 | File transfers open a second TCP connection to 10700 | `[O files-basic]`, server log `[2 labuser] Download "tiny.txt"` |

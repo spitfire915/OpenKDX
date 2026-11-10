@@ -1,8 +1,8 @@
 # Capture: news-basic
 
-Recorded 2026-11-09 in the lab (`lab/scenarios/news-basic.sh`).
+Recorded 2026-11-10 in the lab (`lab/scenarios/news-basic.sh`).
 Programs: KDX Server 1.620 (Linux), KDX Client 1.600 (Windows under Wine 6.0.3).
-Frames: 12. Screenshot at the end: `news-basic.png`.
+Frames: 12.
 
 ## Steps
 
@@ -18,7 +18,7 @@ Frames: 12. Screenshot at the end: `news-basic.png`.
 ## Server log
 
 ```
-26/11/09 09:53:23 PM [] KDX Server started o
-26/11/09 09:53:48 PM [1 unnamed] Incoming connection from 127.0.0.1:54502
-26/11/09 09:53:50 PM [1 unnamed] Set Name: <labuser> (admin)
+26/11/10 12:06:58 AM [] KDX Server started o
+26/11/10 12:07:19 AM [1 unnamed] Incoming connection from 127.0.0.1:41934
+26/11/10 12:07:21 AM [1 unnamed] Set Name: <labuser> (admin)
 ```

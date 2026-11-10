@@ -1,21 +1,29 @@
 #!/usr/bin/env python3
-"""Check crate manifests against the design's dependency rules.
+"""Check the workspace against the design's dependency rules (spec §7.1).
 
-- openkdx-proto must not depend on any async runtime, network, or UI crate.
-- openkdx-legacy must not depend on any network or UI crate.
+- openkdx-proto must not depend, directly or transitively, on any async
+  runtime, network, or UI crate.
+- openkdx-legacy must not depend, directly or transitively, on any network or
+  UI crate.
 - every crate declares license = "MIT OR Apache-2.0" and edition = "2024"
   (directly or via workspace inheritance).
 
-Exit 1 with the offending crate on failure.
+Transitive edges come from `cargo metadata`, normal and build dependencies
+only (dev-dependencies do not ship). Exit 1 with the offending crate on failure.
 """
+import json
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+NETWORK_OR_RUNTIME = {"tokio", "reqwest", "hyper", "async-std", "smol", "mio", "openkdx-codec", "openkdx-table", "openkdx-client", "openkdx-server", "openkdx-tracker"}
+UI = {"egui", "eframe", "egui-winit", "winit", "wgpu", "openkdx-ui", "openkdx-app"}
 FORBIDDEN = {
-    "openkdx-proto": {"tokio", "reqwest", "egui", "eframe", "hyper", "async-std"},
-    "openkdx-legacy": {"tokio", "reqwest", "egui", "eframe", "hyper", "async-std"},
+    "openkdx-proto": NETWORK_OR_RUNTIME | UI,
+    "openkdx-legacy": NETWORK_OR_RUNTIME | UI,
 }
 
 
@@ -26,7 +34,7 @@ def crate_manifests():
     return sorted(p / "Cargo.toml" for p in crates.iterdir() if (p / "Cargo.toml").is_file())
 
 
-def check(manifest: Path) -> list[str]:
+def check_manifest(manifest: Path) -> list[str]:
     data = tomllib.loads(manifest.read_text())
     pkg = data.get("package", {})
     name = pkg.get("name", manifest.parent.name)
@@ -42,11 +50,43 @@ def check(manifest: Path) -> list[str]:
         problems.append(f"{name}: license is not 'MIT OR Apache-2.0'")
     if inherited_or(pkg.get("edition"), "edition") != "2024":
         problems.append(f"{name}: edition is not 2024")
-
-    deps = set(data.get("dependencies", {})) | set(data.get("build-dependencies", {}))
-    for bad in sorted(deps & FORBIDDEN.get(name, set())):
-        problems.append(f"{name}: must not depend on {bad}")
     return problems
+
+
+def forbidden_transitive(metadata: dict, crate: str, forbidden: set[str]) -> list[str]:
+    """Names of forbidden packages reachable from `crate` over normal/build edges."""
+    name_of = {p["id"]: p["name"] for p in metadata["packages"]}
+    deps_of = {}
+    for node in metadata["resolve"]["nodes"]:
+        edges = []
+        for d in node.get("deps", []):
+            kinds = d.get("dep_kinds") or [{"kind": None}]
+            if any(k.get("kind") in (None, "build") for k in kinds):
+                edges.append(d["pkg"])
+        deps_of[node["id"]] = edges
+    roots = [i for i, n in name_of.items() if n == crate]
+    seen, stack, found = set(), list(roots), set()
+    while stack:
+        cur = stack.pop()
+        for dep in deps_of.get(cur, []):
+            if dep in seen:
+                continue
+            seen.add(dep)
+            if name_of.get(dep) in forbidden:
+                found.add(name_of[dep])
+            stack.append(dep)
+    return sorted(found)
+
+
+def cargo_metadata() -> dict:
+    out = subprocess.run(
+        ["cargo", "metadata", "--format-version", "1", "--locked"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    return json.loads(out)
 
 
 def main() -> int:
@@ -54,12 +94,16 @@ def main() -> int:
     if not manifests:
         print("check-deps: no crates found under crates/", file=sys.stderr)
         return 1
-    problems = [p for m in manifests for p in check(m)]
+    problems = [p for m in manifests for p in check_manifest(m)]
+    meta = cargo_metadata()
+    for crate, forbidden in FORBIDDEN.items():
+        for bad in forbidden_transitive(meta, crate, forbidden):
+            problems.append(f"{crate}: must not depend (even transitively) on {bad}")
     for p in problems:
         print(f"check-deps: {p}", file=sys.stderr)
     if problems:
         return 1
-    print(f"check-deps: ok ({len(manifests)} crates)")
+    print(f"check-deps: ok ({len(manifests)} crates, transitive graph checked)")
     return 0
 
 

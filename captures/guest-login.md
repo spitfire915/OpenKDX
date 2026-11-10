@@ -1,8 +1,8 @@
 # Capture: guest-login
 
-Recorded 2026-11-09 in the lab (`lab/scenarios/guest-login.sh`).
+Recorded 2026-11-10 in the lab (`lab/scenarios/guest-login.sh`).
 Programs: KDX Server 1.620 (Linux), KDX Client 1.600 (Windows under Wine 6.0.3).
-Frames: 14. Screenshot at the end: `guest-login.png`.
+Frames: 14.
 
 ## Steps
 
@@ -15,7 +15,7 @@ Frames: 14. Screenshot at the end: `guest-login.png`.
 ## Server log
 
 ```
-26/11/09 09:45:24 PM [] KDX Server started o
-26/11/09 09:45:44 PM [1 unnamed] Incoming connection from 127.0.0.1:37968
-26/11/09 09:45:46 PM [1 unnamed] Set Name: <guestuser> (guest)
+26/11/10 12:04:00 AM [] KDX Server started o
+26/11/10 12:04:20 AM [1 unnamed] Incoming connection from 127.0.0.1:50750
+26/11/10 12:04:22 AM [1 unnamed] Set Name: <guestuser> (guest)
 ```

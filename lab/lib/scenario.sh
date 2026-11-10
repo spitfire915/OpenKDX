@@ -10,6 +10,8 @@ LAB="$HERE/kdx-lab"
 source "$HERE/lib/ui.sh"
 CAPTURES="${OPENKDX_LAB_CAPTURES:-$HOME/captures}"
 RUN="${OPENKDX_LAB_RUN:-$HOME/lab/run}"
+# Creates lab.env with the published lab password if it does not exist yet.
+"$LAB" env >/dev/null
 # shellcheck disable=SC1090
 source "${OPENKDX_LAB_ENV:-$HOME/haxial/lab.env}"
 
@@ -25,6 +27,12 @@ step() {
 scenario_begin() {
   SCENARIO=$1; STEP_N=0
   echo "scenario $SCENARIO:"
+  # One lab session at a time: refuse if another holds the lock or a namespace is up.
+  exec 9>"$RUN/lab.lock"
+  flock -n 9 || { echo "scenario: the lab is in use (lock $RUN/lab.lock)" >&2; exit 1; }
+  if "$LAB" ns status | grep -q running && [[ "${FORCE:-0}" != 1 ]]; then
+    echo "scenario: a lab session is running; stop it (kdx-lab ns stop) or set FORCE=1" >&2; exit 1
+  fi
   "$LAB" ns stop >/dev/null 2>&1 || true
   "$LAB" reset all >/dev/null 2>&1 || true
   "$LAB" ns start >/dev/null
@@ -118,13 +126,13 @@ capture_end() { "$LAB" capture stop | tail -1; }
 scenario_end() {
   local frames
   frames=$(tshark -r "$CAPTURES/$SCENARIO.pcapng" 2>/dev/null | wc -l | tr -d ' ')
-  ui_shot "$SCENARIO" || true
+  ui_shot "$SCENARIO" >/dev/null 2>&1 || true   # stays on the lab machine; never committed
   {
     echo "# Capture: $SCENARIO"
     echo
     echo "Recorded $(date -u +%Y-%m-%d) in the lab (\`lab/scenarios/$SCENARIO.sh\`)."
     echo "Programs: ${PROGRAMS:-KDX Server 1.620 (Linux), KDX Client 1.600 (Windows under Wine 6.0.3)}."
-    echo "Frames: $frames. Screenshot at the end: \`$SCENARIO.png\`."
+    echo "Frames: $frames."
     echo
     echo "## Steps"
     echo

@@ -9,7 +9,7 @@ All captures are loopback traffic inside the lab's private network namespace.
 Programs: KDX Server 1.620 (Linux), KDX Tracker 1.110 (Linux), KDX Client 1.600
 (Windows, under Wine 6.0.3), KDX Client 1.620 beta 5 (Linux). Each scenario is
 reproducible with `lab/scenarios/<name>.sh`; the `.md` beside each capture
-lists the steps and the server log, and the `.png` is the display at the end.
+lists the steps and the server log. Screenshots stay on the lab machine: they show Haxial's artwork, which this repository does not carry.
 
 | Scenario | Shows | Frames |
 |---|---|---|
@@ -33,6 +33,5 @@ Decoding: `openkdx-dissect` (Phase 1) reads these files. Until then,
 
 - A capture is committed together with its `.md` and the scenario script that
   produced it.
-- Lab passwords never appear in the notes (`(set)` stands in).
-- Captures contain only lab traffic: synthetic names, loopback addresses, and
-  the lab admin's derived key material, which protects nothing real.
+- The lab administrator account is `admin` with password **`openkdx-lab`**, fixed and published so that anyone can decrypt the committed sessions (the account key is derived from it as the reference spec's `account_key`). It protects nothing: the lab server only ever listens on a sandbox loopback.
+- Captures contain only lab traffic: synthetic names and loopback addresses.

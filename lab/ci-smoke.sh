@@ -11,6 +11,11 @@ RUN="${OPENKDX_LAB_RUN:-$HOME/lab/run}"
 cleanup() { "$LAB" ns stop >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
+# Refuse to trample a human's lab session (Review Focus 5).
+exec 9>"$RUN/lab.lock"
+flock -n 9 || { echo "smoke: the lab is in use (lock $RUN/lab.lock); not running" >&2; exit 1; }
+"$LAB" ns status | grep -q running && { echo "smoke: a lab session is running; not running" >&2; exit 1; }
+
 [[ -x "$HOME/haxial/bin/KDXServer1620-Lnx/KDXServer1620-Lnx/KDXServer.lexe" ]] \
   || { echo "smoke: Haxial binaries missing; run lab/fetch-binaries.sh" >&2; exit 1; }
 

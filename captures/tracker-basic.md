@@ -1,8 +1,8 @@
 # Capture: tracker-basic
 
-Recorded 2026-11-09 in the lab (`lab/scenarios/tracker-basic.sh`).
+Recorded 2026-11-10 in the lab (`lab/scenarios/tracker-basic.sh`).
 Programs: KDX Server 1.620 (Linux), KDX Tracker 1.110 (Linux), KDX Client 1.600 (Windows under Wine 6.0.3).
-Frames: 20. Screenshot at the end: `tracker-basic.png`.
+Frames: 20.
 
 ## Steps
 
@@ -24,5 +24,5 @@ Frames: 20. Screenshot at the end: `tracker-basic.png`.
 ## Server log
 
 ```
-26/11/09 10:31:45 PM [] KDX Server started o
+26/11/10 12:09:48 AM [] KDX Server started o
 ```

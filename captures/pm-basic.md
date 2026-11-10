@@ -1,8 +1,8 @@
 # Capture: pm-basic
 
-Recorded 2026-11-09 in the lab (`lab/scenarios/pm-basic.sh`).
+Recorded 2026-11-10 in the lab (`lab/scenarios/pm-basic.sh`).
 Programs: KDX Server 1.620 (Linux), KDX Client 1.600 (Windows under Wine 6.0.3), KDX Client 1.620 beta 5 (Linux).
-Frames: 8. Screenshot at the end: `pm-basic.png`.
+Frames: 8.
 
 ## Steps
 
@@ -19,9 +19,9 @@ Frames: 8. Screenshot at the end: `pm-basic.png`.
 ## Server log
 
 ```
-26/11/09 10:07:07 PM [] KDX Server started o
-26/11/09 10:07:19 PM [1 unnamed] Incoming connection from 127.0.0.1:33696
-26/11/09 10:07:19 PM [1 unnamed] Set Name: <lnxuser> (guest)
-26/11/09 10:07:45 PM [2 unnamed] Incoming connection from 127.0.0.1:44810
-26/11/09 10:07:47 PM [2 unnamed] Set Name: <labuser> (admin)
+26/11/10 12:05:40 AM [] KDX Server started o
+26/11/10 12:05:52 AM [1 unnamed] Incoming connection from 127.0.0.1:37434
+26/11/10 12:05:52 AM [1 unnamed] Set Name: <lnxuser> (guest)
+26/11/10 12:06:17 AM [2 unnamed] Incoming connection from 127.0.0.1:39146
+26/11/10 12:06:19 AM [2 unnamed] Set Name: <labuser> (admin)
 ```

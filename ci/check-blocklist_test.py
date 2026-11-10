@@ -61,3 +61,24 @@ class BlocklistTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HistoryAndEncodingTest(unittest.TestCase):
+    def test_base64_encoded_story_is_reported(self):
+        import base64
+        repo = make_repo({"secrets.yml": b"TABLE: " + base64.b64encode(STORY) + b"\n"})
+        hits = check_blocklist.check_blocklist(repo, blocklist_for(STORY, "fake"))
+        self.assertEqual([(Path("secrets.yml"), "fake")], hits)
+
+    def test_blob_added_then_deleted_in_history_is_reported(self):
+        repo = make_repo({"ok.txt": b"clean"})
+        base = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        (repo / "oops.bin").write_bytes(STORY)
+        git(repo, "add", "-A"); git(repo, "commit", "-qm", "add")
+        (repo / "oops.bin").unlink()
+        git(repo, "add", "-A"); git(repo, "commit", "-qm", "remove")
+        head = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        self.assertEqual([], check_blocklist.check_blocklist(repo, blocklist_for(STORY, "fake")))
+        hits = check_blocklist.check_range(repo, base, head, blocklist_for(STORY, "fake"))
+        self.assertEqual(1, len(hits))
+        self.assertEqual("fake", hits[0][1])

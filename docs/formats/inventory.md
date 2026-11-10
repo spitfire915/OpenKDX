@@ -19,7 +19,7 @@ Phase 3. Two sources:
 |---|---:|---|---|---|
 | `server/Accounts.dat` | 2312 | `20db32cb2b460baa` | `bf996c398e85a1d2` | No plaintext anywhere: the whole file is encrypted or scrambled. Grew from 2008 bytes (admin + guest after first run) to 2312 after two accounts were added from the client, so one account record is about 152 bytes on disk. |
 | `server/KDXServer.stg` | 476 | `7dc20c8423d8a73b` | `254b445853535447` | Magic `%KDXSSTG`, then `00 01` (version?), then what looks like a table of 32-bit big-endian offsets/lengths (`0x70`, `0x68`, `0xd8`…). Mostly zero at defaults. Grew to 536 bytes when a tracker entry was added. |
-| `server/News.dat` | 2424 | `a4429688fa939fce` | `254b44584e55555a` | Magic `%KDXNUUZ`, `00 02 00 01`. Plaintext: newsgroup name `General News`, the stock welcome post (author `KDX`), and the lab's posts. Created as a 0-byte file at first run; written on first post. |
+| `server/News.dat` | — | — | `254b44584e55555a` | **Not committed**: it carries Haxial's stock welcome post verbatim (about 2 KB of their prose). Observed in the lab: magic `%KDXNUUZ`, `00 02 00 01`, then plaintext newsgroup name `General News` and the posts. Created as a 0-byte file at first run; written on first post; 2424 bytes with the stock post and two lab posts. Phase 3 regenerates it in the lab after deleting the stock post. |
 | `client/KDX.stg` | 1688 | `29322c4c84543306` | `102d68ee759011cc` | No plaintext: scrambled like `Accounts.dat`. Written only when the client exits cleanly (palette → Exit); a SIGINT loses it. Holds identity (`labuser`), the address book (one stock entry, "Official Haxial Server"), settings, and licence acceptance. |
 
 What the lab server directory looks like after first run and some use:

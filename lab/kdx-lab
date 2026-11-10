@@ -16,9 +16,13 @@
 #   kdx-lab x shot NAME                    screenshot → $CAPTURES/NAME.png
 #   kdx-lab capture start NAME|stop        dumpcap on lo → $CAPTURES/NAME.pcapng
 #   kdx-lab exec CMD...                    run a command inside the namespace
-#   kdx-lab selftest                       prove isolation, capture, and pidfile guard
+#   kdx-lab selftest [--force]             prove isolation, capture, teardown, and the guards
+#   kdx-lab env                            create ~/haxial/lab.env (fixed lab password) if missing
 #   kdx-lab reset server|tracker|client|winclient|all   wipe a component's state
 set -euo pipefail
+
+# A scenario's lab lock (fd 9) must not leak into the daemons we start.
+exec 9>&- 2>/dev/null || true
 
 LAB_HOME="${OPENKDX_LAB_HOME:-$HOME}"
 BIN="${OPENKDX_LAB_BIN:-$LAB_HOME/haxial/bin}"
@@ -42,6 +46,18 @@ alive() { # alive PIDFILE
   [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
 }
 
+descendants() { # descendants PID : all transitive children, deepest first
+  local kids; kids=$(pgrep -P "$1" 2>/dev/null || true)
+  for k in $kids; do descendants "$k"; done
+  echo "$kids"
+}
+
+# lock_lab : hold the lab for this process tree; fail loudly if someone else has it.
+lock_lab() {
+  exec 9>"$RUN/lab.lock"
+  flock -n 9 || die "the lab is in use by another session (lock $RUN/lab.lock); stop it first"
+}
+
 guard() { # guard NAME : refuse if NAME is already running
   if alive "$(pidfile "$1")"; then
     die "$1 is already running (pid $(cat "$(pidfile "$1")")); stop it first"
@@ -54,7 +70,7 @@ guard() { # guard NAME : refuse if NAME is already running
 ns_start() {
   guard ns
   # The holder owns the user+net+pid+mount namespaces. Everything else joins it.
-  unshare -rn --fork --pid --mount-proc \
+  unshare -rn --fork --kill-child --pid --mount-proc \
     sh -c 'ip link set lo up; exec sleep infinity' >/dev/null 2>&1 &
   local wrapper=$!
   sleep 0.3
@@ -72,8 +88,11 @@ ns_stop() {
     alive "$(pidfile $n)" && comp_stop "$n" || true
   done
   if alive "$(pidfile ns)"; then
-    kill "$(cat "$(pidfile ns-wrapper)")" 2>/dev/null || true
-    kill "$(cat "$(pidfile ns)")" 2>/dev/null || true
+    # SIGKILL is the one signal always delivered to a PID-namespace init from
+    # outside; with --kill-child it takes the whole namespace down.
+    kill -KILL "$(cat "$(pidfile ns)")" 2>/dev/null || true
+    kill -KILL "$(cat "$(pidfile ns-wrapper)")" 2>/dev/null || true
+    for _ in $(seq 1 25); do alive "$(pidfile ns)" || break; sleep 0.2; done
     rm -f "$(pidfile ns)" "$(pidfile ns-wrapper)"
     echo "ns: stopped"
   else
@@ -107,9 +126,10 @@ comp_dir() { echo "$RUN/$1"; }
 admin_env() {
   if [[ ! -f "$ENV_FILE" ]]; then
     mkdir -p "$(dirname "$ENV_FILE")"
-    local pw
-    pw="Lab-$(head -c 9 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 12)!"
-    printf 'KDX_ADMIN_LOGIN=admin\nKDX_ADMIN_PASSWORD=%s\n' "$pw" > "$ENV_FILE"
+    # Fixed and published (captures/README.md) so anyone can decrypt the
+    # committed captures. It protects nothing: the server only ever listens
+    # on the sandbox loopback.
+    printf 'KDX_ADMIN_LOGIN=admin\nKDX_ADMIN_PASSWORD=%s\n' "openkdx-lab" > "$ENV_FILE"
     chmod 600 "$ENV_FILE"
   fi
   # shellcheck disable=SC1090
@@ -136,11 +156,10 @@ comp_stop() {
   f=$(pidfile "$name")
   if alive "$f"; then
     local pid; pid=$(cat "$f")
-    # Kill the whole process tree under the launcher (nsenter → bwrap → script → program).
-    pkill -INT -P "$pid" 2>/dev/null || true
-    kill -INT "$pid" 2>/dev/null || true
+    # Kill everything below the launcher (nsenter → bwrap → script → program).
+    kill -TERM -- $(descendants "$pid") "$pid" 2>/dev/null || true
     for _ in $(seq 1 30); do alive "$f" || break; sleep 0.2; done
-    alive "$f" && { pkill -KILL -P "$pid" 2>/dev/null || true; kill -KILL "$pid" 2>/dev/null || true; }
+    alive "$f" && { kill -KILL -- $(descendants "$pid") "$pid" 2>/dev/null || true; }
     echo "$name: stopped"
   else
     echo "$name: not running"
@@ -214,6 +233,8 @@ X_DISPLAY=":99"
 x_start() {
   ns_require
   guard x
+  # A killed Xvfb leaves its lock behind on the shared /tmp.
+  pgrep -u "$(id -u)" -x Xvfb >/dev/null 2>&1 || rm -f "/tmp/.X${X_DISPLAY#:}-lock" "/tmp/.X11-unix/X${X_DISPLAY#:}"
   in_ns Xvfb "$X_DISPLAY" -screen 0 1280x1024x24 -nolisten tcp >"$RUN/x.log" 2>&1 &
   echo $! > "$(pidfile x)"
   for _ in $(seq 1 30); do in_ns env DISPLAY="$X_DISPLAY" xdpyinfo >/dev/null 2>&1 && break; sleep 0.2; done
@@ -245,10 +266,13 @@ capture_start() {
 }
 
 capture_stop() {
+  if alive "$(pidfile capture)"; then
+    in_ns pkill -INT -x dumpcap 2>/dev/null || true
+    for _ in $(seq 1 50); do alive "$(pidfile capture)" || break; sleep 0.2; done
+  fi
   comp_stop capture
   if [[ -f "$RUN/capture.current" ]]; then
     local out; out=$(cat "$RUN/capture.current")
-    sleep 0.5
     if [[ -f "$out" ]]; then
       echo "capture: $out ($(tshark -r "$out" 2>/dev/null | wc -l | tr -d ' ') frames)"
     fi
@@ -264,6 +288,9 @@ selftest() {
   not() { ! "$@"; }
 
   echo "selftest:"
+  if alive "$(pidfile ns)" && [[ "${1:-}" != "--force" ]]; then
+    die "a lab session is running; stop it (kdx-lab ns stop) or pass --force"
+  fi
   ns_stop >/dev/null 2>&1 || true
   ns_start >/dev/null
 
@@ -279,19 +306,28 @@ selftest() {
   check sandboxed "$w" touch "$w/ok"
   desc="dumpcap captures a packet on lo inside the namespace"
   local pc="$CAPTURES/selftest.pcapng"; rm -f "$pc"
-  in_ns dumpcap -q -i lo -c 1 -w "$pc" >/dev/null 2>&1 &
-  local dp=$!; sleep 1
-  in_ns sh -c 'echo ping | timeout 2 nc -u -w1 127.0.0.1 9 || true' >/dev/null 2>&1 || true
-  in_ns sh -c 'exec 3<>/dev/tcp/127.0.0.1/9' 2>/dev/null || true
+  in_ns timeout 8 dumpcap -q -i lo -c 1 -w "$pc" >/dev/null 2>&1 &
+  local dp=$!; sleep 1.5
+  in_ns bash -c 'exec 3<>/dev/tcp/127.0.0.1/9' 2>/dev/null || true
+  in_ns bash -c 'echo ping > /dev/udp/127.0.0.1/9' 2>/dev/null || true
   wait $dp 2>/dev/null || true
   check test -s "$pc"
   rm -f "$pc"
+  desc="capture stop ends dumpcap and leaves a complete file"
+  capture_start selftest-cap >/dev/null
+  in_ns bash -c 'exec 3<>/dev/tcp/127.0.0.1/9' 2>/dev/null || true
+  capture_stop >/dev/null
+  check bash -c "! in_ns pgrep -x dumpcap >/dev/null 2>&1 && test -s '$CAPTURES/selftest-cap.pcapng'"
+  rm -f "$CAPTURES/selftest-cap.pcapng"
   desc="start refuses when the pidfile names a live process"
   echo $$ > "$(pidfile selftest-guard)"
   check not bash -c "guard selftest-guard"
   rm -f "$(pidfile selftest-guard)"
 
+  local holder; holder=$(cat "$(pidfile ns)")
   ns_stop >/dev/null
+  desc="ns stop leaves no namespace holder or dumpcap behind"
+  check bash -c "! kill -0 $holder 2>/dev/null && ! pgrep -u \$(id -u) -x dumpcap >/dev/null"
   if [[ $fails -eq 0 ]]; then echo "selftest: ok"; else echo "selftest: $fails failure(s)"; exit 1; fi
 }
 
@@ -312,7 +348,7 @@ reset_component() {
 # ---------------------------------------------------------------- main
 
 # Export functions for the selftest's bash -c calls.
-export -f guard alive pidfile die sandboxed in_ns ns_require
+export -f guard alive pidfile die sandboxed in_ns ns_require descendants
 export RUN LAB_HOME
 
 cmd=${1:-help}; sub=${2:-}
@@ -328,8 +364,9 @@ case "$cmd" in
     esac ;;
   capture) case "$sub" in start) capture_start "${3:-}";; stop) capture_stop;; *) die "capture start NAME|stop";; esac ;;
   exec) shift; in_ns "$@" ;;
+  env) admin_env; echo "$ENV_FILE" ;;
   x) case "$sub" in start) x_start;; stop) comp_stop x;; status) comp_status x;; run) shift 2; x_run "$@";; shot) x_shot "${3:-shot}";; *) die "x start|stop|status|run CMD...|shot NAME";; esac ;;
-  selftest) selftest ;;
+  selftest) selftest "${2:-}" ;;
   reset) reset_component "${sub:-}" ;;
   *) sed -n '2,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//' ;;
 esac
