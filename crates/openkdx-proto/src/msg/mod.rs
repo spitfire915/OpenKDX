@@ -7,6 +7,7 @@
 
 pub mod chat;
 pub mod common;
+pub mod news;
 pub mod session;
 
 use std::fmt;
@@ -304,4 +305,19 @@ messages! {
     ChatDccAddresses(chat::ChatDccAddresses);
     SendPrivateMessage(chat::SendPrivateMessage);
     IncomingPrivateMessage(chat::IncomingPrivateMessage);
+    CreateNewsgroup(news::CreateNewsgroup);
+    DeleteNewsgroup(news::DeleteNewsgroup);
+    GetNewsgroup(news::GetNewsgroup);
+    NewsgroupInfo(news::NewsgroupInfoReply);
+    SetNewsgroup(news::SetNewsgroup);
+    GetNewsgroupList(news::GetNewsgroupList);
+    NewsgroupList(news::NewsgroupList);
+    GetNewsMessages(news::GetNewsMessages);
+    NewsMessages(news::NewsMessages);
+    GetNewsMessage(news::GetNewsMessage);
+    NewsMessage(news::NewsMessageReply);
+    PostNewsMessage(news::PostNewsMessage);
+    DeleteNewsMessage(news::DeleteNewsMessage);
+    NewsMessagePosted(news::NewsMessagePosted);
+    NewsMessageDeleted(news::NewsMessageDeleted);
 }

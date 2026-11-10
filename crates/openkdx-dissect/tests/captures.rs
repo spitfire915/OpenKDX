@@ -322,6 +322,46 @@ fn pm_basic_is_byte_exact() {
 }
 
 #[test]
+fn news_basic_is_byte_exact() {
+    let cap = load("news-basic");
+    assert_eq!(cap.connections.len(), 1);
+    assert_clean(&cap, "news-basic");
+    assert_exact(&cap, "news-basic");
+    assert_eq!(
+        kinds(&cap, 0),
+        vec![100, 101, 105, 605, 606, 607, 608, 611, 613, 609, 610]
+    );
+    let msgs = messages(&cap, 0);
+    let Message::NewsgroupList(list) = msgs[4] else {
+        panic!("{:?}", msgs[4].kind())
+    };
+    assert_eq!(list.groups.len(), 1);
+    assert_eq!(list.groups[0].name, b"General News");
+    let Message::NewsMessages(news) = msgs[6] else {
+        panic!("{:?}", msgs[6].kind())
+    };
+    assert_eq!(news.permissions, 7, "admin may post, delete, and read");
+    assert_eq!(news.messages.len(), 1);
+    assert_eq!(news.messages[0].subject, b"Welcome");
+    let Message::PostNewsMessage(post) = msgs[7] else {
+        panic!("{:?}", msgs[7].kind())
+    };
+    assert_eq!(post.subject, b"Lab post");
+    assert_eq!(post.body, b"Posted from the lab scenario.");
+    let Message::NewsMessagePosted(posted) = msgs[8] else {
+        panic!("{:?}", msgs[8].kind())
+    };
+    assert_eq!(posted.message_count, 2);
+    let Message::NewsMessage(reply) = msgs[10] else {
+        panic!("{:?}", msgs[10].kind())
+    };
+    assert_eq!(reply.message.message_id, posted.message_id);
+    assert_eq!(reply.message.subject, b"Lab post");
+    assert_eq!(reply.message.login, b"admin");
+    assert_eq!(reply.message.poster, b"labuser");
+}
+
+#[test]
 fn every_capture_has_no_stopped_connection() {
     for name in CAPTURES {
         let cap = load(name);

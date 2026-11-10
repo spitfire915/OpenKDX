@@ -286,7 +286,59 @@ pub fn message_summary(m: &Message) -> String {
         Message::IncomingPrivateMessage(m) => {
             format!("from user {} {}", m.user_id, quoted(&m.text))
         }
-        Message::CreatePrivateChat(_)
+        Message::CreateNewsgroup(m) => newsgroup_summary(&m.group),
+        Message::NewsgroupInfo(m) => newsgroup_summary(&m.group),
+        Message::SetNewsgroup(m) => newsgroup_summary(&m.group),
+        Message::DeleteNewsgroup(m) => format!("group {}", m.group_id),
+        Message::GetNewsgroup(m) => format!("group {}", m.group_id),
+        Message::GetNewsMessages(m) => format!("group {}", m.group_id),
+        Message::GetNewsMessage(m) => format!("group {} message {}", m.group_id, m.message_id),
+        Message::DeleteNewsMessage(m) => {
+            format!("group {} message {}", m.group_id, m.message_id)
+        }
+        Message::NewsgroupList(m) => format!(
+            "{} groups: {}",
+            m.groups.len(),
+            m.groups
+                .iter()
+                .map(|g| format!(
+                    "{} {} ({} messages, {})",
+                    g.group_id,
+                    quoted(&g.name),
+                    g.message_count,
+                    time_1900(g.time)
+                ))
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Message::NewsMessages(m) => format!(
+            "group {} permissions {:#x} {} messages: {}",
+            m.group_id,
+            m.permissions,
+            m.messages.len(),
+            m.messages
+                .iter()
+                .map(news_message_summary)
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Message::NewsMessage(m) => news_message_summary(&m.message),
+        Message::PostNewsMessage(m) => format!(
+            "group {} subject {} body {} bytes",
+            m.group_id,
+            quoted(&m.subject),
+            m.body.len()
+        ),
+        Message::NewsMessagePosted(m) => format!(
+            "group {} message {} now {} messages",
+            m.group_id, m.message_id, m.message_count
+        ),
+        Message::NewsMessageDeleted(m) => format!(
+            "group {} message {} now {} messages",
+            m.group_id, m.message_id, m.message_count
+        ),
+        Message::GetNewsgroupList(_)
+        | Message::CreatePrivateChat(_)
         | Message::MustJoinChat(_)
         | Message::GetChatList(_)
         | Message::Ping(_)
@@ -326,6 +378,32 @@ fn chat_record_summary(c: &openkdx_proto::msg::common::ChatRecord) -> String {
         c.topic_classes,
         quoted(&c.irc_server),
         quoted(&c.irc_channel)
+    )
+}
+
+fn newsgroup_summary(g: &openkdx_proto::msg::news::NewsgroupInfo) -> String {
+    format!(
+        "group {} name {} description {} {} messages limit {} KiB classes read {:#010x} post {:#010x}",
+        g.group_id,
+        quoted(&g.name),
+        quoted(&g.description),
+        g.message_count,
+        g.size_limit_kib,
+        g.read_classes,
+        g.post_classes
+    )
+}
+
+fn news_message_summary(m: &openkdx_proto::msg::news::NewsMessage) -> String {
+    format!(
+        "message {} in group {} by {} ({}) subject {} body {} bytes at {}",
+        m.message_id,
+        m.group_id,
+        quoted(&m.poster),
+        quoted(&m.login),
+        quoted(&m.subject),
+        m.body.len(),
+        time_1900(m.time)
     )
 }
 
