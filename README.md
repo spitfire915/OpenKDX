@@ -1,4 +1,8 @@
-<p align="center"><img src="assets/logo/client.svg" width="360" alt="OpenKDX"></p>
+<p align="center">
+  <img src="assets/logo/client.svg" width="240" alt="OpenKDX Client">
+  <img src="assets/logo/server.svg" width="240" alt="OpenKDX Server">
+  <img src="assets/logo/tracker.svg" width="240" alt="OpenKDX Tracker">
+</p>
 
 # OpenKDX
 
