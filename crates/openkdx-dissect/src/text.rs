@@ -5,7 +5,7 @@ use std::fmt::Write;
 
 use openkdx_proto::handshake::ProofStatus;
 use openkdx_proto::message_type::MessageType;
-use openkdx_proto::msg::common::Time1900;
+use openkdx_proto::msg::common::{Time1900, UserRecord};
 use openkdx_proto::msg::{Message, error_name};
 
 use crate::connection::Record;
@@ -166,6 +166,78 @@ pub fn message_summary(m: &Message) -> String {
                 format!("ok, value {}", s.request_type_or_value)
             }
         }
-        Message::Unknown { .. } => String::new(),
+        Message::SetIdentity(m) => user_summary(&m.user),
+        Message::UserChanged(m) => user_summary(&m.user),
+        Message::UserJoined(m) => user_summary(&m.user),
+        Message::UserList(m) => format!(
+            "{} users: {}",
+            m.users.len(),
+            m.users
+                .iter()
+                .map(user_summary)
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Message::UserDeparted(m) => format!("user {} kind {}", m.user_id, m.kind),
+        Message::ServerInfo(m) => format!(
+            "user {} version {} name {} description {} address {} transfer port {} modify settings {} session key {}",
+            m.user_id,
+            m.version,
+            quoted(&m.name),
+            quoted(&m.description),
+            quoted(&m.address),
+            m.file_transfer_port,
+            m.can_modify_settings,
+            hex(&m.session_key)
+        ),
+        Message::ServerIcon(m) => format!("{} bytes", m.icon.len()),
+        Message::ServerGreeting(m) => quoted(&m.text),
+        Message::SetMiniUserIcon(m) => format!("status {}", m.icon.status),
+        Message::MiniUserIconChanged(m) => format!("user {} status {}", m.user_id, m.icon.status),
+        Message::ExtraServerInfo(m) => format!(
+            "started {} now {} uptime {} s os {:#x}/{} {}",
+            time_1900(m.start_time),
+            time_1900(m.now),
+            m.uptime,
+            m.os_kind,
+            m.os_version,
+            quoted(&m.os)
+        ),
+        Message::YourAddress(m) => quoted(&m.address),
+        Message::Skpk(m) => format!(
+            "port {} connection {} version {} key {}",
+            m.dcc_port,
+            m.connection_id,
+            m.client_version,
+            hex(&m.key)
+        ),
+        Message::LicenseReport(m) => format!("value {}", m.value),
+        Message::Ping(_)
+        | Message::Pong(_)
+        | Message::RequestGreeting(_)
+        | Message::GetExtraServerInfo(_)
+        | Message::GetMyAddress(_)
+        | Message::Unknown { .. } => String::new(),
     }
+}
+
+fn user_summary(u: &UserRecord) -> String {
+    format!(
+        "user {} nick {} info {} port {} icon {} bytes colours {:02x}{:02x}{:02x}/{:02x}{:02x}{:02x}/{:02x}{:02x}{:02x} flags {:#x}",
+        u.user_id,
+        quoted(&u.nick),
+        quoted(&u.info),
+        u.client_port,
+        u.icon.len(),
+        u.text_color.r,
+        u.text_color.g,
+        u.text_color.b,
+        u.background_color.r,
+        u.background_color.g,
+        u.background_color.b,
+        u.account_color.r,
+        u.account_color.g,
+        u.account_color.b,
+        u.flags
+    )
 }

@@ -8,6 +8,7 @@ use openkdx_dissect::audit::Audit;
 use openkdx_dissect::connection::{Capture, ConnectionKind, Options, Record, dissect_capture};
 use openkdx_proto::ChallengeTable;
 use openkdx_proto::message_type::MessageType;
+use openkdx_proto::msg::Message;
 use openkdx_proto::registration::Registration;
 
 const CAPTURES: [&str; 7] = [
@@ -97,6 +98,41 @@ fn assert_clean(cap: &Capture, name: &str) {
     }
 }
 
+/// Every message in `cap` decodes and re-encodes byte for byte.
+fn assert_exact(cap: &Capture, name: &str) {
+    for c in &cap.connections {
+        for r in &c.records {
+            if let Record::Message {
+                message,
+                payload,
+                frame,
+                header,
+                ..
+            } = r
+            {
+                let a = openkdx_dissect::audit::audit(message, payload);
+                assert!(
+                    a.is_exact(),
+                    "{name}: frame {frame} {}: {a}",
+                    MessageType(header.kind)
+                );
+            }
+        }
+    }
+}
+
+/// The decoded messages of connection `conn`, in order.
+fn messages(cap: &Capture, conn: usize) -> Vec<&Message> {
+    cap.connections[conn]
+        .records
+        .iter()
+        .filter_map(|r| match r {
+            Record::Message { message: Ok(m), .. } => Some(m),
+            _ => None,
+        })
+        .collect()
+}
+
 #[test]
 fn first_connect_decodes_completely() {
     let cap = load("first-connect");
@@ -106,6 +142,49 @@ fn first_connect_decodes_completely() {
     assert_eq!(c.key.as_ref().unwrap().label, "--password #1");
     assert_clean(&cap, "first-connect");
     assert_eq!(kinds(&cap, 0), vec![100, 101, 105]);
+    assert_exact(&cap, "first-connect");
+    let msgs = messages(&cap, 0);
+    let Message::SetIdentity(set) = msgs[0] else {
+        panic!("first message is {:?}", msgs[0].kind());
+    };
+    assert_eq!(set.user.user_id, 0);
+    assert_eq!(set.user.nick, b"labuser");
+    assert_eq!(set.user.client_port, 10600);
+    assert_eq!(
+        (
+            set.user.background_color.r,
+            set.user.background_color.g,
+            set.user.background_color.b
+        ),
+        (0xff, 0xcc, 0)
+    );
+    assert!(set.user.padding.is_empty());
+    let Message::UserList(list) = msgs[1] else {
+        panic!("second message is {:?}", msgs[1].kind());
+    };
+    assert_eq!(list.users.len(), 1);
+    assert_eq!(list.users[0].user_id, 1);
+    assert_eq!(list.users[0].padding, vec![0, 0]);
+    assert_eq!(
+        (
+            list.users[0].account_color.r,
+            list.users[0].account_color.g,
+            list.users[0].account_color.b
+        ),
+        (0xff, 0, 0),
+        "admin's class colour"
+    );
+    let Message::ServerInfo(info) = msgs[2] else {
+        panic!("third message is {:?}", msgs[2].kind());
+    };
+    assert_eq!(info.name, b"New Server");
+    assert_eq!(info.version, 0x0654);
+    assert_eq!(info.user_id, 1);
+    assert_eq!(info.can_modify_settings, 1);
+    assert_eq!(
+        &info.session_key[..16],
+        &c.key.as_ref().unwrap().key.as_bytes()[..16]
+    );
     let hellos: Vec<_> = c
         .records
         .iter()
@@ -129,6 +208,21 @@ fn guest_login_uses_the_guest_key() {
     );
     assert_clean(&cap, "guest-login");
     assert_eq!(kinds(&cap, 0), vec![100, 101, 105]);
+    assert_exact(&cap, "guest-login");
+    let Message::ServerInfo(info) = messages(&cap, 0)[2] else {
+        panic!("no server info");
+    };
+    assert_eq!(info.can_modify_settings, 0);
+    // The session key's first half is the account key's; the second half is
+    // per session (so is the admin's in first-connect).
+    assert_eq!(
+        &info.session_key[..16],
+        &openkdx_proto::AccountKey::GUEST.as_bytes()[..16]
+    );
+    assert_ne!(
+        &info.session_key[16..],
+        &openkdx_proto::AccountKey::GUEST.as_bytes()[16..]
+    );
 }
 
 #[test]

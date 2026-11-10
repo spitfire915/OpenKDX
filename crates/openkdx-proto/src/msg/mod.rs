@@ -6,6 +6,7 @@
 //! struct does not account for fail decoding with [`DecodeError::Trailing`].
 
 pub mod common;
+pub mod session;
 
 use std::fmt;
 
@@ -162,6 +163,58 @@ pub fn error_name(code: u32) -> Option<&'static str> {
     })
 }
 
+/// A message with no payload.
+macro_rules! empty_payload {
+    ($(#[$doc:meta] $name:ident = $kind:ident;)*) => {
+        $(
+            #[$doc]
+            #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+            pub struct $name;
+
+            impl $crate::msg::Payload for $name {
+                const KIND: $crate::message_type::MessageType = $crate::message_type::MessageType::$kind;
+
+                fn decode(bytes: &[u8]) -> Result<Self, $crate::wire::DecodeError> {
+                    $crate::wire::Reader::new(bytes).finish()?;
+                    Ok($name)
+                }
+
+                fn encode(&self, _w: &mut $crate::wire::Writer) {}
+            }
+        )*
+    };
+}
+
+/// A message whose payload is one user record.
+macro_rules! user_record_payload {
+    ($(#[$doc:meta] $name:ident = $kind:ident;)*) => {
+        $(
+            #[$doc]
+            #[derive(Debug, Clone, PartialEq, Eq)]
+            pub struct $name {
+                pub user: $crate::msg::common::UserRecord,
+            }
+
+            impl $crate::msg::Payload for $name {
+                const KIND: $crate::message_type::MessageType = $crate::message_type::MessageType::$kind;
+
+                fn decode(bytes: &[u8]) -> Result<Self, $crate::wire::DecodeError> {
+                    let mut r = $crate::wire::Reader::new(bytes);
+                    let user = $crate::msg::common::UserRecord::decode(&mut r)?;
+                    r.finish()?;
+                    Ok($name { user })
+                }
+
+                fn encode(&self, w: &mut $crate::wire::Writer) {
+                    self.user.encode(w);
+                }
+            }
+        )*
+    };
+}
+
+pub(crate) use {empty_payload, user_record_payload};
+
 macro_rules! messages {
     ($($variant:ident($ty:path);)*) => {
         /// Every typed payload, or the bytes of one this crate does not model.
@@ -205,4 +258,23 @@ macro_rules! messages {
 
 messages! {
     Status(Status);
+    SetIdentity(session::SetIdentity);
+    UserList(session::UserList);
+    UserChanged(session::UserChanged);
+    UserJoined(session::UserJoined);
+    UserDeparted(session::UserDeparted);
+    ServerInfo(session::ServerInfo);
+    ServerIcon(session::ServerIcon);
+    ServerGreeting(session::ServerGreeting);
+    Ping(session::Ping);
+    Pong(session::Pong);
+    SetMiniUserIcon(session::SetMiniUserIcon);
+    MiniUserIconChanged(session::MiniUserIconChanged);
+    RequestGreeting(session::RequestGreeting);
+    GetExtraServerInfo(session::GetExtraServerInfo);
+    ExtraServerInfo(session::ExtraServerInfo);
+    GetMyAddress(session::GetMyAddress);
+    YourAddress(session::YourAddress);
+    Skpk(session::Skpk);
+    LicenseReport(session::LicenseReport);
 }
