@@ -523,7 +523,82 @@ pub fn message_summary(m: &Message) -> String {
         ),
         Message::AccountChanged(m) => format!("{} bytes", m.ignored.len()),
         Message::ChangeOwnPassword(m) => format!("key {}", hex(&m.account_key)),
-        Message::GetAccountClassList(_)
+        Message::ConnectionMonitorInfo(m) => format!(
+            "{} records: {}",
+            m.records.len(),
+            m.records
+                .iter()
+                .map(|c| if c.is_transfer() {
+                    format!(
+                        "transfer {} user {} {} {}/{} bytes at {} B/s",
+                        c.transfer_id,
+                        c.user_id,
+                        path(&c.path),
+                        c.bytes_done,
+                        c.bytes_total,
+                        c.rate
+                    )
+                } else {
+                    format!(
+                        "user {} nick {} login {} class {} from {}",
+                        c.user_id,
+                        quoted(&c.nick),
+                        quoted(&c.login),
+                        quoted(&c.account),
+                        quoted(&c.address)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Message::DisconnectUser(m) => format!(
+            "user {} ban {} s options {:#x} message {}",
+            m.user_id,
+            m.ban_seconds,
+            m.options,
+            quoted(&m.message)
+        ),
+        Message::DisconnectMessage(m) => format!(
+            "user {} flags {:#x} message {} name {}",
+            m.user_id,
+            m.flags,
+            quoted(&m.message),
+            quoted(&m.name)
+        ),
+        Message::GetUserInfo(m) => format!("user {}", m.user_id),
+        Message::UserInfo(m) => format!(
+            "user {} nick {} login {} {} from {} since {}",
+            m.user_id,
+            quoted(&m.nick),
+            quoted(&m.login),
+            quoted(&m.name_3f),
+            quoted(&m.address),
+            time_1900(m.login_time)
+        ),
+        Message::SendBroadcast(m) => quoted(&m.text),
+        Message::RcvBroadcast(m) => format!("from user {} {}", m.user_id, quoted(&m.text)),
+        Message::ServerSettingsInfo(m) => server_settings(&m.settings),
+        Message::SetServerSettings(m) => server_settings(&m.settings),
+        Message::ShutdownServer(m) => format!("mode {:#x} message {}", m.mode, quoted(&m.message)),
+        Message::HistoryList(m) => format!(
+            "{} records: {}",
+            m.records.len(),
+            m.records
+                .iter()
+                .map(history_record)
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Message::HistoryAdded(m) => history_record(&m.record),
+        Message::OpenConnectionMonitor(_)
+        | Message::CloseConnectionMonitor(_)
+        | Message::GetConnectionMonitorInfo(_)
+        | Message::GetServerSettings(_)
+        | Message::SetServerSettingsDone(_)
+        | Message::UpgradeServerSoftware(_)
+        | Message::ServerHistoryJoin(_)
+        | Message::ServerHistoryLeave(_)
+        | Message::GetAccountClassList(_)
         | Message::GetAccountList(_)
         | Message::ChangeOwnPasswordDone(_)
         | Message::GetTrackerGroupList(_)
@@ -573,6 +648,36 @@ fn chat_record_summary(c: &openkdx_proto::msg::common::ChatRecord) -> String {
         c.topic_classes,
         quoted(&c.irc_server),
         quoted(&c.irc_channel)
+    )
+}
+
+fn server_settings(s: &openkdx_proto::msg::admin::ServerSettings) -> String {
+    let sections: Vec<String> = (0..s.table.len())
+        .filter_map(|i| s.section(i).map(|d| format!("{i}: {} bytes", d.len())))
+        .collect();
+    let name = s
+        .main()
+        .map(|m| quoted(&m.server_name))
+        .unwrap_or_else(|| "?".into());
+    format!(
+        "version {} name {} sections [{}]",
+        s.version,
+        name,
+        sections.join(", ")
+    )
+}
+
+fn history_record(r: &openkdx_proto::msg::admin::HistoryRecord) -> String {
+    format!(
+        "{} {} user {} nick {} login {} from {} detail {} path {}",
+        time_1900(r.time),
+        r.kind.name().unwrap_or("unknown kind"),
+        r.user_id,
+        quoted(&r.nick),
+        quoted(&r.login),
+        quoted(&r.address),
+        quoted(&r.detail),
+        path(&r.path)
     )
 }
 

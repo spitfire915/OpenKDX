@@ -6,6 +6,7 @@
 //! struct does not account for fail decoding with [`DecodeError::Trailing`].
 
 pub mod accounts;
+pub mod admin;
 pub mod chat;
 pub mod common;
 pub mod files;
@@ -377,4 +378,24 @@ messages! {
     AccountDeleted(accounts::AccountDeleted);
     ChangeOwnPassword(accounts::ChangeOwnPassword);
     ChangeOwnPasswordDone(accounts::ChangeOwnPasswordDone);
+    OpenConnectionMonitor(admin::OpenConnectionMonitor);
+    CloseConnectionMonitor(admin::CloseConnectionMonitor);
+    GetConnectionMonitorInfo(admin::GetConnectionMonitorInfo);
+    ConnectionMonitorInfo(admin::ConnectionMonitorInfo);
+    DisconnectUser(admin::DisconnectUser);
+    DisconnectMessage(admin::DisconnectMessage);
+    GetUserInfo(admin::GetUserInfo);
+    UserInfo(admin::UserInfo);
+    SendBroadcast(admin::SendBroadcast);
+    RcvBroadcast(admin::RcvBroadcast);
+    GetServerSettings(admin::GetServerSettings);
+    ServerSettingsInfo(admin::ServerSettingsInfo);
+    SetServerSettings(admin::SetServerSettings);
+    SetServerSettingsDone(admin::SetServerSettingsDone);
+    ShutdownServer(admin::ShutdownServer);
+    UpgradeServerSoftware(admin::UpgradeServerSoftware);
+    ServerHistoryJoin(admin::ServerHistoryJoin);
+    HistoryList(admin::HistoryList);
+    ServerHistoryLeave(admin::ServerHistoryLeave);
+    HistoryAdded(admin::HistoryAdded);
 }
