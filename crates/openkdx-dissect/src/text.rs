@@ -590,7 +590,78 @@ pub fn message_summary(m: &Message) -> String {
                 .join("; ")
         ),
         Message::HistoryAdded(m) => history_record(&m.record),
-        Message::OpenConnectionMonitor(_)
+        Message::ProcessList(m) => format!(
+            "memory {}/{} bytes, {} processes: {}",
+            m.memory_used,
+            m.memory_total,
+            m.processes.len(),
+            m.processes
+                .iter()
+                .map(|p| format!("{} {} ({})", p.pid, quoted(&p.command), quoted(&p.user)))
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Message::ExitTerminateProcess(m) => format!("flags {:#x} pid {}", m.flags, m.pid),
+        Message::CloseViewDisplay(m) => format!("{} bytes", m.ignored.len()),
+        Message::ViewDisplayParams(m) => format!("flags {:#x}", m.flags),
+        Message::ViewDisplayUpdate(m) => format!(
+            "screen {}x{} rect ({}, {})-({}, {}) {} pixel bytes",
+            m.screen_width,
+            m.screen_height,
+            m.left,
+            m.top,
+            m.right,
+            m.bottom,
+            m.pixels.len()
+        ),
+        Message::ViewDisplayMouse(m) => format!(
+            "kind {} button {} at ({}, {}) wheel {} modifiers {:#x}",
+            m.kind, m.button, m.x, m.y, m.wheel, m.modifiers
+        ),
+        Message::ViewDisplayKeyboard(m) => format!(
+            "kind {} character {:#x} key {} modifiers {:#x}",
+            m.kind, m.character, m.key_code, m.modifiers
+        ),
+        Message::StartVoiceReply(m) => format!("result {:#x}", m.result),
+        Message::VoiceFormat(m) => format!(
+            "{} Hz {} {} ch {} bit buffer {} ms",
+            m.sample_rate,
+            String::from_utf8_lossy(&m.codec),
+            m.channels,
+            m.bits_per_sample,
+            m.buffer
+        ),
+        Message::VoiceData(m) => format!("{} bytes", m.audio.len()),
+        Message::CreateFolderAccess(m) => folder_access(&m.item),
+        Message::FolderAccessInfo(m) => folder_access(&m.item),
+        Message::SetFolderAccess(m) => folder_access(&m.item),
+        Message::DeleteFolderAccess(m) => format!("item {}", quoted(&m.name)),
+        Message::FolderAccessDeleted(m) => format!("item {}", quoted(&m.name)),
+        Message::GetFolderAccess(m) => format!("item {}", quoted(&m.name)),
+        Message::GetFolderAccessList(m) => match m.flags() {
+            Some(f) => format!("flags {f:#x}"),
+            None => String::new(),
+        },
+        Message::FolderAccessList(m) => format!(
+            "{} items: {}",
+            m.items.len(),
+            m.items
+                .iter()
+                .map(|i| format!(
+                    "{} (icon {:#x}, flags {:#x})",
+                    quoted(&i.name),
+                    i.icon,
+                    i.flags
+                ))
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Message::OpenProcessMonitor(_)
+        | Message::CloseProcessMonitor(_)
+        | Message::GetProcessList(_)
+        | Message::OpenViewDisplay(_)
+        | Message::StartVoice(_)
+        | Message::OpenConnectionMonitor(_)
         | Message::CloseConnectionMonitor(_)
         | Message::GetConnectionMonitorInfo(_)
         | Message::GetServerSettings(_)
@@ -648,6 +719,22 @@ fn chat_record_summary(c: &openkdx_proto::msg::common::ChatRecord) -> String {
         c.topic_classes,
         quoted(&c.irc_server),
         quoted(&c.irc_channel)
+    )
+}
+
+fn folder_access(f: &openkdx_proto::msg::misc::FolderAccess) -> String {
+    format!(
+        "item {} owner {} description {} icon {:#x} flags {:#x}{}",
+        quoted(&f.name),
+        quoted(&f.owner),
+        quoted(&f.description),
+        f.icon,
+        f.flags,
+        if f.current_name.is_empty() {
+            String::new()
+        } else {
+            format!(" (was {})", quoted(&f.current_name))
+        }
     )
 }
 
