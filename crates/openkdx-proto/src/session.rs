@@ -201,9 +201,16 @@ pub fn unscramble(h: &mut [u8; 16]) {
     Scramble::Kdx.reverse(h);
 }
 
-/// The word that fills the unused end of a payload's last block.
+/// The word that fills the unused end of a payload's last block. It is laid
+/// down as repeated 32-bit *memory* words on a little-endian machine, so byte
+/// `i` of the payload buffer gets [`padding_bytes`]`[i % 4]`.
 pub fn padding_word(txid: u32) -> u32 {
     txid.wrapping_mul(0x41c6_4e6d).wrapping_add(0x3039)
+}
+
+/// The four bytes of [`padding_word`] as they appear on the wire.
+pub fn padding_bytes(txid: u32) -> [u8; 4] {
+    padding_word(txid).to_le_bytes()
 }
 
 /// Twofish-256 ECB with the account key, plus the header scramble.
@@ -260,7 +267,7 @@ impl SessionCipher {
         let mut out = self.seal_header(header).to_vec();
         let padded = header.padded_len();
         let mut body = Vec::with_capacity(padded);
-        let pad = padding_word(header.txid).to_be_bytes();
+        let pad = padding_bytes(header.txid);
         for i in 0..padded {
             body.push(payload.get(i).copied().unwrap_or(pad[i % 4]));
         }

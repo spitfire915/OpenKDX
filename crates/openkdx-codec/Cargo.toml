@@ -9,4 +9,11 @@ description = "tokio-util codecs for KDX handshake and session framing."
 
 [dependencies]
 openkdx-proto.workspace = true
-tokio.workspace = true
+tokio-util.workspace = true
+bytes.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+openkdx-dissect.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "io-util"] }
+futures-util = { workspace = true, features = ["sink"] }

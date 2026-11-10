@@ -127,9 +127,9 @@ fn seal_pads_last_block_with_txid_lcg() {
     let mut block = sealed[16..].to_vec();
     cipher.decrypt_blocks(&mut block);
     assert_eq!(&block[..5], b"hello");
-    let pad = padding_word(7).to_be_bytes();
-    // the pad is written as whole words from the block start; bytes 5..8
-    // are the tail of word 1, then words 2 and 3
+    // little-endian memory words from the payload start [O first-connect 10, 13]:
+    // bytes 5..8 are the tail of word 1, then words 2 and 3
+    let pad = padding_word(7).to_le_bytes();
     assert_eq!(&block[5..8], &pad[1..]);
     assert_eq!(&block[8..12], &pad);
     assert_eq!(&block[12..16], &pad);
