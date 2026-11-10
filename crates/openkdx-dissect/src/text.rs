@@ -656,6 +656,27 @@ pub fn message_summary(m: &Message) -> String {
                 .collect::<Vec<_>>()
                 .join("; ")
         ),
+        Message::OpenWindow(m) => format!("{}x{} colour {:#010x}", m.width, m.height, m.color),
+        Message::Draw(m) => format!(
+            "{} records: {}",
+            m.records.len(),
+            m.records
+                .iter()
+                .map(|r| match r.object_id() {
+                    Some(id) => format!("kind {} object {} ({} bytes)", r.kind, id, r.body.len()),
+                    None => format!("kind {} ({} bytes)", r.kind, r.body.len()),
+                })
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Message::Key(m) => format!(
+            "kind {} character {:#x} usage {:#x} modifiers {:#x} at {} ms",
+            m.kind, m.character, m.usage, m.modifiers, m.time
+        ),
+        Message::Mouse(m) => format!(
+            "kind {} button {} at ({}, {}) wheel {} at {} ms",
+            m.kind, m.button, m.x, m.y, m.wheel, m.time
+        ),
         Message::OpenProcessMonitor(_)
         | Message::CloseProcessMonitor(_)
         | Message::GetProcessList(_)

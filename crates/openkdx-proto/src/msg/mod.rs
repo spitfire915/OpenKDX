@@ -10,6 +10,7 @@ pub mod admin;
 pub mod chat;
 pub mod common;
 pub mod files;
+pub mod gconsole;
 pub mod misc;
 pub mod news;
 pub mod session;
@@ -422,4 +423,8 @@ messages! {
     SetFolderAccess(misc::SetFolderAccess);
     GetFolderAccessList(misc::GetFolderAccessList);
     FolderAccessList(misc::FolderAccessList);
+    OpenWindow(gconsole::OpenWindow);
+    Draw(gconsole::Draw);
+    Key(gconsole::Key);
+    Mouse(gconsole::Mouse);
 }

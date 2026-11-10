@@ -24,6 +24,8 @@ pub enum HandshakeError {
     TooLong,
     #[error("invalid proof status {0:#x}")]
     InvalidStatus(u8),
+    #[error("the peer is a GConsole host and no GConsole challenge table is available")]
+    MissingGConsoleTable,
     #[error(transparent)]
     Decode(#[from] DecodeError),
 }
@@ -307,6 +309,24 @@ impl Proof {
             status,
             ignored: [0; 3],
         }
+    }
+}
+
+/// The table that answers `peer`'s challenge. A connection starts with the KDX
+/// story; after an `%HGC` hello the client switches to the GConsole story, so
+/// it picked its own challenge from the KDX story but answers from the other.
+pub fn table_for_peer<'a>(
+    peer: &Hello,
+    kdx: &'a ChallengeTable,
+    hgc: Option<&'a ChallengeTable>,
+) -> Result<&'a ChallengeTable, HandshakeError> {
+    match peer.sub_protocol {
+        SubProtocol::Kdx => Ok(kdx),
+        SubProtocol::Hgc => match peer.sub_version {
+            0x40 => hgc.ok_or(HandshakeError::MissingGConsoleTable),
+            v if v < 0x40 => Err(HandshakeError::TooOld),
+            _ => Err(HandshakeError::TooNew),
+        },
     }
 }
 

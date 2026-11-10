@@ -135,26 +135,70 @@ fn join_words(w: [u32; 4]) -> [u8; 16] {
     out
 }
 
-/// The keyless scramble applied to a header block before encryption.
+/// Which header scramble a connection uses: `%KDX` peers share one set of
+/// rotations and masks, a `%HGC` (GConsole) peer another.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Scramble {
+    #[default]
+    Kdx,
+    Hgc,
+}
+
+impl Scramble {
+    pub fn for_role(role: crate::handshake::Role) -> Scramble {
+        match role {
+            crate::handshake::Role::GConsole => Scramble::Hgc,
+            _ => Scramble::Kdx,
+        }
+    }
+
+    const fn constants(self) -> ([u32; 4], [u32; 4]) {
+        match self {
+            // rotations: w0 = rotl(h1, r0), w1 = rotr(h2, r1), w2 = rotl(h0, r2), w3 = rotr(h3, r3)
+            Scramble::Kdx => (
+                [13, 6, 7, 3],
+                [0x6e7d_fd34, 0xe152_da04, 0xa95a_759b, 0x0699_2e25],
+            ),
+            Scramble::Hgc => (
+                [15, 4, 7, 5],
+                [0x5f54_7a17, 0x69c8_3e35, 0x1b20_e200, 0x8022_e8d1],
+            ),
+        }
+    }
+
+    /// Scrambles a header block before encryption.
+    pub fn apply(self, h: &mut [u8; 16]) {
+        let (r, m) = self.constants();
+        let [h0, h1, h2, h3] = split_words(h);
+        *h = join_words([
+            h1.rotate_left(r[0]) ^ m[0],
+            h2.rotate_right(r[1]) ^ m[1],
+            h0.rotate_left(r[2]) ^ m[2],
+            h3.rotate_right(r[3]) ^ m[3],
+        ]);
+    }
+
+    /// Undoes [`apply`](Self::apply) after decryption.
+    pub fn reverse(self, h: &mut [u8; 16]) {
+        let (r, m) = self.constants();
+        let [w0, w1, w2, w3] = split_words(h);
+        *h = join_words([
+            (w2 ^ m[2]).rotate_right(r[2]),
+            (w0 ^ m[0]).rotate_right(r[0]),
+            (w1 ^ m[1]).rotate_left(r[1]),
+            (w3 ^ m[3]).rotate_left(r[3]),
+        ]);
+    }
+}
+
+/// The `%KDX` scramble applied to a header block before encryption.
 pub fn scramble(h: &mut [u8; 16]) {
-    let [h0, h1, h2, h3] = split_words(h);
-    *h = join_words([
-        h1.rotate_left(13) ^ 0x6e7d_fd34,
-        h2.rotate_right(6) ^ 0xe152_da04,
-        h0.rotate_left(7) ^ 0xa95a_759b,
-        h3.rotate_right(3) ^ 0x0699_2e25,
-    ]);
+    Scramble::Kdx.apply(h);
 }
 
 /// Undoes [`scramble`].
 pub fn unscramble(h: &mut [u8; 16]) {
-    let [w0, w1, w2, w3] = split_words(h);
-    *h = join_words([
-        (w2 ^ 0xa95a_759b).rotate_right(7),
-        (w0 ^ 0x6e7d_fd34).rotate_right(13),
-        (w1 ^ 0xe152_da04).rotate_left(6),
-        (w3 ^ 0x0699_2e25).rotate_left(3),
-    ]);
+    Scramble::Kdx.reverse(h);
 }
 
 /// The word that fills the unused end of a payload's last block.
@@ -166,13 +210,25 @@ pub fn padding_word(txid: u32) -> u32 {
 #[derive(Clone)]
 pub struct SessionCipher {
     cipher: Twofish,
+    scramble: Scramble,
 }
 
 impl SessionCipher {
     pub fn new(key: &AccountKey) -> Self {
         SessionCipher {
             cipher: Twofish::new(key.as_bytes().into()),
+            scramble: Scramble::Kdx,
         }
+    }
+
+    /// Uses another header scramble: [`Scramble::Hgc`] for a GConsole peer.
+    pub fn with_scramble(mut self, scramble: Scramble) -> Self {
+        self.scramble = scramble;
+        self
+    }
+
+    pub fn scramble(&self) -> Scramble {
+        self.scramble
     }
 
     /// Encrypts every 16-byte block in place. `data.len() % 16 == 0`.
@@ -194,7 +250,7 @@ impl SessionCipher {
     /// The scrambled, encrypted header block.
     pub fn seal_header(&self, header: Header) -> [u8; 16] {
         let mut block = header.to_bytes();
-        scramble(&mut block);
+        self.scramble.apply(&mut block);
         self.encrypt_blocks(&mut block);
         block
     }
@@ -224,7 +280,7 @@ impl SessionCipher {
     fn unseal_header(&self, block: &[u8; 16]) -> [u8; 16] {
         let mut plain = *block;
         self.decrypt_blocks(&mut plain);
-        unscramble(&mut plain);
+        self.scramble.reverse(&mut plain);
         plain
     }
 
