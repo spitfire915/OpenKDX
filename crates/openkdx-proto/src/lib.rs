@@ -12,6 +12,7 @@
 pub mod account;
 pub mod challenge;
 pub mod handshake;
+pub mod registration;
 pub mod session;
 pub mod wire;
 pub mod xor;
