@@ -17,12 +17,12 @@ by the server and the client. No network or UI dependency; only
 | `catalog` | `Catalog.dat` | read/write, byte-exact |
 | `tracker_stg` | `KDXTrackerServ.stg` | read/write; sections opaque until Phase 5 |
 | `client_stg` | `KDX.stg` | verified (lab) for identity and address book — Client 1.600 starts on our file |
+| `hap` | `Appearances/*.hap` | read/write, byte-exact over Haxial's 111-file pack (lab-only) → `Theme` |
 | `scramble` | the LCG XOR stream over the three scrambled files | — |
 | `store` | `LegacyDir`: `.orig` backups once, atomic saves | — |
 | `bases` | `Bases/` folder-name tags | — |
 
-`.hap` appearance files and sound lists are not here yet; `docs/formats/
-README.md` says why and how they will be done. Every format has a page in
+Sound lists are not here yet; `docs/formats/README.md` says why. Every format has a page in
 `docs/formats/` with its evidence.
 
 ## The live store

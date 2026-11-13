@@ -49,3 +49,117 @@ d2adb07d710773d5308e54d88c5bc017b4563076eeaf2a6355dc5aeea3af830b  -  -  old/KDXC
 8cdd7d1df28730f139acacce9fce3e31a1b2ed4d3a1d6c32b67777e1f0900aa5  -  -  old/KDXClient1500-Win.zip
 268f75a070dc29b24cab8bb5d0509d623bf0dd8a5dd3edf046508e2bfcc65ba5  -  -  old/KDXClient1520-Win.zip
 ca81ce0a8a0cf1e550fb953f676cef3fe34d7acf755fbee0c6ef9fb7901c8d4a  -  -  downloadstatic/KDXClient-Win.zip (Client 1.110)
+
+# Appearances041205.sit, Haxial's appearance pack (the archive and each file in it); 2026-11-13.
+e034815d2c6f0c8b2c87a9ac4e8bc8d5e76efb9547a61e0a578b6ce31bcafbc0  - -  Appearances041205.sit
+9eef00ed3ea6f81c655919e2b11653a5ed9862c6e724d2baaf022f292cddc43b  - -  hap:Appearances041205/Aluminum Alloy - Toxic.hap
+2ae97f952eda2511c02edb1ff358470b2bb94a775683586b93a5a2161d0d536b  - -  hap:Appearances041205/Ashen.hap
+efb2ebed3e590f7980e28b09de1c9a2f633cbcdb112d408cc0e29513937941c9  - -  hap:Appearances041205/BeOS.hap
+26fe76437138742589551d0936ffb253618635272e87495adc611b9e00863cf3  - -  hap:Appearances041205/Blue Fragmentation.hap
+5115f1659938d442a4c25b6b8634bbbc2574d743ada266f6e53331afe4e8496e  - -  hap:Appearances041205/Blue Print.hap
+2b34f6fa87b67fdd558340a0f0b30470982585c3212a9d627584f5400c9979e4  - -  hap:Appearances041205/Boilerplate.hap
+53b5fe00a8cf87eb4c157d09c6dc895d48a1de14a722a598528c210fc278ed57  - -  hap:Appearances041205/Boilerplate-Rusty.hap
+2b579d1bdc4487525f9cf78a61f9fb9341e1daaf80b225b31d89599ce32c63a2  - -  hap:Appearances041205/Boilerplate-Steel.hap
+8f9dc680c5601dc5088d39aa25284bd391bdbf7db3b71e1d6fc0fbd288cbc52e  - -  hap:Appearances041205/CelShaded - Blue.hap
+a3ec3a3ec5a6fc225a23ec8e37473081cdc99498a17bdc352344140e355e290b  - -  hap:Appearances041205/CelShaded - Mac.hap
+9f13f683f980da2e4b589ba5b78808a5124caa5b5aa4555d5c10a2694411f5c7  - -  hap:Appearances041205/Color-only Appearances/ace - o2.hap
+896c7ab4b7575c9ea4df14d2cf3814c644fd878a1afdd30d7c7c642d3f42a6dc  - -  hap:Appearances041205/Color-only Appearances/Acosarian.hap
+6419894e0275b39f6118b520499288b3e93efeb28f2c04191456070c9389605d  - -  hap:Appearances041205/Color-only Appearances/Alternate Romp.hap
+9ebd5434613449e10d3753f3f42095515c32644e8ba8684e8a32f63ef677c4f2  - -  hap:Appearances041205/Color-only Appearances/Amber CRT.hap
+c2db98da3de0f50563c353c4110b5920380d11aea96d5d3965c6e2c7d1553a3a  - -  hap:Appearances041205/Color-only Appearances/AquaKDX.hap
+2e4df33fc716e9679429016f4e9aaaf40d2e18354255fa9b074447710375c681  - -  hap:Appearances041205/Color-only Appearances/Arizona.hap
+ce7a0b476fc35b768178123a9a4e7a39125026e2beb51cbdb3e26c84dc8783ca  - -  hap:Appearances041205/Color-only Appearances/Arlo's Platinum Scheme.hap
+545eb1905e0628117b2d7abbab46876ffed8c78cb08f13b17159e36640256e8e  - -  hap:Appearances041205/Color-only Appearances/BadMoon.hap
+a47ad1fb5a5fb7e0d5775c4a9954ea62eacb1ee3f6e2c58f7c64f23eec6ce9b5  - -  hap:Appearances041205/Color-only Appearances/Black And White.hap
+0245ba3ad44eeb3036cbf0d69998ddff681950c9476ba8ccfcc01fc0e593e3ab  - -  hap:Appearances041205/Color-only Appearances/Bloo Dreeme (FlyFox).hap
+61a265ec9242146e042f856e35bcbde100867b0f087cd1b9df3e75b9a03ab0d4  - -  hap:Appearances041205/Color-only Appearances/BlueGrass.hap
+2490e32e482193dfac419ce0971c8c025b5a46cf7d04d1b36c2d1bdeef63b339  - -  hap:Appearances041205/Color-only Appearances/bluejeans.hap
+adea1cc5df54c604f2d5b45574c0bac47c71131f0b42757ee94d178f4dbc5c5f  - -  hap:Appearances041205/Color-only Appearances/Blue Tram Cafe.hap
+067a640c022ebcebcbb6fd1d758ee4c90fc5f71c8977eea58d1a34b6bf142e7d  - -  hap:Appearances041205/Color-only Appearances/Bubblegum Crisis.hap
+8bf4f6c049c9e93f921df4d5297c8ec6e978491e3cdbeb3dd1202ccf1f6e8490  - -  hap:Appearances041205/Color-only Appearances/Camouflage.hap
+ce6a9c3cb715e5bee1c87036547d07c00017dbae1b873302cbcca38b7da1b99f  - -  hap:Appearances041205/Color-only Appearances/Charcoal.hap
+453dfb18d70eccfabcc571a6eb01bd93af8691d888815a2935fc422d460003ce  - -  hap:Appearances041205/Color-only Appearances/Chiaroscuro (Royal).hap
+d8cdc680b1d54c49bd2abb0e05aceb9c263e72d1171888bfd792bc362ffdf6e9  - -  hap:Appearances041205/Color-only Appearances/Chiaroscuro (Sunset).hap
+e4caa42fceb1fbccd0b02d97e9c2bf95a15f99e1f0c185da614f75cbb56c246f  - -  hap:Appearances041205/Color-only Appearances/Chiaroscuro (Velvet).hap
+8d1b845930df3737529f52a2c831a2f9c5fb4581e33cc3f8bff13b41dca7cf7d  - -  hap:Appearances041205/Color-only Appearances/Chocolate Raspberry.hap
+63678bf44d0b75527c7327bd5dedc9bb83901656d7e3b2b649480f4f5cb6b9b2  - -  hap:Appearances041205/Color-only Appearances/classic.hap
+9b3af5a2449421b51538ea030095fa7786f1e25e305ce7f647af42e13dc6ffa2  - -  hap:Appearances041205/Color-only Appearances/dang v01.hap
+f21b3e92e16c876b25ecd855edbdda07b2bf4a4689f5da445557b97c3ecda6d7  - -  hap:Appearances041205/Color-only Appearances/Demo Royal Gold.hap
+8ea4560dfd45180921d20aaf20668fed2b11e7761003eb2c70e1863c971b4c36  - -  hap:Appearances041205/Color-only Appearances/Devil's Ground.hap
+9e0539b110be9f71da08c0cfd7f9fcd1a8f7dff8c133c9b0bd647fc5b8345309  - -  hap:Appearances041205/Color-only Appearances/Different.hap
+0982a780793286db587d29cfa052f5a93e624999c4bf91f2b302b1391e06c0b2  - -  hap:Appearances041205/Color-only Appearances/Electric blue.hap
+1291e189c755199e1fc92e6b090bee3b0e9f874e3dab17ddbea7f71e22f2337d  - -  hap:Appearances041205/Color-only Appearances/Electric green.hap
+a24daf47513bded8ff8151ae7f45a98819f5fb59007aff29f9e72e9a27787716  - -  hap:Appearances041205/Color-only Appearances/Electric pink.hap
+96631172c21475a78b81cec8c55aea3cb26004689ecdf1a2fceca43ec3fe9cb9  - -  hap:Appearances041205/Color-only Appearances/Electric purple.hap
+7018f5a513900ed5e23ca4aec83039524eab6651b53d19ecde4c08ec733a1060  - -  hap:Appearances041205/Color-only Appearances/Electric red.hap
+c1359ec62909119f08555f3fe8e70bf5fb3532cc6512e5db5d41d184101c8499  - -  hap:Appearances041205/Color-only Appearances/Electric yellow.hap
+ee74c0890b019d727edb643b7ab2e131a4105e52c75cc23942d7dc0935bd98d2  - -  hap:Appearances041205/Color-only Appearances/Emerald Forest.hap
+c593fe7e069b3fb9ed86608c486ea3b21601665a6bb2e00518b5efe7be90631d  - -  hap:Appearances041205/Color-only Appearances/English Moor.hap
+c356756d4914bde347df74bd1ff874ec095233f9f43eaebdd7ec0e488d59d9b1  - -  hap:Appearances041205/Color-only Appearances/Halloween.hap
+f210263dfb61a3175d9e57ef4ee51cc51c9dee652590d560a7e78dec236557ab  - -  hap:Appearances041205/Color-only Appearances/Hyde Scheme 666.hap
+216c76d4101c4fd0009d86bb090f5ec1306b435cb0302bc642dbbc16d016b4fc  - -  hap:Appearances041205/Color-only Appearances/IK Blue.hap
+babc5e766d4fe7ba6577db68b5df52c293776d10a88d8fb364e84cdf7c00a909  - -  hap:Appearances041205/Color-only Appearances/Jazz And Blues.hap
+c581da3e368d942a068c62624081544ecfb3f2c77ef06b9b9708152ebaa15077  - -  hap:Appearances041205/Color-only Appearances/Lavender Regression.hap
+2d731dc71cfc9694e519a2209eb4b840785d4051628d19ec6cf77d76dd64cb6b  - -  hap:Appearances041205/Color-only Appearances/LCD.hap
+1634fd1f778426e899ef174f9ddf407703d26878af2cea6fa542705f2460b1f3  - -  hap:Appearances041205/Color-only Appearances/Mach Lavender.hap
+6b9a1dd2e518ac76c93284b25886a0fa346b1e6fd1cd9fd9cc213c38e27fd2e2  - -  hap:Appearances041205/Color-only Appearances/Mach Sapphire.hap
+0ca956ef39660c0c6e5240295bfbe3497ea08f218f27c2e1c21b85fbb479af3e  - -  hap:Appearances041205/Color-only Appearances/Mach Teal.hap
+2553d0b439190a14e171d33776622dece35f01af630d261e088e8b5f50dd03cd  - -  hap:Appearances041205/Color-only Appearances/mckdx.hap
+2c9d43170e0b4c9b7f8cac60755f04490f80144d359a96cb8b6a609576f423a1  - -  hap:Appearances041205/Color-only Appearances/Merry Christmas.hap
+9be9a3ef01596405ffb5da4fdf793f3a2ce02b4effb63b88bfc145b86db251ae  - -  hap:Appearances041205/Color-only Appearances/Midnight Whispers 2.1.hap
+40c37dfebfb85457e8e21c6a1ab6d3584735a848df26d9175a1a2b566dad1788  - -  hap:Appearances041205/Color-only Appearances/MS Windows 020202.hap
+c17f2868ac8e651bcd6510b1db98474e24c8e457a067d19d89a51367fe1a0fc6  - -  hap:Appearances041205/Color-only Appearances/Neon Sea.hap
+e09b4155546940e17a2e3e94789e94f71a16f1010ae0a8ac7e56e0b3114f3a39  - -  hap:Appearances041205/Color-only Appearances/Night-Vision.hap
+e0e23c2cb4915e3b03faddf4872be96df303bb45628ea55a6a2fce2b9e9006f7  - -  hap:Appearances041205/Color-only Appearances/Nothing Rhymes With.hap
+8b7ffec9a86374f45f63dd4d81c868eb65e6d705666c9b14778f87b4e746d8e0  - -  hap:Appearances041205/Color-only Appearances/Ocean Floor.hap
+09e1233de73a9da14eb8de0db10f475beefe4586c50d3f93a45d4167e559b089  - -  hap:Appearances041205/Color-only Appearances/plum crazy.hap
+d81f575305a8977e1b616f583dc2dca8051cc0de211dcf34d57e2d79b54cf5f1  - -  hap:Appearances041205/Color-only Appearances/Redrum Bedlam.hap
+9d1b6f0314cd47da7efaf225b80ed23d6eea4d037b9f48abdbad49fa3a231aac  - -  hap:Appearances041205/Color-only Appearances/rodent infusion.hap
+33c30f0e8edb677d3232cf3a22ff063809e71c4280692949ea69323128a1c6f6  - -  hap:Appearances041205/Color-only Appearances/rose.hap
+c070f636fdb729ba2fea8f59431e800025c8d0eed2d4955c99ffbde301ddade7  - -  hap:Appearances041205/Color-only Appearances/Royalty.hap
+2ea6d879355c02b72d6de839249a2fb55587a2ebbf992d5e73947533ebc54a09  - -  hap:Appearances041205/Color-only Appearances/Silver angel.hap
+83df770f7ab0a2c1a3d965e4828f658dc504daf5d460cac60f1e4e867868bd5a  - -  hap:Appearances041205/Color-only Appearances/Simple Blue-gray.hap
+f1577bf3500be8e1fdcbeb0a743ca8a12d63433446dceaa988f6296328ab4d0c  - -  hap:Appearances041205/Color-only Appearances/slate.hap
+66ab99cfd19d1d9af801a6614cebe3f965217722ff314bfe58d0149564f52910  - -  hap:Appearances041205/Color-only Appearances/spruce.hap
+077ea67a557936d7aa5d0013c0fb101f0051c1b022606d8a0b413b742bbb3c5c  - -  hap:Appearances041205/Color-only Appearances/standard.hap
+346b1b6ea26883915f828779827533bafbce1875f79b921763c0694fc40d2446  - -  hap:Appearances041205/Color-only Appearances/Techno Electric.hap
+3c4ae30018c2bb88f1f89d7829d895077a532189feee26f09be434785d343ef8  - -  hap:Appearances041205/Color-only Appearances/TechPants.hap
+642eb5d206365f1aec81a9d7111490b33cb9ba91785774d35a7c1c30e46f2729  - -  hap:Appearances041205/Color-only Appearances/The Dream Scheme (Blue).hap
+faddada4077e50888e7e3fd715028e3cd47df4338560cfd10ddb5a748c3eac37  - -  hap:Appearances041205/Color-only Appearances/The Dream Scheme (Green).hap
+b0cd86744d1012fbc14139724989b003baafa630f6f81e72e384ce4d31ffac54  - -  hap:Appearances041205/Color-only Appearances/The Dream Scheme (Purple).hap
+ec4549f9cc2d88c4d8af25eb00821ce2cce64b2d9e83b7c0e2b75c57b1d90551  - -  hap:Appearances041205/Color-only Appearances/TRON.hap
+7f7d7ff8d751ab86f38b30b9f4f5611ac6521e01263c797a8bdfe13fec7cecd5  - -  hap:Appearances041205/Color-only Appearances/Turkish Alizarin.hap
+e1c5e88eb9e15cd597bca927d7e89d8e30371bb7fca6cbcbe98fc9bf360f549a  - -  hap:Appearances041205/Color-only Appearances/Turquoise Hilites.hap
+b7014a81fa9a41b34821c5c3580e16fd204ef02289e833d77e318c34467baef7  - -  hap:Appearances041205/Color-only Appearances/UNx.hap
+d1473ab9f2885473c129842b656949ead38a753908a09d5e07dbb83b67074a85  - -  hap:Appearances041205/Color-only Appearances/Vicky Vale.hap
+1e0376ae3cb06b2ed274d80c7a08592bec315459a1cbcfb636d5965d4b1d61ac  - -  hap:Appearances041205/Color-only Appearances/wheat.hap
+187cc486e170fbb0ffc764d9489f439de805998907cceed66c82f8ede73c527f  - -  hap:Appearances041205/cube.hap
+a399d9998e6759a808a4c34ae6ae1b930e2162bf93c480cce06b959b48091b3c  - -  hap:Appearances041205/Cybernet.hap
+cb1ebc98dc64f48c574f2c342320110c75501da204d70782cd9d54763d8f2f29  - -  hap:Appearances041205/DSX [Green].hap
+a4a350e87685aef772023ec8b9be9cfecb3ec7f0caca37c9dde31a86787c17cf  - -  hap:Appearances041205/Function 2.0.hap
+2be2ffadbd1513f25800b68d9abcf164c520e64b27bffe2d59807d41adedcbe1  - -  hap:Appearances041205/Function (6680B2 Edition).hap
+a31f060efce54be3206cbf2badb6ff23b4e974eda30085cc494a4a916d1aff82  - -  hap:Appearances041205/Gamespot-1100.hap
+22f53364a96f03c450e69611df6e8534a84d0be12d80cd2eb8c9c7302ebc30b6  - -  hap:Appearances041205/GrayLine 4.0 by woods.hap
+8ab0f1b7bd99abb732e31c3c650e8e2ead0d56578c2661aa6a06e127855c5c05  - -  hap:Appearances041205/iceIKle.hap
+e2fd0fb2a621151622b79f3730f7c97dfbb7759ef683ece10de11b6e39d9a2eb  - -  hap:Appearances041205/International2.hap
+4e49b0e14fb6d8ef148df98ebb4b0a6db438fd0faa874ffc69e6c9f1a4bae62a  - -  hap:Appearances041205/MacOS9 Icons.hap
+e4f8e2046823ddbb0830263a68e0acdd856c78033e50cbdd3a19bbce2ce25b52  - -  hap:Appearances041205/MacOS Classic.hap
+769888bd49ce3183883efb19f927ae2080de79ce43a9784857e87c88aab0418b  - -  hap:Appearances041205/Matrix Ice.hap
+5ef897b4c61c02b4aee3416c3f04e99cb192973eaa500cfa706e5dffd1a7f4d1  - -  hap:Appearances041205/Milk Redux - Apple Logo.hap
+d3d8f4fd6bc538cdcfb9774596ec3b32e045848e1f889942347ac3c91ab3b387  - -  hap:Appearances041205/Milk Redux.hap
+f35f23de6731105b40283573630c74c2858fa691905eb88a944eb094f1881f8b  - -  hap:Appearances041205/Mjolnir.hap
+e6457aaaf231c54479b2560204a98021ed008c1ff2b3ec66850e4e5165c071fb  - -  hap:Appearances041205/Mjolnir Mac.hap
+8c3f87ff4d78fdb839597d46e594af0035885072c3c5442b918d4f6899b5ba9f  - -  hap:Appearances041205/Mjolnir Win.hap
+3d66bdd4d1f51540c333c52469791d16f2124397c87a786b3af864ebf1c18677  - -  hap:Appearances041205/Shinobi_by_PimpToxie.hap
+4575f02fce97387d3ac943d166afae2ffee1f535efac02458014806964d2917f  - -  hap:Appearances041205/Siro.hap
+a2cea22f9d523174174e0b1b919376661d4545cd16cb603d22bd603611929f93  - -  hap:Appearances041205/SprCrnr Theme 2.1.hap
+acd26c35b3307b80a8bd6c1bf8277f81c2bfe55d5c64492897efbd3caa06e810  - -  hap:Appearances041205/Swordfish.hap
+d32669f486dffb09269aeac0cda34a3668f869a88343509e24f45990203711a3  - -  hap:Appearances041205/Terminal-MONO.hap
+95d2561a5ddb36f377c1da4b948cd1bc5f148f50502af348cbe16b7b806e2ba7  - -  hap:Appearances041205/Terminal-NEO.hap
+1526aa58e1ac93b768f2e05e248d7e31b9e8c8266820190d93de3d1b5b3b27e6  - -  hap:Appearances041205/Terminal-TRON.hap
+ef70c6ded47cc1a4272da192b0ef7676008b3731a2336ea00c2770d225c2c6b1  - -  hap:Appearances041205/Voodoo.hap
+8e3b5ddfb7341caed5da14dcf3903a5613a71d9de35e7b26516b1f0351d0f273  - -  hap:Appearances041205/Win2k by Lech.hap
+84d39d285ae3cd57f6fabf43247ec7e50fc54376c2f5eab38556e19ca9ce8f4d  - -  hap:Appearances041205/WinXP.hap
+d3dba39898e61430bd9c62c74f1e443bad9bc93fd8c1069b8016a27622beb966  - -  hap:Appearances041205/X 3D 000 (FINAL).hap
+a04968bee32b2381ca25f3d3101f115eccb85540df334f048ed8f8cea1377b01  - -  hap:Appearances041205/X.hap
+87c8ed55c00f23f5a0e452b1c7ce9f1649720e5412d02393da2f03da3b8af5e7  - -  hap:Appearances041205/Zurie_Constructicons_large.hap

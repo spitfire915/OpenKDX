@@ -59,6 +59,13 @@ sleep 1
 if grep -qi "licen\|damaged\|corrupt" "$RUN/server.log"; then echo "legacy: server log complains" >&2; tail -20 "$RUN/server.log" >&2; exit 1; fi
 "$LAB" ns stop >/dev/null 2>&1 || true
 
+# --- .hap: every file of the appearance pack round-trips (lab-only data) ----
+if [[ -d "$HOME/haxial/legacy/appearances" ]]; then
+  OPENKDX_LAB_HAP_DIR="$HOME/haxial/legacy/appearances" cargo test -q -p openkdx-legacy --test hap -- --test-threads=1
+else
+  echo "legacy: appearance pack missing under ~/haxial/legacy/appearances; .hap pack test skipped" >&2
+fi
+
 # --- The client's file: samples, round trips, write-back --------------------
 FORCE=1 "$HERE/scenarios/client-samples.sh"
 OPENKDX_LAB_LEGACY_DIR="$SNAP" cargo test -q -p openkdx-legacy --test lab -- --test-threads=1 lab_client
