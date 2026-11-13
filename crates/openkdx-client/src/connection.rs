@@ -296,6 +296,23 @@ impl Connection {
         })
     }
 
+    /// `request` for messages the server acknowledges with a success
+    /// `Status` (code 0, value = the request type): an error `Status`
+    /// becomes `ClientError::Server`; anything else is returned.
+    pub async fn request_ok<T: Payload>(&self, req: &T) -> Result<Message> {
+        let message = self.request(req).await?;
+        if let Message::Status(status) = &message
+            && status.is_error()
+        {
+            return Err(ClientError::Server {
+                code: status.code,
+                name: error_name(status.code),
+                request: T::KIND.0,
+            });
+        }
+        Ok(message)
+    }
+
     /// Write one codec item and wait until it has gone out (transfers use
     /// this for data headers and data).
     pub(crate) async fn send_item(&self, item: Item) -> Result<()> {

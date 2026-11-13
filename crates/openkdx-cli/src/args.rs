@@ -83,6 +83,70 @@ pub enum Command {
     /// Newsgroups and news messages.
     #[command(subcommand)]
     News(NewsCmd),
+    /// Files and folders.
+    #[command(subcommand)]
+    Files(FilesCmd),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum FilesCmd {
+    /// List a folder (the base folder by default).
+    Ls {
+        #[arg(default_value = "")]
+        path: String,
+        /// Sizes, dates, kinds.
+        #[arg(short = 'L', long)]
+        long: bool,
+    },
+    /// Information about a file or folder.
+    Info { path: String },
+    /// Create a folder.
+    Mkdir {
+        /// The parent folder ("" for the base).
+        parent: String,
+        name: String,
+        /// A folder access item name, such as Uploads or a drop box.
+        #[arg(long, default_value = "")]
+        access: String,
+        /// The drop box owner's login.
+        #[arg(long, default_value = "")]
+        owner: String,
+    },
+    /// Move items to the trash.
+    Trash {
+        #[arg(required = true)]
+        paths: Vec<String>,
+    },
+    /// Empty the trash.
+    EmptyTrash,
+    /// Search the catalog.
+    Search { text: String },
+    /// Download a file.
+    Get {
+        path: String,
+        /// Destination file or directory (the current directory by default).
+        #[arg(long)]
+        to: Option<std::path::PathBuf>,
+        /// Continue a partial download.
+        #[arg(long)]
+        resume: bool,
+    },
+    /// Upload a file.
+    Put {
+        local: std::path::PathBuf,
+        /// The destination folder ("" for the base).
+        #[arg(default_value = "")]
+        folder: String,
+        /// The name on the server (the local name by default).
+        #[arg(long)]
+        name: Option<String>,
+        /// Continue a partial upload.
+        #[arg(long)]
+        resume: bool,
+        /// Test only: drop the connection after this many data bytes.
+        #[arg(long, hide = true)]
+        stop_after: Option<u64>,
+    },
 }
 
 #[derive(Debug, Subcommand)]

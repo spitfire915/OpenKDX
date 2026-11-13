@@ -1,4 +1,5 @@
 pub mod chat;
+pub mod files;
 pub mod news;
 pub mod session;
 
@@ -120,5 +121,6 @@ pub async fn dispatch(ctx: &mut Ctx, command: Command) -> anyhow::Result<()> {
         Command::Chat(c) => chat::chat(ctx, c).await,
         Command::Pm(c) => chat::pm(ctx, c).await,
         Command::News(c) => news::news(ctx, c).await,
+        Command::Files(c) => files::files(ctx, c).await,
     }
 }

@@ -223,3 +223,41 @@ fn time_string_formats_a_known_instant() {
     assert_eq!(out::time_string(t), "2026-11-07 14:06:39");
     assert_eq!(out::version_string(0x0654), "1.620");
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn files_ls_prints_a_listing_with_non_utf8_names() {
+    use openkdx_proto::msg::files::{FileList, FileListEntry};
+    let mut steps = login_steps();
+    steps.push(Step::Expect(MessageType::GET_FILE_LIST));
+    steps.push(Step::Reply(Message::FileList(FileList {
+        entries: vec![
+            FileListEntry {
+                size: 3,
+                attributes: FileListEntry::ATTR_FILE,
+                name: b"caf\xa5.txt".to_vec(),
+                kind: b"text/plain".to_vec(),
+                padding: vec![0; 1],
+                ..FileListEntry::default()
+            },
+            FileListEntry {
+                size: 0x1000,
+                attributes: FileListEntry::ATTR_FOLDER,
+                access_item: 0x2b,
+                name: b"Uploads".to_vec(),
+                padding: vec![0; 2],
+                ..FileListEntry::default()
+            },
+        ],
+    })));
+    let server = std::sync::Arc::new(MockServer::start(accounts(), vec![steps]).await);
+    let s2 = server.clone();
+    let (code, stdout, stderr) =
+        tokio::task::spawn_blocking(move || openkdx(&s2, &["files", "ls", "-L"], ""))
+            .await
+            .unwrap();
+    assert_eq!(code, 0, "{stderr}");
+    server.check();
+    assert!(stdout.contains("caf\u{fffd}.txt"), "{stdout}");
+    assert!(stdout.contains("Uploads/"), "{stdout}");
+    assert!(stdout.contains("[UL]"), "{stdout}");
+}
