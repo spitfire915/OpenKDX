@@ -83,6 +83,7 @@ fn settings() -> TrackerSettings {
         version: 1,
         ignored: [0; 2],
         sections,
+        empty_offsets: [0; 12],
     }
 }
 

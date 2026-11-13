@@ -14,7 +14,7 @@ samples of the client-side formats.
 |---|---|---|---|---|
 | `Accounts.dat` | server | accounts, classes, folder access, 32-byte derived keys | verified | `accounts-dat.md` |
 | `KDXServer.stg` | server | settings: name, description, address, ports, greeting, server icon, speed limit, allow/deny, trackers, history | read/write | `server-stg.md` |
-| `KDXTrackerServ.stg` | tracker | tracker settings | unknown | `tracker-stg.md` |
+| `KDXTrackerServ.stg` | tracker | tracker settings | read/write | `tracker-stg.md` |
 | `News.dat` | server | newsgroups and messages (created empty at first run) | unknown | `news-dat.md` |
 | `News Archives/` | server | archived news, text | unknown | `news-archives.md` |
 | `History/` | server | tab-separated history logs | unknown | `history.md` |

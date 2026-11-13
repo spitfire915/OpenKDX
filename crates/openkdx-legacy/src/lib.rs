@@ -10,6 +10,7 @@ pub mod error;
 pub mod scramble;
 pub mod server_stg;
 pub mod store;
+pub mod tracker_stg;
 
 pub use accounts::AccountsFile;
 pub use bases::{BaseName, BaseTag, format_base_name, parse_base_name};
