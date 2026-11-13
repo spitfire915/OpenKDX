@@ -37,6 +37,7 @@ CLI="$PWD/target/debug/openkdx"
 sleep 1
 "$TOOL" add-account "$RUN/server" legacyuser secret 1
 "$TOOL" set-name "$RUN/server" "Written by OpenKDX"
+"$TOOL" post "$RUN/server" 1 "Posted by OpenKDX" "This post was appended to News.dat by openkdx-legacy."
 "$TOOL" rewrite "$RUN/server"
 test -f "$RUN/server/Accounts.dat.orig" && test -f "$RUN/server/KDXServer.stg.orig"
 "$LAB" server start >/dev/null
@@ -48,6 +49,13 @@ fi
 out=$("$LAB" exec env OPENKDX_KDX_TABLE="$OPENKDX_KDX_TABLE" "$CLI" -s 127.0.0.1 -l legacyuser -p secret --json login 2>&1)
 case "$out" in *'"Written by OpenKDX"'*) ;; *) echo "legacy: server did not take our files: $out" >&2; exit 1 ;; esac
 "$LAB" exec env OPENKDX_KDX_TABLE="$OPENKDX_KDX_TABLE" "$CLI" -s 127.0.0.1 -l "$KDX_ADMIN_LOGIN" -p "$KDX_ADMIN_PASSWORD" accounts show legacyuser > "$RUN/legacy-show.out"; grep -q legacyuser "$RUN/legacy-show.out"
+# The original must list the post we appended, and still read the news
+# store it rewrites afterwards.
+"$LAB" exec env OPENKDX_KDX_TABLE="$OPENKDX_KDX_TABLE" "$CLI" -s 127.0.0.1 -l "$KDX_ADMIN_LOGIN" -p "$KDX_ADMIN_PASSWORD" news list "General News" > "$RUN/legacy-news.out"
+grep -q "Posted by OpenKDX" "$RUN/legacy-news.out" || { echo "legacy: server does not list our post" >&2; cat "$RUN/legacy-news.out" >&2; exit 1; }
+"$LAB" exec env OPENKDX_KDX_TABLE="$OPENKDX_KDX_TABLE" "$CLI" -s 127.0.0.1 -l "$KDX_ADMIN_LOGIN" -p "$KDX_ADMIN_PASSWORD" news post "General News" --subject "After ours" --body "The original wrote this." > /dev/null
+sleep 1
+"$TOOL" dump "$RUN/server/News.dat" | grep -q "After ours" || { echo "legacy: cannot read the news store the original wrote after our post" >&2; exit 1; }
 if grep -qi "licen\|damaged\|corrupt" "$RUN/server.log"; then echo "legacy: server log complains" >&2; tail -20 "$RUN/server.log" >&2; exit 1; fi
 "$LAB" ns stop >/dev/null 2>&1 || true
 

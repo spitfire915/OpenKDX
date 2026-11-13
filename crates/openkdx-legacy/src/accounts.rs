@@ -74,6 +74,33 @@ impl AccountsFile {
         }
     }
 
+    /// Every string must fit its length byte, as the wire encoders assume.
+    pub fn validate(&self) -> Result<()> {
+        let long = |v: &Vec<u8>| v.len() > 0xff;
+        for c in &self.classes {
+            if long(&c.name) || long(&c.second_string) || long(&c.editor_login) {
+                return Err(LegacyError::Invalid(
+                    "Accounts.dat: class string longer than 255 bytes",
+                ));
+            }
+        }
+        for a in &self.accounts {
+            if long(&a.login) || long(&a.name) || long(&a.third) || long(&a.editor) {
+                return Err(LegacyError::Invalid(
+                    "Accounts.dat: account string longer than 255 bytes",
+                ));
+            }
+        }
+        for f in &self.folder_access {
+            if long(&f.name) || long(&f.owner) || long(&f.description) || long(&f.current_name) {
+                return Err(LegacyError::Invalid(
+                    "Accounts.dat: folder access string longer than 255 bytes",
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn remove(&mut self, login: &[u8]) -> bool {
         let before = self.accounts.len();
         self.accounts.retain(|a| a.login != login);
@@ -133,6 +160,11 @@ fn decode_list<T>(
     }
     let count = r.u32()? as usize;
     let ignored = r.u32()?;
+    if count > r.remaining() / 4 {
+        return Err(LegacyError::Invalid(
+            "Accounts.dat: list count past the section",
+        ));
+    }
     let mut ends = Vec::with_capacity(count);
     for _ in 0..count {
         ends.push(r.u32()? as usize);
@@ -271,6 +303,7 @@ impl LegacyDir {
     }
 
     pub fn save_accounts(&self, file: &AccountsFile) -> Result<()> {
+        file.validate()?;
         self.save(ServerFile::Accounts, &encode_accounts(file))
     }
 }

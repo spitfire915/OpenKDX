@@ -33,6 +33,9 @@ pub struct NewsStore {
     pub groups_gap: Vec<u8>,
     /// Bytes after the last list up to the 8-aligned end of the file.
     pub trailer: Vec<u8>,
+    /// False for the 0-byte file of a fresh server; true once a header has
+    /// been written, even with no groups left.
+    pub has_header: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -60,6 +63,7 @@ impl Default for NewsStore {
             groups: Vec::new(),
             groups_gap: Vec::new(),
             trailer: Vec::new(),
+            has_header: false,
         }
     }
 }
@@ -77,8 +81,32 @@ impl NewsStore {
         self.group(group_id).map(|g| g.last_message_id + 1)
     }
 
+    /// Every string must fit its length field (one byte; the body two).
+    pub fn validate(&self) -> Result<()> {
+        for g in &self.groups {
+            if g.info.name.len() > 0xff || g.info.description.len() > 0xff {
+                return Err(LegacyError::Invalid(
+                    "News.dat: group string longer than 255 bytes",
+                ));
+            }
+            if g.messages.len() > 0xffff {
+                return Err(LegacyError::Invalid(
+                    "News.dat: more than 65535 messages in a group",
+                ));
+            }
+            for m in &g.messages {
+                validate_message(m)?;
+            }
+        }
+        if self.groups.len() > 0xffff {
+            return Err(LegacyError::Invalid("News.dat: more than 65535 groups"));
+        }
+        Ok(())
+    }
+
     /// Appends a message; its `group_id` and `message_id` are set here.
     pub fn post(&mut self, group_id: u32, mut message: NewsMessage) -> Result<u32> {
+        validate_message(&message)?;
         let g = self
             .group_mut(group_id)
             .ok_or(LegacyError::Invalid("News.dat: no such newsgroup"))?;
@@ -127,6 +155,20 @@ impl NewsStore {
     }
 }
 
+fn validate_message(m: &NewsMessage) -> Result<()> {
+    if m.poster.len() > 0xff || m.login.len() > 0xff || m.subject.len() > 0xff {
+        return Err(LegacyError::Invalid(
+            "News.dat: message string longer than 255 bytes",
+        ));
+    }
+    if m.body.len() > 0xffff {
+        return Err(LegacyError::Invalid(
+            "News.dat: message body longer than 65535 bytes",
+        ));
+    }
+    Ok(())
+}
+
 fn pad8(len: usize) -> usize {
     (8 - len % 8) % 8
 }
@@ -161,8 +203,13 @@ pub fn decode_news(bytes: &[u8]) -> Result<NewsStore> {
     let mut table_other = table;
     table_other[1] = (0, 0);
 
-    let mut groups = Vec::with_capacity(count);
     let section_end = HEADER_LEN + groups_len as usize;
+    if count > groups_len as usize / 0x70 + 1 || section_end > bytes.len() {
+        return Err(LegacyError::Invalid(
+            "News.dat: group count past the groups section",
+        ));
+    }
+    let mut groups = Vec::with_capacity(count);
     for _ in 0..count {
         let start = r.pos();
         let list_offset = r.u32()? as usize;
@@ -227,6 +274,7 @@ pub fn decode_news(bytes: &[u8]) -> Result<NewsStore> {
         groups: out,
         groups_gap,
         trailer,
+        has_header: true,
     })
 }
 
@@ -237,6 +285,11 @@ fn decode_list(bytes: &[u8], group_id: u32) -> Result<(u32, Vec<NewsMessage>)> {
     }
     let count = r.u32()? as usize;
     let ignored = r.u32()?;
+    if count > r.remaining() / 4 {
+        return Err(LegacyError::Invalid(
+            "News.dat: message count past its list",
+        ));
+    }
     let mut ends = Vec::with_capacity(count);
     for _ in 0..count {
         ends.push(r.u32()? as usize);
@@ -285,7 +338,7 @@ fn encode_list(g: &NewsGroupRecord) -> Vec<u8> {
 }
 
 pub fn encode_news(store: &NewsStore) -> Vec<u8> {
-    if store.groups.is_empty() && store.trailer.is_empty() && store.groups_gap.is_empty() {
+    if store.groups.is_empty() && !store.has_header {
         return Vec::new();
     }
     // Lists first, to know their offsets and lengths for the entries.
@@ -352,6 +405,7 @@ impl LegacyDir {
     }
 
     pub fn save_news(&self, store: &NewsStore) -> Result<()> {
+        store.validate()?;
         self.save(ServerFile::News, &encode_news(store))
     }
 }

@@ -68,7 +68,10 @@ impl HistoryLine {
             if i > 0 {
                 out.push(b'\t');
             }
-            out.extend_from_slice(col);
+            out.extend(col.iter().map(|&b| match b {
+                b'\t' | b'\r' | b'\n' => b' ',
+                b => b,
+            }));
         }
         out.push(b'\n');
         out

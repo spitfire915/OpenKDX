@@ -1,6 +1,6 @@
 # `KDXServer.stg`
 
-**Status:** verified. Byte-exact over 18 lab files; Server 1.620 starts on
+**Status:** verified (lab). Byte-exact over 18 lab files; Server 1.620 starts on
 our rewrite and shows the name we set (`lab/legacy.sh`).
 
 The server's settings. The file is the same `%KDXSSTG` blob the wire carries

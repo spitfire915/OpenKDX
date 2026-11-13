@@ -32,8 +32,9 @@ pub struct ClientSettings {
     pub order: Vec<usize>,
     pub identity: ClientIdentity,
     pub address_book: Vec<AddressBookEntry>,
-    /// The address-book list's second word (3 with three entries; 1 with
-    /// one): kept as read, rewritten as the entry count when zero.
+    /// The address-book list's second word: the highest id handed out (it
+    /// equals the count in every file seen). The encoder writes
+    /// `max(this, highest id, count)`.
     pub address_book_count2: u32,
     /// Every other section's bytes, by index (1 and 7 stay empty here).
     pub sections: [Vec<u8>; 12],
@@ -294,6 +295,11 @@ fn decode_address_book(bytes: &[u8]) -> Result<(u32, Vec<AddressBookEntry>)> {
     if r.u32()? != 0 {
         return Err(LegacyError::Invalid("KDX.stg: address book header"));
     }
+    if count > r.remaining() / 8 {
+        return Err(LegacyError::Invalid(
+            "KDX.stg: address book count past the section",
+        ));
+    }
     let mut ids = Vec::with_capacity(count);
     for _ in 0..count {
         ids.push(r.u32()?);
@@ -339,19 +345,25 @@ fn encode_address_book(count2: u32, entries: &[AddressBookEntry]) -> Vec<u8> {
         e.encode(&mut records);
         ends.push(records.pos() as u32);
     }
+    // Ids are handed out above every id in use; the header word tracks the
+    // highest one.
+    let mut highest = entries.iter().map(|e| e.id).max().unwrap_or(0).max(count2);
+    let mut ids = Vec::with_capacity(entries.len());
+    for e in entries {
+        let id = if e.id == 0 {
+            highest = highest.saturating_add(1);
+            highest
+        } else {
+            e.id
+        };
+        ids.push(id);
+    }
     let mut w = Writer::new();
     w.u32(LIST_MAGIC);
     w.u32(entries.len() as u32);
-    w.u32(if count2 == 0 {
-        entries.len() as u32
-    } else {
-        count2
-    });
+    w.u32(highest.max(entries.len() as u32));
     w.u32(0);
-    let mut next = 1;
-    for e in entries {
-        let id = if e.id == 0 { next } else { e.id };
-        next = id + 1;
+    for id in ids {
         w.u32(id);
     }
     w.u32(0);
@@ -409,7 +421,12 @@ pub fn encode_client_stg(s: &ClientSettings) -> Vec<u8> {
     sections[SECTION_IDENTITY] = s.identity.encode();
     sections[SECTION_ADDRESS_BOOK] = encode_address_book(s.address_book_count2, &s.address_book);
     // Sections the order list does not name (new ones) go last, by index.
-    let mut order = s.order.clone();
+    let mut order: Vec<usize> = Vec::new();
+    for &i in s.order.iter().filter(|&&i| i < 12) {
+        if !order.contains(&i) {
+            order.push(i);
+        }
+    }
     for (i, sec) in sections.iter().enumerate() {
         if !sec.is_empty() && !order.contains(&i) {
             order.push(i);

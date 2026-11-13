@@ -175,3 +175,61 @@ fn legacy_dir_appends_news_archive() {
     assert!(bytes.starts_with(b"\xef\xbb\xbf\n____"));
     assert_eq!(parse_news_archive(&bytes).unwrap().len(), 2);
 }
+
+#[test]
+fn history_file_name_is_fixed_at_open() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = LegacyDir::open(tmp.path()).unwrap();
+    let a = store.history_started();
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    assert_eq!(store.history_started(), a);
+    let line = HistoryLine::new(a, b"Login", b"n", b"l", b"d");
+    let p1 = store.append_history(&line).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    let p2 = store.append_history(&line).unwrap();
+    assert_eq!(p1, p2);
+}
+
+#[test]
+fn history_fields_cannot_break_the_line_structure() {
+    let t = Time1900::from_unix_ms(1_794_594_187_000);
+    let line = HistoryLine::new(t, b"Login", b"bad\tnick\nCreate Account", b"l", b"d\r");
+    let bytes = line.to_bytes();
+    assert_eq!(bytes.iter().filter(|&&b| b == b'\n').count(), 1);
+    let f = parse_history(&bytes).unwrap();
+    assert_eq!(f.lines.len(), 1);
+    assert_eq!(f.lines[0].event, b"Login");
+    assert_eq!(f.lines[0].login, b"l");
+}
+
+#[test]
+fn archive_group_names_stay_inside_the_data_directory() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = LegacyDir::open(tmp.path()).unwrap();
+    let m = openkdx_proto::msg::news::NewsMessage {
+        time: Time1900::from_unix_ms(1_794_593_852_000),
+        ..Default::default()
+    };
+    for bad in [
+        &b"../../escaped"[..],
+        b"/abs/olute",
+        b"..",
+        b".",
+        b"a/b",
+        b"C:\\x",
+    ] {
+        let path = store.append_news_archive(bad, &m).unwrap();
+        assert!(
+            path.starts_with(tmp.path().join("News Archives")),
+            "{:?} → {path:?}",
+            String::from_utf8_lossy(bad)
+        );
+        let rel = path.strip_prefix(tmp.path().join("News Archives")).unwrap();
+        assert_eq!(rel.components().count(), 2, "{rel:?}");
+    }
+    assert!(!tmp.path().join("escaped").exists());
+    assert_eq!(
+        archive_file_name(b"a/b", Time1900::from_unix_ms(1_794_593_852_000)),
+        "a_b 261113.txt"
+    );
+}

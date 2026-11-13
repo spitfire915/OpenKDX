@@ -62,12 +62,30 @@ pub fn format_archive_time(t: Time1900) -> String {
     )
 }
 
+/// The group name as a single path component: separators and the
+/// characters Windows forbids become `_`, and a name that would be `.`,
+/// `..` or empty becomes `_`.
+pub fn safe_group_name(group: &[u8]) -> String {
+    let mut out: String = String::from_utf8_lossy(group)
+        .chars()
+        .map(|c| match c {
+            '/' | '\\' | '\0' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+            c if c.is_control() => '_',
+            c => c,
+        })
+        .collect();
+    if out.is_empty() || out == "." || out == ".." || out.chars().all(|c| c == '.' || c == ' ') {
+        out = "_".into();
+    }
+    out
+}
+
 /// `<group> <yymmdd>.txt`.
 pub fn archive_file_name(group: &[u8], when: Time1900) -> String {
     let c = Civil::from_time(when);
     format!(
         "{} {:02}{:02}{:02}.txt",
-        String::from_utf8_lossy(group),
+        safe_group_name(group),
         c.year.rem_euclid(100),
         c.month,
         c.day
@@ -137,9 +155,7 @@ impl LegacyDir {
     /// Appends the message to today's archive file of `group`, creating the
     /// directory and the file (with its BOM) as needed. Returns the path.
     pub fn append_news_archive(&self, group: &[u8], m: &NewsMessage) -> Result<PathBuf> {
-        let dir = self
-            .news_archives_dir()
-            .join(String::from_utf8_lossy(group).as_ref());
+        let dir = self.news_archives_dir().join(safe_group_name(group));
         fs::create_dir_all(&dir).map_err(|e| LegacyError::io(&dir, e))?;
         let path = dir.join(archive_file_name(group, m.time));
         let fresh = !path.exists();

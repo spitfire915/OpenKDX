@@ -187,3 +187,42 @@ fn legacy_dir_loads_and_saves_news() {
     store.save_news(&s).unwrap();
     assert_eq!(store.load_news().unwrap().unwrap().groups.len(), 1);
 }
+
+#[test]
+fn huge_group_count_and_overlong_body_are_errors() {
+    let mut b = fixture("33-news-two-groups.dat");
+    b[0x0a..0x0c].copy_from_slice(&0xffffu16.to_be_bytes());
+    assert!(decode_news(&b).is_err());
+    let mut b = fixture("32-news-one-post.dat");
+    // The message list's count word.
+    b[0xa8 + 4..0xa8 + 8].copy_from_slice(&0xffff_ffffu32.to_be_bytes());
+    assert!(decode_news(&b).is_err());
+
+    let mut s = decode_news(&fixture("31-news-empty.dat")).unwrap();
+    let too_long = NewsMessage {
+        body: vec![b'x'; 70_000],
+        ..Default::default()
+    };
+    assert!(s.post(1, too_long).is_err());
+    assert!(s.groups[0].messages.is_empty());
+    let long_subject = NewsMessage {
+        subject: vec![b'x'; 300],
+        ..Default::default()
+    };
+    assert!(s.post(1, long_subject).is_err());
+    s.groups[0].info.name = vec![b'n'; 300];
+    assert!(s.validate().is_err());
+    let tmp = tempfile::tempdir().unwrap();
+    let store = LegacyDir::open(tmp.path()).unwrap();
+    assert!(matches!(store.save_news(&s), Err(LegacyError::Invalid(_))));
+}
+
+#[test]
+fn a_zero_group_news_dat_header_round_trips() {
+    let mut b = fixture("31-news-empty.dat")[..0x40].to_vec();
+    b[0x0a..0x0c].copy_from_slice(&0u16.to_be_bytes());
+    b[0x1c..0x20].copy_from_slice(&0u32.to_be_bytes());
+    let s = decode_news(&b).unwrap();
+    assert!(s.groups.is_empty());
+    assert_eq!(encode_news(&s), b);
+}

@@ -43,7 +43,7 @@ pub struct LegacyDir {
     root: PathBuf,
     /// The server start this run's `History/` file is named after; the
     /// moment of `open` unless set.
-    history_started: Option<openkdx_proto::msg::common::Time1900>,
+    history_started: openkdx_proto::msg::common::Time1900,
 }
 
 impl LegacyDir {
@@ -58,7 +58,7 @@ impl LegacyDir {
         }
         let dir = LegacyDir {
             root,
-            history_started: None,
+            history_started: now_1900(),
         };
         for file in ServerFile::ALL {
             dir.backup_once(file)?;
@@ -68,16 +68,11 @@ impl LegacyDir {
 
     /// Names the `History/` file appends go to (one file per server start).
     pub fn set_history_started(&mut self, started: openkdx_proto::msg::common::Time1900) {
-        self.history_started = Some(started);
+        self.history_started = started;
     }
 
     pub fn history_started(&self) -> openkdx_proto::msg::common::Time1900 {
-        self.history_started.unwrap_or_else(|| {
-            let ms = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_or(0, |d| d.as_millis() as i64);
-            openkdx_proto::msg::common::Time1900::from_unix_ms(ms)
-        })
+        self.history_started
     }
 
     /// Copies the live file to `<name>.orig` if the backup does not exist
@@ -180,4 +175,11 @@ fn write_sync(path: &Path, bytes: &[u8], mode: u32) -> Result<()> {
     }
     out.write_all(bytes).map_err(|e| LegacyError::io(path, e))?;
     out.sync_all().map_err(|e| LegacyError::io(path, e))
+}
+
+fn now_1900() -> openkdx_proto::msg::common::Time1900 {
+    let ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as i64);
+    openkdx_proto::msg::common::Time1900::from_unix_ms(ms)
 }

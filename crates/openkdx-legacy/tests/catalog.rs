@@ -117,3 +117,15 @@ fn catalog_errors_and_store() {
     store.save_catalog(&c).unwrap();
     assert_eq!(store.load_catalog().unwrap().unwrap(), c);
 }
+
+#[test]
+fn catalog_rejects_a_parent_cycle_and_a_huge_count() {
+    let mut b = fixture("52-catalog-two.dat");
+    // Entry 1's parent → 2, entry 2's parent → 1.
+    b[0x64 + 0x20..0x64 + 0x24].copy_from_slice(&2u32.to_be_bytes());
+    b[0x98 + 0x20..0x98 + 0x24].copy_from_slice(&1u32.to_be_bytes());
+    assert!(decode_catalog(&b).is_err());
+    let mut b = fixture("50-catalog-fresh.dat");
+    b[8..12].copy_from_slice(&0xffff_ffffu32.to_be_bytes());
+    assert!(decode_catalog(&b).is_err());
+}

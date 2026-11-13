@@ -6,6 +6,7 @@
 //!   legacytool add-account <dir> <login> <password> [class]
 //!   legacytool set-name <dir> <name>             server name in KDXServer.stg
 //!   legacytool set-nick <KDX.stg> <name>         the client's identity name
+//!   legacytool post <dir> <group-id> <subject> <body>   append a news post
 //!   legacytool rewrite <dir>                     load and save every known file
 
 use std::io::Write;
@@ -43,6 +44,10 @@ fn main() {
         }
         ["set-name", dir, name] => set_name(Path::new(dir), name.as_bytes()),
         ["set-nick", file, name] => set_nick(Path::new(file), name.as_bytes()),
+        ["post", dir, group, subject, body] => {
+            let group: u32 = group.parse().expect("group id");
+            post(Path::new(dir), group, subject.as_bytes(), body.as_bytes())
+        }
         ["rewrite", dir] => rewrite(Path::new(dir)),
         _ => return usage(),
     };
@@ -54,7 +59,7 @@ fn main() {
 
 fn usage() {
     eprintln!(
-        "usage: legacytool dump FILE | unscramble FILE server|tracker|client | add-account DIR LOGIN PASSWORD [CLASS] | set-name DIR NAME | set-nick KDX.stg NAME | rewrite DIR"
+        "usage: legacytool dump FILE | unscramble FILE server|tracker|client | add-account DIR LOGIN PASSWORD [CLASS] | set-name DIR NAME | set-nick KDX.stg NAME | post DIR GROUP SUBJECT BODY | rewrite DIR"
     );
     std::process::exit(2);
 }
@@ -103,6 +108,28 @@ fn dump(path: &Path) -> openkdx_legacy::Result<()> {
                     lossy(&x.owner),
                     lossy(&x.description)
                 );
+            }
+        }
+        _ if bytes.starts_with(b"%KDXNUUZ") || (bytes.is_empty() && name == "News.dat") => {
+            let n = openkdx_legacy::news::decode_news(&bytes)?;
+            println!("News.dat: {} groups", n.groups.len());
+            for g in &n.groups {
+                println!(
+                    "  group {} {:?} size {} KiB last id {} ({} messages)",
+                    g.info.group_id,
+                    lossy(&g.info.name),
+                    g.info.size_limit_kib,
+                    g.last_message_id,
+                    g.messages.len()
+                );
+                for m in &g.messages {
+                    println!(
+                        "    {} {:?} by {:?}",
+                        m.message_id,
+                        lossy(&m.subject),
+                        lossy(&m.poster)
+                    );
+                }
             }
         }
         _ if bytes.starts_with(b"%KDXSSTG") => {
@@ -218,6 +245,33 @@ fn set_nick(file: &Path, name: &[u8]) -> openkdx_legacy::Result<()> {
     Ok(())
 }
 
+fn post(dir: &Path, group: u32, subject: &[u8], body: &[u8]) -> openkdx_legacy::Result<()> {
+    let store = LegacyDir::open(dir)?;
+    let mut news = store.load_news()?.expect("News.dat");
+    let now = Time1900::from_unix_ms(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis() as i64),
+    );
+    let id = news.post(
+        group,
+        openkdx_proto::msg::news::NewsMessage {
+            time: now,
+            poster: b"legacytool".to_vec(),
+            login: b"admin".to_vec(),
+            subject: subject.to_vec(),
+            body: body.to_vec(),
+            ..Default::default()
+        },
+    )?;
+    if let Some(g) = news.group_mut(group) {
+        g.info.time = now;
+    }
+    store.save_news(&news)?;
+    println!("posted message {id} in group {group}");
+    Ok(())
+}
+
 fn rewrite(dir: &Path) -> openkdx_legacy::Result<()> {
     let store = LegacyDir::open(dir)?;
     if let Some(a) = store.load_accounts()? {
@@ -227,6 +281,14 @@ fn rewrite(dir: &Path) -> openkdx_legacy::Result<()> {
     if let Some(s) = store.load_settings()? {
         store.save_settings(&s)?;
         println!("rewrote {}", ServerFile::Settings.name());
+    }
+    if let Some(n) = store.load_news()? {
+        store.save_news(&n)?;
+        println!("rewrote {}", ServerFile::News.name());
+    }
+    if let Some(t) = store.load_tracker_settings()? {
+        store.save_tracker_settings(&t)?;
+        println!("rewrote {}", ServerFile::Tracker.name());
     }
     Ok(())
 }

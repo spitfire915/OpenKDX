@@ -139,6 +139,11 @@ pub fn decode_catalog(bytes: &[u8]) -> Result<Catalog> {
     let ignored_06 = r.u16()?;
     let count = r.u32()? as usize;
     let index_offset = r.u32()? as usize;
+    if count > bytes.len() / 0x2c {
+        return Err(LegacyError::Invalid(
+            "Catalog.dat: entry count past the file",
+        ));
+    }
     let generated = Time1900::decode(&mut r)?;
     let ignored_18: [u8; 24] = r.array()?;
     debug_assert_eq!(r.pos(), HEADER_LEN);
@@ -153,6 +158,11 @@ pub fn decode_catalog(bytes: &[u8]) -> Result<Catalog> {
         let kind = r.u32()?;
         let descendants = r.u32()?;
         let parent = r.u32()?;
+        // Entries are depth first, so a parent always comes before its
+        // children; anything else would make `path_of` loop.
+        if parent as usize >= entries.len() && !(entries.is_empty() && parent == 0) {
+            return Err(LegacyError::Invalid("Catalog.dat: parent after its child"));
+        }
         let ignored_24 = r.u32()?;
         let flags = r.u8()?;
         let ignored_29 = r.u8()?;

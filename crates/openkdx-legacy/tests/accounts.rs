@@ -192,3 +192,28 @@ fn legacy_dir_loads_and_saves_accounts() {
         "scrambled on disk"
     );
 }
+
+#[test]
+fn huge_record_count_is_an_error_not_an_abort() {
+    use openkdx_legacy::scramble::{Stream, scramble, unscramble};
+    let mut plain = unscramble(&fixture("20-fresh.dat"), Stream::SERVER_ACCOUNTS);
+    // Section 0 (classes) count word at 0x50 + 4.
+    plain[0x54..0x58].copy_from_slice(&0xffff_ffffu32.to_be_bytes());
+    assert!(decode_accounts(&scramble(&plain, Stream::SERVER_ACCOUNTS)).is_err());
+}
+
+#[test]
+fn overlong_strings_are_refused_before_a_save() {
+    let mut f = decode_accounts(&fixture("20-fresh.dat")).unwrap();
+    let mut a = f.accounts[0].clone();
+    a.login = vec![b'x'; 300];
+    f.upsert(a);
+    assert!(f.validate().is_err());
+    let tmp = tempfile::tempdir().unwrap();
+    let store = LegacyDir::open(tmp.path()).unwrap();
+    assert!(matches!(
+        store.save_accounts(&f),
+        Err(LegacyError::Invalid(_))
+    ));
+    assert!(!tmp.path().join("Accounts.dat").exists());
+}

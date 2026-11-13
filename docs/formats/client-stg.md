@@ -1,6 +1,6 @@
 # `KDX.stg`
 
-**Status:** verified for the identity and the address book (byte-exact over
+**Status:** verified (lab) for the identity and the address book (byte-exact over
 six lab files; Client 1.600 starts on a file we wrote and logs in with the
 name we set — `lab/scenarios/client-samples.sh`). Window positions,
 settings and registration are kept as bytes until Phase 7.

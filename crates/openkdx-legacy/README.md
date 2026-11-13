@@ -9,14 +9,14 @@ by the server and the client. No network or UI dependency; only
 
 | Module | File | Status |
 |---|---|---|
-| `server_stg` | `KDXServer.stg` | verified — Server 1.620 starts on our rewrite |
-| `accounts` | `Accounts.dat` | verified — an account we wrote logs in |
+| `server_stg` | `KDXServer.stg` | verified (lab) — Server 1.620 starts on our rewrite |
+| `accounts` | `Accounts.dat` | verified (lab) — an account we wrote logs in; the server lists a post we appended |
 | `news` | `News.dat` | read/write, byte-exact, layout matches the server's |
-| `history` | `History/*.txt` | read; append in the original format |
-| `news_archive` | `News Archives/<group>/*.txt` | read; append in the original format |
+| `history` | `History/*.txt` | read/write (append-only) |
+| `news_archive` | `News Archives/<group>/*.txt` | read/write (append-only) |
 | `catalog` | `Catalog.dat` | read/write, byte-exact |
 | `tracker_stg` | `KDXTrackerServ.stg` | read/write; sections opaque until Phase 5 |
-| `client_stg` | `KDX.stg` | verified for identity and address book — Client 1.600 starts on our file |
+| `client_stg` | `KDX.stg` | verified (lab) for identity and address book — Client 1.600 starts on our file |
 | `scramble` | the LCG XOR stream over the three scrambled files | — |
 | `store` | `LegacyDir`: `.orig` backups once, atomic saves | — |
 | `bases` | `Bases/` folder-name tags | — |

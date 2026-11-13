@@ -143,3 +143,43 @@ fn client_stg_errors() {
     assert!(decode_client_stg(&fixture("60-client-fresh.stg")[..0x100]).is_err());
     let _ = ClientSettings::default;
 }
+
+#[test]
+fn address_book_header_word_and_ids_follow_the_entries() {
+    let mut s = decode_client_stg(&fixture("64-client-address-book-2.stg")).unwrap();
+    s.address_book.push(AddressBookEntry {
+        id: 0,
+        name: b"Fourth".to_vec(),
+        ..Default::default()
+    });
+    let again = decode_client_stg(&encode_client_stg(&s)).unwrap();
+    assert_eq!(again.address_book_count2, 4);
+    assert_eq!(again.address_book[3].id, 4);
+    // Deleting the middle entry keeps the others' ids and the word tracks the max.
+    s.address_book.remove(1);
+    let again = decode_client_stg(&encode_client_stg(&s)).unwrap();
+    assert_eq!(
+        again.address_book.iter().map(|e| e.id).collect::<Vec<_>>(),
+        [1, 3, 4]
+    );
+    assert_eq!(again.address_book_count2, 4);
+    // An id at the top of the range does not overflow.
+    s.address_book[0].id = u32::MAX;
+    s.address_book.push(AddressBookEntry {
+        id: 0,
+        ..Default::default()
+    });
+    let _ = encode_client_stg(&s);
+}
+
+#[test]
+fn hostile_order_or_count_in_client_stg_is_an_error() {
+    use openkdx_legacy::scramble::{Stream, scramble, unscramble};
+    let mut plain = unscramble(&fixture("60-client-fresh.stg"), Stream::CLIENT_SETTINGS);
+    // The address book's count word (section 7 at 0x4c8, +4).
+    plain[0x4cc..0x4d0].copy_from_slice(&0xffff_ffffu32.to_be_bytes());
+    assert!(decode_client_stg(&scramble(&plain, Stream::CLIENT_SETTINGS)).is_err());
+    let mut s = decode_client_stg(&fixture("60-client-fresh.stg")).unwrap();
+    s.order.push(40);
+    let _ = encode_client_stg(&s);
+}

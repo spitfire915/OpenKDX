@@ -12,7 +12,7 @@ samples of the client-side formats.
 
 | File | Side | Holds | Status | Page |
 |---|---|---|---|---|
-| `Accounts.dat` | server | accounts, classes, folder access, 32-byte derived keys | verified | `accounts-dat.md` |
+| `Accounts.dat` | server | accounts, classes, folder access, 32-byte derived keys | verified (lab) | `accounts-dat.md` |
 | `KDXServer.stg` | server | settings: name, description, address, ports, greeting, server icon, speed limit, allow/deny, trackers, history | read/write | `server-stg.md` |
 | `KDXTrackerServ.stg` | tracker | tracker settings | read/write | `tracker-stg.md` |
 | `News.dat` | server | newsgroups and messages (created empty at first run) | read/write | `news-dat.md` |
@@ -21,13 +21,14 @@ samples of the client-side formats.
 | `Downloads/` (client) | client | downloaded files, optionally auto-sorted | from docs | — |
 | `Catalog.dat` | server | file catalog for Search | read/write | `catalog.md` |
 | `Bases/` conventions | server | `[UL]`, `[DB]`, `[<item>]` suffixes; drop-box owner | read | `bases.md` |
-| `KDX.stg` | client | identity, icon, address book, settings, window positions, registration | verified (identity, address book) | `client-stg.md` |
+| `KDX.stg` | client | identity, icon, address book, settings, window positions, registration | verified (lab; identity, address book) | `client-stg.md` |
 | `Appearances/*.hap` | client | appearance (theme) files | unknown — see below | `hap.md` |
 | `Sound Lists/*` | client | KDXSoundListEdit output | unknown — see below | `soundlist.md` |
 
-Status moves through `unknown` → `partial` → `read` → `read/write` → `verified`
-(round-trips the user's real files byte for byte and the original program
-accepts the result).
+Status moves through `unknown` → `partial` → `read` → `read/write` →
+`verified (lab)` (byte-exact over the lab's files and the original program
+accepts what we write) → `verified` (the same over the maintainer's real
+early-2000s directories, `inventory.md`, still to be added).
 
 `inventory.md` lists the real files available for this work.
 

@@ -1,6 +1,6 @@
 # `Accounts.dat`
 
-**Status:** verified. Byte-exact over eleven lab files; an account written by
+**Status:** verified (lab). Byte-exact over eleven lab files; an account written by
 `openkdx-legacy` logs in to KDX Server 1.620, which also reads back the
 rewritten file (`lab/legacy.sh`).
 
