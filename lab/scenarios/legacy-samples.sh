@@ -98,3 +98,20 @@ cli folder-access create Pics --icon pictures >/dev/null;                       
 cli accounts create legacy2 --new-password p2 --class 2 >/dev/null;               snap 25-second-account
 cli accounts delete legacy2 >/dev/null;                                           snap 26-account-deleted
 echo "accounts snapshots done"
+
+# --- News.dat and News Archives/ ---------------------------------------------
+# The stock welcome post is Haxial's text: delete it first so no snapshot
+# after 30 carries it (30 itself is kept out of the repository).
+cli news groups >/dev/null;                                                       snap 30-news-stock
+first=$(cli --json news list "General News" | python3 -c 'import json,sys; rows=[json.loads(l) for l in sys.stdin if l.startswith("{")]; print(min(r["message_id"] for r in rows if "message_id" in r))' 2>/dev/null || echo 1)
+cli news delete "General News" "$first" >/dev/null;                               snap 31-news-empty
+cli news post "General News" --subject "First" --body "Hello from the lab." >/dev/null; snap 32-news-one-post
+cli news create-group "Second Group" --description "Another group" --size-kib 8 >/dev/null; snap 33-news-two-groups
+cli news post "Second Group" --subject "In second" --body "Line one.
+Line two." >/dev/null;                                                            snap 34-news-post-in-second
+cli news delete "General News" "$(( first + 1 ))" >/dev/null;                     snap 35-news-deleted
+cli news set-group-size "Second Group" 4 >/dev/null;                              snap 36-news-size-4
+python3 -c 'print("x" * 1500)' > "$RUN/big.txt"
+for i in 1 2 3 4; do cli news post "Second Group" --subject "Big $i" --body-file "$RUN/big.txt" >/dev/null; done
+sleep 2;                                                                          snap 37-news-archived
+echo "news snapshots done"

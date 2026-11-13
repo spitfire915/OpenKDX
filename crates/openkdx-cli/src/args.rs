@@ -341,7 +341,12 @@ pub enum NewsCmd {
         name: String,
         #[arg(long, default_value = "")]
         description: String,
+        /// Archive size limit in KiB (4..=1024).
+        #[arg(long, default_value_t = 50)]
+        size_kib: u16,
     },
+    /// Change a newsgroup's archive size limit.
+    SetGroupSize { group: String, size_kib: u16 },
     /// Delete a newsgroup.
     DeleteGroup { group: String },
 }
