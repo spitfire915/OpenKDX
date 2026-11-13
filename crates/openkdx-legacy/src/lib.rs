@@ -7,6 +7,7 @@
 pub mod accounts;
 pub mod bases;
 pub mod error;
+pub mod news;
 pub mod scramble;
 pub mod server_stg;
 pub mod store;

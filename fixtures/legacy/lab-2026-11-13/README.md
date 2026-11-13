@@ -51,3 +51,18 @@ From a separate run (`acc-probe`, same server build), one CLI command each:
 ## `tracker/` — `KDXTrackerServ.stg`
 
 A fresh Tracker 1.110 after its first start.
+
+## `server/news/` — `News.dat`, and `server/News Archives/`
+
+`legacy-samples.sh`, after deleting the stock welcome post (snapshot 30,
+not committed: it is Haxial's text):
+
+| Snapshot | Change |
+|---|---|
+| 31-news-empty | `news delete "General News" 1` |
+| 32-news-one-post | `news post "General News" --subject First --body "Hello from the lab."` |
+| 33-news-two-groups | `news create-group "Second Group" --description "Another group" --size-kib 8` |
+| 34-news-post-in-second | `news post "Second Group" --subject "In second" --body "Line one.⏎Line two."` |
+| 35-news-deleted | `news delete "General News" 2` |
+| 36-news-size-4 | `news set-group-size "Second Group" 4` |
+| 37-news-archived | four posts of 1500 `x` into `Second Group`; the archive file under `News Archives/Second Group/` is from this step |
