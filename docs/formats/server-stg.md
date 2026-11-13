@@ -1,7 +1,7 @@
 # `KDXServer.stg`
 
-**Status:** read/write (byte-exact over 18 lab files). Whether the original
-server accepts our rewrite is checked by `lab/legacy.sh` (Task 13).
+**Status:** verified. Byte-exact over 18 lab files; Server 1.620 starts on
+our rewrite and shows the name we set (`lab/legacy.sh`).
 
 The server's settings. The file is the same `%KDXSSTG` blob the wire carries
 in 171 Server Settings Info and 172 Set Server Settings (reference
@@ -85,15 +85,16 @@ one) `[O 02, 03]`.
 | 0x15 | 1 | comments length |
 | 0x16 | 1 | address length |
 | 0x17 | 1 | login length |
-| 0x18 | 2 | unpinned (zero; refused when set) — probably the password length and one more |
+| 0x18 | 2 | unpinned (zero; refused when set) |
 | 0x1a | 1 | groups length |
 | 0x1b | 1 | unpinned (zero; refused when set) |
 | 0x1c | 4 | ignored (zero) |
 | 0x20 | … | name, comments, address, login, groups |
 
-The password typed into Edit Tracker did not appear in the file written
-afterwards (`15-tracker-full` has every other field). Whether it is stored
-elsewhere, hashed, or was not taken by the dialog is open.
+The password typed into Edit Tracker (five characters, visible as dots in
+`captures/legacy-samples-tracker-dialog.png` on the lab) does not appear in
+the file written afterwards, and no length byte changes: the server does
+not keep it in `KDXServer.stg` `[O 15]`.
 
 ## Section 2: an allow/deny entry
 

@@ -25,3 +25,29 @@ files differ in one field. Snapshot `NN` is the state *after* step `NN`.
 | 14-ftport | Port Numbers → File Transfer Port 10702 |
 | 15-tracker-full | Trackers → add `Second`, comments `tracker comment`, `10.0.0.2`, login `tlogin`, password `tpass`, groups `grp` |
 | 16-deny-comment | Allow/Deny → add `Noted` / `10.5.5.5`, deny, comments `a comment` |
+
+Section 7 of every `.stg` holds the server's three default chat rooms
+(`Public Chat`, `Voice Chat`, `Admin Lounge`, with their one-line
+descriptions): functional defaults the lab server generated, not Haxial
+prose.
+
+## `server/accounts/` — `Accounts.dat`
+
+From a separate run (`acc-probe`, same server build), one CLI command each:
+
+| Snapshot | Change |
+|---|---|
+| 20-fresh | first run |
+| 21-u1-created | `accounts create u1 --new-password p1 --name "Name X" --class 1` |
+| 22-u1-name-y | `accounts set u1 --name "Name Y"` |
+| 23-u1-name-z | `accounts set u1 --name "Name Z"` |
+| 24-u1-password | `accounts set u1 --new-password p2` |
+| 25-u2-created | `accounts create u2 --new-password p2 --name Second --class 2` |
+| 26-class3-renamed | `classes set 3 --name "Custom Renamed"` |
+| 27-fa-pics | `folder-access create Pics --icon pictures` |
+| 28-u1-deleted | `accounts delete u1` |
+| 29-after-stop | server stopped |
+
+## `tracker/` — `KDXTrackerServ.stg`
+
+A fresh Tracker 1.110 after its first start.
