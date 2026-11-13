@@ -8,7 +8,7 @@
 
 A modern, memory-safe reimplementation of Haxial KDX — the early-2000s encrypted BBS-style chat, news, and file-sharing system — in Rust, wire-compatible with the original programs so old and new can share a network.
 
-**Status:** Phase 2 complete — a working client. `openkdx-client` logs in to an original KDX server and does chat, private messages, news, files with resumable transfers, accounts, classes, folder access, administration, and tracker browse; the `openkdx` command line drives it. Sixteen differential tests run against KDX Server 1.620 and Tracker 1.110 in the lab on every push, and fifteen captures decode and re-encode byte for byte. No GUI, server, or tracker yet; Phase 3 (the on-disk formats) is next. See the [phases](docs/superpowers/specs/2026-11-08-openkdx-design.md#8-phases).
+**Status:** Phase 3 complete — the old data just works. `openkdx-legacy` reads and writes the files the original programs keep (`Accounts.dat`, `KDXServer.stg`, `News.dat`, `History/`, `News Archives/`, `Catalog.dat`, `KDXTrackerServ.stg`, the client's `KDX.stg`) byte for byte, undoing their scrambling, and the originals accept what it writes: on every push the lab restarts KDX Server 1.620 on files OpenKDX rewrote and logs in with an account OpenKDX added. `openkdx-client` and the `openkdx` command line do chat, messages, news, files, accounts and administration against an original server. Still to come: `.hap` appearance files and sound lists (deferred, [why](docs/formats/README.md)), then the server (Phase 4). See the [phases](docs/superpowers/specs/2026-11-08-openkdx-design.md#8-phases) and the [formats](docs/formats/README.md).
 
 | Program | Binary | What it is |
 |---|---|---|
@@ -32,7 +32,8 @@ The protocol reference OpenKDX builds on is [scottanderson/kdx](https://github.c
 | [`openkdx-table`](crates/openkdx-table) | done | Obtains the challenge tables at runtime ([how](docs/setup/challenge-tables.md)); they are never shipped. |
 | [`openkdx-client`](crates/openkdx-client) | done | The async client library: sessions, chat, PM, news, files and transfers with resume, accounts, administration, tracker browse. |
 | [`openkdx-cli`](crates/openkdx-cli) | done | `openkdx`: a thin command-line client over the library; drives the lab's differential tests and captures. |
-| `openkdx-server`, `openkdx-tracker`, `openkdx-legacy`, `openkdx-ui`, `openkdx-app`, `openkdxd` | planned | Phases 3–10. |
+| [`openkdx-legacy`](crates/openkdx-legacy) | done | The originals' on-disk formats, read and written byte for byte, with one-time `.orig` backups; `.hap` and sound lists deferred. |
+| `openkdx-server`, `openkdx-tracker`, `openkdx-ui`, `openkdx-app`, `openkdxd` | planned | Phases 4–10. |
 
 The [lab](lab/README.md) runs the original programs in a sandbox and records the [captures](captures/README.md) that every protocol claim is checked against. Try the dissector on one:
 
