@@ -263,3 +263,14 @@ docs/formats/README.md (statuses), inventory.md (new sets)
 - Deliberately open until the bytes decide: exact field lists of `NewsStore`, `AccountsFile`, `Catalog`, `ClientSettings`, `Theme`, `SoundList`; whether folder access lives in `Accounts.dat` or the `.stg`; whether `.hap` samples can be committed. Each has its decision rule written in its task.
 - Risk: Task 6 is the one task with no guaranteed finish time. Budget: differential (1 h) → candidates (2 h) → Ghidra (half a day). If the transform is still unknown after that, land Tasks 8–9 and 11–12 first (they do not depend on it), then return; the PR does not merge without Accounts.dat.
 - Proto changes are additive (visibility, `set_section`, named fields replacing `ignored_*` ranges of equal total size); every Phase 1/2 capture test must stay byte-exact — the workspace test run in each task's Step 4 is the guard.
+
+## Execution notes (2026-11-13)
+
+Executed natively with `executing-plans`; the ledger's rulings are summarised
+in PR #4. Order became 1, 2, 3 (review gate 1), 6, 7, 4, 5, 8, 9, 10, 13:
+`KDXTrackerServ.stg` turned out scrambled, so Task 4 followed the scramble;
+the scramble itself fell to lab diffs alone (an LCG XOR stream) with no
+Ghidra needed. Tasks 11 and 12 (`.hap`, sound lists) are deferred: the
+editors' Haxial-drawn save dialog lists no volumes under Wine, so no sample
+can be made from their defaults; the appearance pack (manual download,
+lab-only, agreed with the user) is the way in.

@@ -32,7 +32,9 @@ Layout under `/home/openkdx`:
 | `lab/kdx-lab` | openkdx | starts, stops, and captures the original programs in a private network namespace |
 | `lab/ci-smoke.sh` | the runner | the `lab` CI job: proves the sandbox and the original server work |
 | `lab/differential.sh` | the runner | the `lab` CI job: `crates/openkdx-client/tests/lab.rs` against Server 1.620 and Tracker 1.110 (16 tests, serial, under 25 connections: the server bans an address after 30 in 300 s) |
-| `lab/scenarios/*.sh` | openkdx | the scripted capture scenarios; from Phase 2 most drive the OpenKDX `openkdx` CLI (`use_cli`, `cli`, `cli_run`, `cli_bg` in `lab/lib/scenario.sh`) |
+| `lab/scenarios/*.sh` | openkdx | the scripted capture scenarios; from Phase 2 most drive the OpenKDX `openkdx` CLI (`use_cli`, `cli`, `cli_run`, `cli_bg` in `lab/lib/scenario.sh`). `legacy-samples.sh` and `client-samples.sh` (Phase 3) snapshot the originals' files after one change each, driving the Windows client's windows with `lab/lib/ui.sh` |
+| `lab/legacy.sh` | openkdx | Phase 3's lab check: samples, round trips, and the originals reading what `openkdx-legacy` wrote; in the lab CI job after `differential.sh` |
+| `~/ghidra/` | openkdx | Ghidra 12.2, a JDK and the `openkdx` project with the five binaries analysed (`re/setup-ghidra.sh`); never leaves the machine |
 
 ## Admin login
 
