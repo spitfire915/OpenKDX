@@ -22,8 +22,9 @@ exec 9>&-
 FORCE=1 "$HERE/scenarios/legacy-samples.sh"
 
 SNAP="$RUN/legacy"
-# Nothing of Haxial's prose may end up in a snapshot we might commit.
-if grep -rqa "Haxial Software" "$SNAP"; then echo "legacy: Haxial text in snapshots" >&2; exit 1; fi
+# Nothing of Haxial's prose may end up in a snapshot we might commit: the
+# stock welcome post lives in 30-news-stock only, which stays on the lab.
+if grep -rlqa "Haxial Software" "$SNAP" --exclude-dir=30-news-stock; then echo "legacy: Haxial text in snapshots" >&2; exit 1; fi
 
 cd "$HERE/.."
 OPENKDX_LAB_LEGACY_DIR="$SNAP" cargo test -q -p openkdx-legacy --test lab -- --test-threads=1
