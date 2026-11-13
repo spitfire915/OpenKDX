@@ -122,6 +122,14 @@ pub enum ServerCmd {
     Settings,
     /// Rename the server.
     SetName { name: String },
+    /// Server History → "Record Server History to File": a bitmask in the
+    /// window's order (bit 0 Login, 1 Disconnected, …; 0x7ff = all) and
+    /// optionally the size at which a new file starts, in KiB.
+    SetHistory {
+        kinds: String,
+        #[arg(long)]
+        max_kib: Option<u32>,
+    },
     /// Broadcast a message to every user.
     Broadcast {
         #[arg(trailing_var_arg = true, required = true)]
@@ -284,6 +292,8 @@ pub enum FilesCmd {
     },
     /// Empty the trash.
     EmptyTrash,
+    /// Regenerate the file catalog (450) and wait until it is done.
+    Catalog,
     /// Search the catalog.
     Search { text: String },
     /// Download a file.
@@ -341,7 +351,12 @@ pub enum NewsCmd {
         name: String,
         #[arg(long, default_value = "")]
         description: String,
+        /// Archive size limit in KiB (4..=1024).
+        #[arg(long, default_value_t = 50)]
+        size_kib: u16,
     },
+    /// Change a newsgroup's archive size limit.
+    SetGroupSize { group: String, size_kib: u16 },
     /// Delete a newsgroup.
     DeleteGroup { group: String },
 }

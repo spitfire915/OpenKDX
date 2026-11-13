@@ -6,66 +6,35 @@ use openkdx_client::admin::set_server_name;
 use openkdx_proto::msg::Status;
 use openkdx_proto::msg::admin::{
     ConnectionMonitorInfo, HistoryAdded, HistoryKind, HistoryList, HistoryRecord,
-    MonitoredConnection, ServerSettings, ServerSettingsInfo, ServerSettingsMain,
+    MonitoredConnection, ServerSettings, ServerSettingsInfo,
 };
 use openkdx_proto::{Message, MessageType, Payload};
 
 fn settings() -> ServerSettings {
-    let main = ServerSettingsMain {
-        ignored_00: [0; 35],
-        flags: 2,
-        ignored_24: [0; 20],
-        total_outgoing_speed_limit: 0,
-        ignored_3c: [0; 22],
-        ignored_52: 10,
-        ignored_53: [0; 9],
-        server_name: b"New Server".to_vec(),
-        name_tail: vec![0; 21],
-    }
-    .to_bytes();
-    let other = vec![0xee; 7];
-    let mut table = [(0u32, 0u32); 11];
-    table[0] = (ServerSettings::HEADER_LEN as u32, main.len() as u32);
-    table[1] = (
-        (ServerSettings::HEADER_LEN + main.len()) as u32,
-        other.len() as u32,
-    );
-    let mut body = main;
-    body.extend(other);
-    ServerSettings {
-        version: 1,
-        ignored: [0; 2],
-        table,
-        value_64: [1, 1, 1, 1, 0, 1, 0, 2, 0, 0, 0, 0],
-        body,
-    }
+    let mut s = ServerSettings::default();
+    s.main.flags = 2;
+    s.chats = vec![0xee; 7];
+    s
 }
 
 #[test]
-fn set_server_name_rewrites_only_section_0_and_keeps_its_length() {
+fn set_server_name_rewrites_only_section_0_and_keeps_the_rest() {
     let before = settings();
     let mut s = before.clone();
     set_server_name(&mut s, b"OpenKDX Lab").unwrap();
-    assert_eq!(s.main().unwrap().server_name, b"OpenKDX Lab");
+    assert_eq!(s.main.name, b"OpenKDX Lab");
+    let bytes = s.to_bytes();
     assert_eq!(
-        s.main().unwrap().ignored_52,
+        bytes[0x70 + 0x52],
         11,
         "the length byte at 0x52 follows the name"
     );
-    assert_eq!(s.table, before.table);
-    assert_eq!(s.section(1), before.section(1));
-    assert_eq!(s.body.len(), before.body.len());
-    assert!(s.main().unwrap().greeting_enabled());
-    let mut back = s.clone();
-    set_server_name(&mut back, b"New Server").unwrap();
-    assert_eq!(back, before);
-}
-
-#[test]
-fn set_server_name_rejects_a_name_that_does_not_fit() {
-    let mut s = settings();
-    assert!(set_server_name(&mut s, &[b'x'; 40]).is_err());
-    assert_eq!(s, settings());
+    assert_eq!(s.table()[7].1, before.table()[7].1);
+    assert_eq!(s.chats, before.chats);
+    assert!(s.main.greeting_enabled());
+    assert!(set_server_name(&mut s, b"").is_err());
+    assert!(set_server_name(&mut s, b"a\0b").is_err());
+    assert!(set_server_name(&mut s, &[b'x'; 256]).is_err());
 }
 
 #[tokio::test]
@@ -84,14 +53,14 @@ async fn server_settings_round_trip_and_set() {
     ])
     .await;
     let mut s = session.server_settings().await.unwrap();
-    assert_eq!(s.main().unwrap().server_name, b"New Server");
+    assert_eq!(s.main.name, b"New Server");
     set_server_name(&mut s, b"Lab").unwrap();
     session.set_server_settings(s).await.unwrap();
     let sent = openkdx_proto::msg::admin::SetServerSettings::decode(
         &server.payloads(MessageType::SET_SERVER_SETTINGS)[0],
     )
     .unwrap();
-    assert_eq!(sent.settings.main().unwrap().server_name, b"Lab");
+    assert_eq!(sent.settings.main.name, b"Lab");
     server.check();
 }
 

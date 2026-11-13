@@ -31,7 +31,7 @@ pub struct NewsgroupInfo {
 }
 
 impl NewsgroupInfo {
-    fn decode(r: &mut Reader) -> Result<Self, DecodeError> {
+    pub fn decode(r: &mut Reader) -> Result<Self, DecodeError> {
         let group_id = r.u32()?;
         let ignored_04: [u8; 12] = r.array()?;
         let time = Time1900::decode(r)?;
@@ -62,7 +62,7 @@ impl NewsgroupInfo {
         })
     }
 
-    fn encode(&self, w: &mut Writer) {
+    pub fn encode(&self, w: &mut Writer) {
         w.u32(self.group_id);
         w.bytes(&self.ignored_04);
         self.time.encode(w);
@@ -282,7 +282,7 @@ pub struct NewsMessage {
 }
 
 impl NewsMessage {
-    fn decode(r: &mut Reader) -> Result<Self, DecodeError> {
+    pub fn decode(r: &mut Reader) -> Result<Self, DecodeError> {
         let start = r.pos();
         let time = Time1900::decode(r)?;
         let group_id = r.u32()?;
@@ -309,7 +309,7 @@ impl NewsMessage {
         })
     }
 
-    fn encode(&self, w: &mut Writer) {
+    pub fn encode(&self, w: &mut Writer) {
         let start = w.pos();
         self.time.encode(w);
         w.u32(self.group_id);

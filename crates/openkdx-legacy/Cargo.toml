@@ -8,3 +8,10 @@ rust-version.workspace = true
 description = "Haxial on-disk formats: Accounts.dat, .stg, .hap, sound lists, news store."
 
 [dependencies]
+openkdx-proto.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+tempfile.workspace = true
+openkdx-table = { workspace = true, default-features = false }

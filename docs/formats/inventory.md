@@ -41,14 +41,24 @@ KDXClient.exe  KDX.stg  Appearances/  Sound Lists/  Downloads/
 
 `Appearances/` and `Sound Lists/` are created empty at first run.
 
-## Observations for Phase 3
+## Lab set 2026-11-13 (`fixtures/legacy/lab-2026-11-13/`)
+
+Written during Phase 3 by `lab/scenarios/legacy-samples.sh`,
+`client-samples.sh` and three one-off probes, one controlled change per
+file; the README in that directory lists every step. 17 `KDXServer.stg`,
+10 `Accounts.dat`, 7 `News.dat`, one `News Archives/` file, one `History/`
+file, 3 `Catalog.dat`, one `KDXTrackerServ.stg`, 5 `KDX.stg`. Every one
+round-trips byte for byte (`crates/openkdx-legacy/tests/`).
+
+## Observations for Phase 3 (written before the work; kept for the record)
 
 - Two file families: **clear with a magic** (`%KDXSSTG`, `%KDXNUUZ`), and
   **scrambled** (`Accounts.dat`, client `KDX.stg`). The scrambled ones are the
   ones that hold secrets (derived keys, address-book passwords), so the
   obfuscation is probably a fixed-key cipher or the handshake's XOR stream
   with a stored key; the first 4 bytes (`bf996c39`, `102d68ee`) may be that
-  key, as in the handshake.
+  key, as in the handshake. *(Outcome: a fixed-constant LCG XOR stream per
+  program, no key in the file — `accounts-dat.md`.)*
 - The reference spec says `Accounts.dat` stores the 32-byte derived key per
   account, not the password. The lab's admin password is known, so the
   derived key can be computed (`account_key` in the spec) and searched for

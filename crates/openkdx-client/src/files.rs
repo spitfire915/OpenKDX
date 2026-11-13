@@ -4,7 +4,7 @@ use openkdx_proto::Message;
 use openkdx_proto::msg::common::FilePath;
 use openkdx_proto::msg::files::{
     CreateFolder, EmptyTrash, FileInfo, FileList, FileListEntry, FileSearch, FileSearchEntry,
-    FileSearchReply, GetFileFolderInfo, GetFileList, MoveToTrash,
+    FileSearchReply, GenerateCatalog, GetFileFolderInfo, GetFileList, MoveToTrash,
 };
 
 use crate::Result;
@@ -66,6 +66,20 @@ impl Session {
     /// 421 → 1 Status.
     pub async fn empty_trash(&self) -> Result<Message> {
         self.connection().request_ok(&EmptyTrash).await
+    }
+
+    /// 450, then 451 status events until the one flagged done; returns the
+    /// number of items indexed.
+    pub async fn generate_catalog(&self) -> Result<u32> {
+        let mut events = self.events();
+        self.connection()
+            .send(&GenerateCatalog { flags: None })
+            .await?;
+        self.wait_for(&mut events, |m| match m {
+            Message::GenerateCatalogStatus(s) if s.flags & 1 != 0 => Some(s.items),
+            _ => None,
+        })
+        .await
     }
 
     /// 452 → 453.

@@ -100,23 +100,39 @@ pub async fn news(ctx: &mut Ctx, cmd: NewsCmd) -> anyhow::Result<()> {
             let id = find_group(&session, &group).await?;
             session.delete_news(id, message).await?;
         }
-        NewsCmd::CreateGroup { name, description } => {
+        NewsCmd::SetGroupSize { group, size_kib } => {
+            let id = find_group(&session, &group).await?;
+            let mut info = session.newsgroup(id).await?;
+            info.size_limit_kib = size_kib;
+            let changed = session.set_newsgroup(info).await?;
+            let size = changed.map_or(size_kib, |g| g.size_limit_kib);
+            out.record(
+                "newsgroup",
+                &[("group_id", json!(id)), ("size_limit_kib", json!(size))],
+            );
+        }
+        NewsCmd::CreateGroup {
+            name,
+            description,
+            size_kib,
+        } => {
             let created = session
                 .create_newsgroup(NewsgroupInfo {
                     read_classes: u32::MAX,
                     post_classes: u32::MAX,
-                    size_limit_kib: 50,
-                    name: name.into_bytes(),
+                    size_limit_kib: size_kib,
+                    name: name.clone().into_bytes(),
                     description: description.into_bytes(),
                     ..NewsgroupInfo::default()
                 })
                 .await?;
+            let group_id = match created {
+                Some(g) => g.group_id,
+                None => find_group(&session, &name).await?,
+            };
             out.record(
                 "newsgroup",
-                &[
-                    ("group_id", json!(created.group_id)),
-                    ("name", json!(lossy(&created.name))),
-                ],
+                &[("group_id", json!(group_id)), ("name", json!(name))],
             );
         }
         NewsCmd::DeleteGroup { group } => {

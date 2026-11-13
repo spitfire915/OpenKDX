@@ -227,6 +227,10 @@ pub struct TrackerSettings {
     pub ignored: [u8; 2],
     /// `None` for an absent section (offset 0, size 0, present byte 0).
     pub sections: [Option<Vec<u8>>; 12],
+    /// The table offset of a present but empty section, as read: on the
+    /// wire it is the running offset, but `KDXTrackerServ.stg` carries the
+    /// blob's end for section 4. Zero means "use the running offset".
+    pub empty_offsets: [u32; 12],
 }
 
 impl TrackerSettings {
@@ -236,6 +240,17 @@ impl TrackerSettings {
     pub const SECTION_GROUPS: usize = 2;
     pub const SECTION_GREETING: usize = 4;
     pub const SECTION_ADMIN: usize = 5;
+
+    pub fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut r = Reader::new(bytes);
+        Self::decode_from(&mut r)
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut w = Writer::new();
+        self.encode_into(&mut w);
+        w.into_inner()
+    }
 
     fn decode_from(r: &mut Reader) -> Result<Self, DecodeError> {
         let all = r.rest();
@@ -260,10 +275,14 @@ impl TrackerSettings {
         }
         let present: [u8; 12] = h.array()?;
         let mut sections: [Option<Vec<u8>>; 12] = Default::default();
+        let mut empty_offsets = [0u32; 12];
         let mut end = Self::HEADER_LEN;
         for (i, (offset, size)) in table.iter().enumerate() {
             if present[i] != 1 {
                 continue;
+            }
+            if *size == 0 {
+                empty_offsets[i] = *offset;
             }
             let (offset, size) = (*offset as usize, *size as usize);
             let data = all
@@ -281,6 +300,7 @@ impl TrackerSettings {
             version,
             ignored,
             sections,
+            empty_offsets,
         })
     }
 
@@ -290,8 +310,12 @@ impl TrackerSettings {
         w.u16(self.version);
         w.bytes(&self.ignored);
         let mut offset = Self::HEADER_LEN;
-        for s in &self.sections {
+        for (i, s) in self.sections.iter().enumerate() {
             match s {
+                Some(data) if data.is_empty() && self.empty_offsets[i] != 0 => {
+                    w.u32(self.empty_offsets[i]);
+                    w.u32(0);
+                }
                 Some(data) => {
                     w.u32(offset as u32);
                     w.u32(data.len() as u32);

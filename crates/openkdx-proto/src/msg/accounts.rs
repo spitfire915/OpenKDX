@@ -160,11 +160,11 @@ impl Privileges {
         self.0 == [0; 16]
     }
 
-    fn decode(r: &mut Reader) -> Result<Self, DecodeError> {
+    pub fn decode(r: &mut Reader) -> Result<Self, DecodeError> {
         Ok(Privileges(r.array()?))
     }
 
-    fn encode(&self, w: &mut Writer) {
+    pub fn encode(&self, w: &mut Writer) {
         w.bytes(&self.0);
     }
 }
@@ -256,7 +256,7 @@ impl AccountClassInfo {
     pub const FLOOD_AVERAGE: u8 = 0x3c;
     pub const FLOOD_STRICT: u8 = 0x28;
 
-    fn decode_from(r: &mut Reader) -> Result<Self, DecodeError> {
+    pub fn decode_from(r: &mut Reader) -> Result<Self, DecodeError> {
         let start = r.pos();
         let privileges = Privileges::decode(r)?;
         let time = Time1900::decode(r)?;
@@ -287,7 +287,7 @@ impl AccountClassInfo {
         })
     }
 
-    fn encode_into(&self, w: &mut Writer) {
+    pub fn encode_into(&self, w: &mut Writer) {
         let start = w.pos();
         self.privileges.encode(w);
         self.time.encode(w);
@@ -459,7 +459,7 @@ impl Account {
         self.key[0] != 0
     }
 
-    fn decode_from(r: &mut Reader) -> Result<Self, DecodeError> {
+    pub fn decode_from(r: &mut Reader) -> Result<Self, DecodeError> {
         let start = r.pos();
         let privileges = Privileges::decode(r)?;
         let privilege_mask = Privileges::decode(r)?;
@@ -494,7 +494,7 @@ impl Account {
         })
     }
 
-    fn encode_into(&self, w: &mut Writer) {
+    pub fn encode_into(&self, w: &mut Writer) {
         let start = w.pos();
         self.privileges.encode(w);
         self.privilege_mask.encode(w);

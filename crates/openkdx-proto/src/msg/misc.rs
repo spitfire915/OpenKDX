@@ -453,7 +453,7 @@ impl FolderAccess {
     pub const ICON_PICTURES: u32 = 0x34;
     pub const ICON_AUDIO: u32 = 0x35;
 
-    fn decode_from(r: &mut Reader) -> Result<Self, DecodeError> {
+    pub fn decode_from(r: &mut Reader) -> Result<Self, DecodeError> {
         let start = r.pos();
         let ignored_00: [u8; 4] = r.array()?;
         let flags = r.u32()?;
@@ -493,7 +493,7 @@ impl FolderAccess {
         })
     }
 
-    fn encode_into(&self, w: &mut Writer) {
+    pub fn encode_into(&self, w: &mut Writer) {
         let start = w.pos();
         w.bytes(&self.ignored_00);
         w.u32(self.flags);

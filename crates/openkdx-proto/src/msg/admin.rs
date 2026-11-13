@@ -443,40 +443,160 @@ impl Payload for RcvBroadcast {
     }
 }
 
-/// The server's settings blob, as 171 and 172 carry it: `%KDX` `SSTG`, a
-/// version, a table of 11 sections, 12 flag bytes, and the sections' bytes.
-/// Entry 0 is the main section ([`ServerSettingsMain`]); the others are kept
-/// as bytes until the server (Phase 4) needs them.
+/// The server's settings, as 171 and 172 carry them and as `KDXServer.stg`
+/// stores them: `%KDX` `SSTG`, a version, a table of 11 `(offset, length)`
+/// section entries, 12 bytes, then the sections at 4-aligned offsets.
+///
+/// Sections, pinned by diffing the lab server's file after one change each
+/// (`docs/formats/server-stg.md`): 0 main, 1 trackers, 2 allow/deny list,
+/// 3 greeting (107 layout), 5 icon (106 bytes), 7 chat rooms (kept as bytes
+/// until Phase 4). Sections 4, 6, 8–10 have never been seen non-empty and
+/// are kept as bytes too.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ServerSettings {
     pub version: u16,
     pub ignored: [u8; 2],
-    /// `(offset from the start of the blob, length)` per section.
-    pub table: [(u32, u32); 11],
-    /// `01 01 01 01 00 01 00 02 00 00 00 00` in a 171.
-    pub value_64: [u8; 12],
-    /// Everything after the 0x70-byte header.
-    pub body: Vec<u8>,
+    /// `01 01 01 01 00 01 00 02 00 00 00` in the file and a 171. In a 172,
+    /// 0x6b is 0, and so is 0x69 without the icon. The twelfth byte, at
+    /// 0x6f, is the tracker count and is derived from `trackers`.
+    pub value_64: [u8; 11],
+    /// Whether an empty section still gets the running offset in the table
+    /// (the server does this for 1, 2, 3, 5 and 7) or `(0, 0)` (4, 6, 8–10;
+    /// a client's 172 also sends `(0, 0)` for 7).
+    pub placeholders: [bool; 11],
+    pub main: ServerSettingsMain,
+    pub trackers: Vec<TrackerEntry>,
+    pub allow_deny: Vec<AddressRule>,
+    pub greeting: Option<Greeting>,
+    /// The server icon bitmap, as a 106 carries it.
+    pub icon: Option<Vec<u8>>,
+    /// Section 7: the chat rooms; modelled in Phase 4.
+    pub chats: Vec<u8>,
+    /// Sections 4, 6, 8, 9, 10 (indexed by section number; the others stay
+    /// empty here).
+    pub other: [Vec<u8>; 11],
+    /// Bytes after the last section's padding; never seen non-empty.
+    pub trailing: Vec<u8>,
+}
+
+/// Section 3: four bytes, then the greeting text (the 107 layout).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Greeting {
+    pub ignored: [u8; 4],
+    pub text: Vec<u8>,
 }
 
 impl ServerSettings {
     pub const HEADER_LEN: usize = 0x70;
+    pub const SECTION_MAIN: usize = 0;
+    pub const SECTION_TRACKERS: usize = 1;
+    pub const SECTION_ALLOW_DENY: usize = 2;
+    pub const SECTION_GREETING: usize = 3;
+    pub const SECTION_ICON: usize = 5;
+    pub const SECTION_CHATS: usize = 7;
+    const SERVER_PLACEHOLDERS: [bool; 11] = [
+        true, true, true, true, false, true, false, true, false, false, false,
+    ];
 
-    /// The bytes of section `i`, or `None` if it is empty or out of range.
-    pub fn section(&self, i: usize) -> Option<&[u8]> {
-        let (offset, len) = *self.table.get(i)?;
-        if len == 0 {
-            return None;
-        }
-        let start = (offset as usize).checked_sub(Self::HEADER_LEN)?;
-        self.body.get(start..start.checked_add(len as usize)?)
+    /// Decodes a whole blob.
+    pub fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut r = Reader::new(bytes);
+        Self::decode_from(&mut r)
     }
 
-    pub fn main(&self) -> Option<ServerSettingsMain> {
-        ServerSettingsMain::decode(self.section(0)?).ok()
+    /// Every string must fit its length byte. The encoder truncates to keep
+    /// the layout sound; callers that save or send check this first.
+    pub fn validate(&self) -> Result<(), DecodeError> {
+        let m = &self.main;
+        let long = |v: &Vec<u8>| v.len() > 0xff;
+        if long(&m.name) || long(&m.description) || long(&m.address) {
+            return Err(DecodeError::Invalid(
+                "server settings string longer than 255 bytes",
+            ));
+        }
+        for t in &self.trackers {
+            if long(&t.name)
+                || long(&t.comments)
+                || long(&t.address)
+                || long(&t.login)
+                || long(&t.groups)
+            {
+                return Err(DecodeError::Invalid(
+                    "tracker entry string longer than 255 bytes",
+                ));
+            }
+        }
+        for a in &self.allow_deny {
+            if long(&a.address) || long(&a.name) || long(&a.comments) {
+                return Err(DecodeError::Invalid(
+                    "allow/deny entry string longer than 255 bytes",
+                ));
+            }
+        }
+        if self.trackers.len() > 0xff {
+            return Err(DecodeError::Invalid("more than 255 trackers"));
+        }
+        Ok(())
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut w = Writer::new();
+        self.encode_into(&mut w);
+        w.into_inner()
+    }
+
+    /// The encoded bytes of section `i`, empty when absent.
+    pub fn section_bytes(&self, i: usize) -> Vec<u8> {
+        match i {
+            Self::SECTION_MAIN => self.main.to_bytes(),
+            Self::SECTION_TRACKERS => {
+                let mut w = Writer::new();
+                for t in &self.trackers {
+                    t.encode(&mut w);
+                }
+                w.into_inner()
+            }
+            Self::SECTION_ALLOW_DENY => {
+                let mut w = Writer::new();
+                for a in &self.allow_deny {
+                    a.encode(&mut w);
+                }
+                w.into_inner()
+            }
+            Self::SECTION_GREETING => match &self.greeting {
+                Some(g) => {
+                    let mut v = g.ignored.to_vec();
+                    v.extend_from_slice(&g.text);
+                    v
+                }
+                None => Vec::new(),
+            },
+            Self::SECTION_ICON => self.icon.clone().unwrap_or_default(),
+            Self::SECTION_CHATS => self.chats.clone(),
+            _ => self.other.get(i).cloned().unwrap_or_default(),
+        }
+    }
+
+    /// The table as the encoder lays it out: sections in index order at
+    /// 4-aligned offsets, an empty section at the running offset when it is a
+    /// placeholder.
+    pub fn table(&self) -> [(u32, u32); 11] {
+        let mut table = [(0u32, 0u32); 11];
+        let mut offset = Self::HEADER_LEN;
+        for (i, entry) in table.iter_mut().enumerate() {
+            let len = self.section_bytes(i).len();
+            if len > 0 {
+                *entry = (offset as u32, len as u32);
+                offset += len + crate::wire::pad4_len(len);
+            } else if self.placeholders[i] {
+                *entry = (offset as u32, 0);
+            }
+        }
+        table
     }
 
     fn decode_from(r: &mut Reader) -> Result<Self, DecodeError> {
+        let start = r.pos();
         if r.array::<4>()? != *b"%KDX" || r.array::<4>()? != *b"SSTG" {
             return Err(DecodeError::Invalid("server settings magic"));
         }
@@ -486,89 +606,465 @@ impl ServerSettings {
         for entry in &mut table {
             *entry = (r.u32()?, r.u32()?);
         }
-        let value_64: [u8; 12] = r.array()?;
+        let value_64: [u8; 11] = r.array()?;
+        let tracker_count = r.u8()?;
+        let mut placeholders = [false; 11];
+        let mut sections: [Vec<u8>; 11] = Default::default();
+        // Sections are read in table order; each must start where the
+        // previous one (padded to 4) ended, which is what the originals write.
+        for (i, &(offset, len)) in table.iter().enumerate() {
+            placeholders[i] = offset != 0;
+            if len == 0 {
+                continue;
+            }
+            let here = r.pos() - start;
+            let want = offset as usize;
+            if want < here || want > here + 3 {
+                return Err(DecodeError::Invalid("server settings section offset"));
+            }
+            let pad = r.bytes(want - here)?;
+            if pad.iter().any(|&b| b != 0) {
+                return Err(DecodeError::Invalid("server settings section padding"));
+            }
+            sections[i] = r.bytes(len as usize)?;
+        }
+        // The blob ends padded to 4 like every section before it.
+        let tail = r.pos() - start;
+        let pad = crate::wire::pad4_len(tail);
+        if r.remaining() >= pad {
+            let p = r.bytes(pad)?;
+            if p.iter().any(|&b| b != 0) {
+                return Err(DecodeError::Invalid("server settings tail padding"));
+            }
+        }
+        let trailing = r.rest();
+        let [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10] = sections;
+        let main = ServerSettingsMain::decode(&s0)?;
+        let trackers = decode_list(&s1, TrackerEntry::decode)?;
+        if tracker_count as usize != trackers.len().min(255) {
+            return Err(DecodeError::Invalid("server settings tracker count"));
+        }
+        let allow_deny = decode_list(&s2, AddressRule::decode)?;
+        let greeting = if s3.is_empty() {
+            None
+        } else {
+            let mut gr = Reader::new(&s3);
+            Some(Greeting {
+                ignored: gr.array()?,
+                text: gr.rest(),
+            })
+        };
+        let icon = (!s5.is_empty()).then_some(s5);
+        let mut other: [Vec<u8>; 11] = Default::default();
+        other[4] = s4;
+        other[6] = s6;
+        other[8] = s8;
+        other[9] = s9;
+        other[10] = s10;
         Ok(ServerSettings {
             version,
             ignored,
-            table,
             value_64,
-            body: r.rest(),
+            placeholders,
+            main,
+            trackers,
+            allow_deny,
+            greeting,
+            icon,
+            chats: s7,
+            other,
+            trailing,
         })
     }
 
     fn encode_into(&self, w: &mut Writer) {
+        let start = w.pos();
         w.bytes(b"%KDX");
         w.bytes(b"SSTG");
         w.u16(self.version);
         w.bytes(&self.ignored);
-        for (offset, len) in &self.table {
-            w.u32(*offset);
-            w.u32(*len);
+        for (offset, len) in self.table() {
+            w.u32(offset);
+            w.u32(len);
         }
         w.bytes(&self.value_64);
-        w.bytes(&self.body);
+        w.u8(self.trackers.len().min(255) as u8);
+        for i in 0..11 {
+            let bytes = self.section_bytes(i);
+            if bytes.is_empty() {
+                continue;
+            }
+            w.pad4(start, &[]);
+            w.bytes(&bytes);
+        }
+        w.pad4(start, &[]);
+        w.bytes(&self.trailing);
     }
 }
 
-/// Section 0 of the settings blob, as far as it is known.
+impl Default for ServerSettings {
+    /// What a fresh Server 1.620 writes, minus the chat rooms.
+    fn default() -> Self {
+        ServerSettings {
+            version: 1,
+            ignored: [0; 2],
+            value_64: [1, 1, 1, 1, 0, 1, 0, 2, 0, 0, 0],
+            placeholders: Self::SERVER_PLACEHOLDERS,
+            main: ServerSettingsMain::default(),
+            trackers: Vec::new(),
+            allow_deny: Vec::new(),
+            greeting: None,
+            icon: None,
+            chats: Vec::new(),
+            other: Default::default(),
+            trailing: Vec::new(),
+        }
+    }
+}
+
+/// Zero padding of exactly the expected length is the norm and is kept as
+/// the empty vector, so a value built by hand equals its decoded form;
+/// anything else is kept as read.
+fn canonical_padding(padding: Vec<u8>, expected: usize) -> Vec<u8> {
+    if padding.len() == expected && padding.iter().all(|&b| b == 0) {
+        Vec::new()
+    } else {
+        padding
+    }
+}
+
+/// A string capped to what its one-byte length can say, so the length byte
+/// and the data never disagree.
+fn str255(v: &[u8]) -> &[u8] {
+    &v[..v.len().min(255)]
+}
+
+/// Bytes between string-length bytes whose meaning is not pinned yet: a
+/// non-zero value would mean strings this decoder does not know how to
+/// skip, so it refuses rather than misread the rest.
+fn unpinned_zero(bytes: &[u8]) -> Result<(), DecodeError> {
+    if bytes.iter().any(|&b| b != 0) {
+        return Err(DecodeError::Invalid(
+            "server settings: unpinned length byte set",
+        ));
+    }
+    Ok(())
+}
+
+fn decode_list<T>(
+    bytes: &[u8],
+    one: fn(&mut Reader) -> Result<T, DecodeError>,
+) -> Result<Vec<T>, DecodeError> {
+    let mut r = Reader::new(bytes);
+    let mut out = Vec::new();
+    while !r.is_empty() {
+        out.push(one(&mut r)?);
+    }
+    Ok(out)
+}
+
+/// Section 0. Offsets are from the section's start; the strings follow the
+/// 0x5c-byte header in order and the section is padded to 4.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ServerSettingsMain {
-    pub ignored_00: [u8; 35],
-    /// Bit 1: the greeting is on.
+    pub ignored_00: [u8; 18],
+    /// 0 when not set.
+    pub file_transfer_port: u16,
+    pub ignored_14: [u8; 2],
+    /// 0 when not set.
+    pub alternate_port: u16,
+    /// Server History → "Record Server History to File": bit 0 Login, 1
+    /// Disconnected, 2 Download File, 3 Upload File, 4 Delete File, 5 Get
+    /// File List, 6 Miscellaneous File, 7 Modify Account, 8 Miscellaneous
+    /// Account, 9 Server Settings, 10 Miscellaneous (the window's order;
+    /// bits 0 and 1 confirmed).
+    pub history_kinds: u32,
+    /// "Start new file when size exceeds", in bytes; 1 MiB by default.
+    pub history_max_file_size: u32,
+    pub ignored_20: [u8; 3],
+    /// Bit 0: register with trackers. Bit 1: the greeting is on.
     pub flags: u8,
-    pub ignored_24: [u8; 20],
+    pub ignored_24: [u8; 2],
+    pub port: u16,
+    pub ignored_28: [u8; 4],
+    /// Twelve bytes that differ per server directory; probably an identifier.
+    pub ignored_2c: [u8; 12],
     /// Bytes per second; 0 when off.
     pub total_outgoing_speed_limit: u32,
     pub ignored_3c: [u8; 22],
-    pub ignored_52: u8,
-    pub ignored_53: [u8; 9],
-    /// NUL-terminated on the wire; the terminator and anything after it are
-    /// in `name_tail`.
-    pub server_name: Vec<u8>,
-    pub name_tail: Vec<u8>,
+    /// Between the three length bytes (name at 0x52, description at 0x53,
+    /// address at 0x55).
+    pub ignored_54: u8,
+    pub ignored_56: [u8; 6],
+    pub name: Vec<u8>,
+    pub description: Vec<u8>,
+    pub address: Vec<u8>,
+    /// Zero to three bytes, or whatever the file had after the strings.
+    pub padding: Vec<u8>,
 }
 
 impl ServerSettingsMain {
+    pub const HEADER_LEN: usize = 0x5c;
+
     pub fn greeting_enabled(&self) -> bool {
         self.flags & 2 != 0
     }
 
+    pub fn register_with_trackers(&self) -> bool {
+        self.flags & 1 != 0
+    }
+
     pub fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
         let mut r = Reader::new(bytes);
-        let ignored_00: [u8; 35] = r.array()?;
+        let ignored_00: [u8; 18] = r.array()?;
+        let file_transfer_port = r.u16()?;
+        let ignored_14: [u8; 2] = r.array()?;
+        let alternate_port = r.u16()?;
+        let history_kinds = r.u32()?;
+        let history_max_file_size = r.u32()?;
+        let ignored_20: [u8; 3] = r.array()?;
         let flags = r.u8()?;
-        let ignored_24: [u8; 20] = r.array()?;
+        let ignored_24: [u8; 2] = r.array()?;
+        let port = r.u16()?;
+        let ignored_28: [u8; 4] = r.array()?;
+        let ignored_2c: [u8; 12] = r.array()?;
         let total_outgoing_speed_limit = r.u32()?;
         let ignored_3c: [u8; 22] = r.array()?;
-        let ignored_52 = r.u8()?;
-        let ignored_53: [u8; 9] = r.array()?;
-        let rest = r.rest();
-        let end = rest.iter().position(|&b| b == 0).unwrap_or(rest.len());
+        let name_len = r.u8()? as usize;
+        let description_len = r.u8()? as usize;
+        let ignored_54 = r.u8()?;
+        unpinned_zero(&[ignored_54])?;
+        let address_len = r.u8()? as usize;
+        let ignored_56: [u8; 6] = r.array()?;
+        let name = r.bytes(name_len)?;
+        let description = r.bytes(description_len)?;
+        let address = r.bytes(address_len)?;
+        let expected = crate::wire::pad4_len(r.pos());
+        let padding = canonical_padding(r.rest(), expected);
         Ok(ServerSettingsMain {
             ignored_00,
+            file_transfer_port,
+            ignored_14,
+            alternate_port,
+            history_kinds,
+            history_max_file_size,
+            ignored_20,
             flags,
             ignored_24,
+            port,
+            ignored_28,
+            ignored_2c,
             total_outgoing_speed_limit,
             ignored_3c,
-            ignored_52,
-            ignored_53,
-            server_name: rest[..end].to_vec(),
-            name_tail: rest[end..].to_vec(),
+            ignored_54,
+            ignored_56,
+            name,
+            description,
+            address,
+            padding,
         })
     }
 
+    /// The length bytes come from the strings; `padding` is written as read
+    /// when it is not the plain `pad4`, else recomputed.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut w = Writer::new();
         w.bytes(&self.ignored_00);
+        w.u16(self.file_transfer_port);
+        w.bytes(&self.ignored_14);
+        w.u16(self.alternate_port);
+        w.u32(self.history_kinds);
+        w.u32(self.history_max_file_size);
+        w.bytes(&self.ignored_20);
         w.u8(self.flags);
         w.bytes(&self.ignored_24);
+        w.u16(self.port);
+        w.bytes(&self.ignored_28);
+        w.bytes(&self.ignored_2c);
         w.u32(self.total_outgoing_speed_limit);
         w.bytes(&self.ignored_3c);
-        w.u8(self.ignored_52);
-        w.bytes(&self.ignored_53);
-        w.bytes(&self.server_name);
-        w.bytes(&self.name_tail);
+        w.u8(str255(&self.name).len() as u8);
+        w.u8(str255(&self.description).len() as u8);
+        w.u8(self.ignored_54);
+        w.u8(str255(&self.address).len() as u8);
+        w.bytes(&self.ignored_56);
+        w.bytes(str255(&self.name));
+        w.bytes(str255(&self.description));
+        w.bytes(str255(&self.address));
+        if self.padding.is_empty() {
+            w.pad4(0, &[]);
+        } else {
+            w.bytes(&self.padding);
+        }
         w.into_inner()
+    }
+}
+
+impl Default for ServerSettingsMain {
+    fn default() -> Self {
+        ServerSettingsMain {
+            ignored_00: [0; 18],
+            file_transfer_port: 0,
+            ignored_14: [0; 2],
+            alternate_port: 0,
+            history_kinds: 0,
+            history_max_file_size: 0x10_0000,
+            ignored_20: [0; 3],
+            flags: 0,
+            ignored_24: [0; 2],
+            port: 10700,
+            ignored_28: [0; 4],
+            ignored_2c: [0; 12],
+            total_outgoing_speed_limit: 0,
+            ignored_3c: [0; 22],
+            ignored_54: 0,
+            ignored_56: [0; 6],
+            name: b"New Server".to_vec(),
+            description: Vec::new(),
+            address: Vec::new(),
+            padding: Vec::new(),
+        }
+    }
+}
+
+/// One entry of section 1 (Server Settings → Trackers): a 0x20-byte header
+/// with the string lengths at 0x14–0x1a, then the strings, padded to 4.
+/// The tracker password typed into the window did not appear in the file;
+/// where it goes is open.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct TrackerEntry {
+    pub ignored_00: [u8; 20],
+    pub ignored_18: [u8; 2],
+    pub ignored_1b: u8,
+    pub ignored_1c: [u8; 4],
+    pub name: Vec<u8>,
+    pub comments: Vec<u8>,
+    pub address: Vec<u8>,
+    pub login: Vec<u8>,
+    pub groups: Vec<u8>,
+    pub padding: Vec<u8>,
+}
+
+impl TrackerEntry {
+    pub fn decode(r: &mut Reader) -> Result<Self, DecodeError> {
+        let start = r.pos();
+        let ignored_00: [u8; 20] = r.array()?;
+        let name_len = r.u8()? as usize;
+        let comments_len = r.u8()? as usize;
+        let address_len = r.u8()? as usize;
+        let login_len = r.u8()? as usize;
+        let ignored_18: [u8; 2] = r.array()?;
+        let groups_len = r.u8()? as usize;
+        let ignored_1b = r.u8()?;
+        unpinned_zero(&[ignored_18[0], ignored_18[1], ignored_1b])?;
+        let ignored_1c: [u8; 4] = r.array()?;
+        let name = r.bytes(name_len)?;
+        let comments = r.bytes(comments_len)?;
+        let address = r.bytes(address_len)?;
+        let login = r.bytes(login_len)?;
+        let groups = r.bytes(groups_len)?;
+        let pad = r.pad4(start)?;
+        let padding = canonical_padding(pad.clone(), pad.len());
+        Ok(TrackerEntry {
+            ignored_00,
+            ignored_18,
+            ignored_1b,
+            ignored_1c,
+            name,
+            comments,
+            address,
+            login,
+            groups,
+            padding,
+        })
+    }
+
+    pub fn encode(&self, w: &mut Writer) {
+        let start = w.pos();
+        w.bytes(&self.ignored_00);
+        w.u8(str255(&self.name).len() as u8);
+        w.u8(str255(&self.comments).len() as u8);
+        w.u8(str255(&self.address).len() as u8);
+        w.u8(str255(&self.login).len() as u8);
+        w.bytes(&self.ignored_18);
+        w.u8(str255(&self.groups).len() as u8);
+        w.u8(self.ignored_1b);
+        w.bytes(&self.ignored_1c);
+        w.bytes(str255(&self.name));
+        w.bytes(str255(&self.comments));
+        w.bytes(str255(&self.address));
+        w.bytes(str255(&self.login));
+        w.bytes(str255(&self.groups));
+        w.pad4(start, &self.padding);
+    }
+}
+
+/// One entry of section 2 (Server Settings → Allow/Deny Addresses): a
+/// 0x1c-byte header, then address, name and comments, padded to 4. The
+/// server drops entries whose expiry has passed when it next saves.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct AddressRule {
+    /// 0 when the rule does not expire.
+    pub expires: Time1900,
+    pub ignored_08: [u8; 8],
+    /// Allow when true, deny when false (`00 01` / `00 00` at 0x10).
+    pub allow: bool,
+    pub ignored_12: [u8; 6],
+    pub ignored_1b: u8,
+    pub address: Vec<u8>,
+    pub name: Vec<u8>,
+    pub comments: Vec<u8>,
+    pub padding: Vec<u8>,
+}
+
+impl AddressRule {
+    pub fn decode(r: &mut Reader) -> Result<Self, DecodeError> {
+        let start = r.pos();
+        let expires = Time1900::decode(r)?;
+        let ignored_08: [u8; 8] = r.array()?;
+        let allow = match r.u16()? {
+            0 => false,
+            1 => true,
+            _ => return Err(DecodeError::Invalid("allow/deny flag")),
+        };
+        let ignored_12: [u8; 6] = r.array()?;
+        let address_len = r.u8()? as usize;
+        let name_len = r.u8()? as usize;
+        let comments_len = r.u8()? as usize;
+        let ignored_1b = r.u8()?;
+        unpinned_zero(&[ignored_1b])?;
+        let address = r.bytes(address_len)?;
+        let name = r.bytes(name_len)?;
+        let comments = r.bytes(comments_len)?;
+        let pad = r.pad4(start)?;
+        let padding = canonical_padding(pad.clone(), pad.len());
+        Ok(AddressRule {
+            expires,
+            ignored_08,
+            allow,
+            ignored_12,
+            ignored_1b,
+            address,
+            name,
+            comments,
+            padding,
+        })
+    }
+
+    pub fn encode(&self, w: &mut Writer) {
+        let start = w.pos();
+        self.expires.encode(w);
+        w.bytes(&self.ignored_08);
+        w.u16(self.allow as u16);
+        w.bytes(&self.ignored_12);
+        w.u8(str255(&self.address).len() as u8);
+        w.u8(str255(&self.name).len() as u8);
+        w.u8(str255(&self.comments).len() as u8);
+        w.u8(self.ignored_1b);
+        w.bytes(str255(&self.address));
+        w.bytes(str255(&self.name));
+        w.bytes(str255(&self.comments));
+        w.pad4(start, &self.padding);
     }
 }
 

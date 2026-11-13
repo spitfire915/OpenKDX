@@ -803,21 +803,25 @@ fn server_settings_is_byte_exact() {
     let Message::ServerSettingsInfo(before) = msgs[5] else {
         panic!("{:?}", msgs[5].kind())
     };
-    assert_eq!(before.settings.main().unwrap().server_name, b"New Server");
+    assert_eq!(before.settings.main.name, b"New Server");
     let Message::SetServerSettings(set) = msgs[8] else {
         panic!("{:?}", msgs[8].kind())
     };
-    let main = set.settings.main().unwrap();
-    assert_eq!(main.server_name, b"OpenKDX Lab");
-    assert_eq!(main.ignored_52, 11, "the length byte at 0x52");
+    assert_eq!(set.settings.main.name, b"OpenKDX Lab");
     assert_eq!(
-        set.settings.table, before.settings.table,
+        set.settings.to_bytes()[0x70 + 0x52],
+        11,
+        "the length byte at 0x52"
+    );
+    assert_eq!(
+        set.settings.table()[7..],
+        before.settings.table()[7..],
         "sections untouched"
     );
     let Message::ServerSettingsInfo(after) = msgs[11] else {
         panic!("{:?}", msgs[11].kind())
     };
-    assert_eq!(after.settings.main().unwrap().server_name, b"OpenKDX Lab");
+    assert_eq!(after.settings.main.name, b"OpenKDX Lab");
     // The second login sees the new name in 105.
     let m2 = messages(&cap, 1);
     let Message::ServerInfo(info) = m2[2] else {

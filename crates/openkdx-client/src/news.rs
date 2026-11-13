@@ -103,21 +103,29 @@ impl Session {
     }
 
     /// 600 → 603.
-    pub async fn create_newsgroup(&self, group: NewsgroupInfo) -> Result<NewsgroupInfo> {
-        let reply: NewsgroupInfoReply = self
+    /// 600 → 603, or a success Status (Server 1.620 answers with a Status
+    /// and lists the new group in the next 606; `[O lab]`). `None` then.
+    pub async fn create_newsgroup(&self, group: NewsgroupInfo) -> Result<Option<NewsgroupInfo>> {
+        match self
             .connection()
-            .request_as(&CreateNewsgroup { group })
-            .await?;
-        Ok(reply.group)
+            .request_ok(&CreateNewsgroup { group })
+            .await?
+        {
+            Message::NewsgroupInfo(NewsgroupInfoReply { group }) => Ok(Some(group)),
+            _ => Ok(None),
+        }
     }
 
-    /// 604 → 603.
-    pub async fn set_newsgroup(&self, group: NewsgroupInfo) -> Result<NewsgroupInfo> {
-        let reply: NewsgroupInfoReply = self
+    /// 604 → 603, or a success Status (Server 1.620; `[O lab]`), `None` then.
+    pub async fn set_newsgroup(&self, group: NewsgroupInfo) -> Result<Option<NewsgroupInfo>> {
+        match self
             .connection()
-            .request_as(&SetNewsgroup { group })
-            .await?;
-        Ok(reply.group)
+            .request_ok(&SetNewsgroup { group })
+            .await?
+        {
+            Message::NewsgroupInfo(NewsgroupInfoReply { group }) => Ok(Some(group)),
+            _ => Ok(None),
+        }
     }
 
     /// 601; whatever the server answers.

@@ -62,6 +62,20 @@ differential tests skip unless `OPENKDX_LAB_SERVER` is set.
 `type(scope): summary` — types `feat`, `fix`, `docs`, `test`, `build`, `ci`,
 `lab`, `captures`, `refactor`. One logical change per commit.
 
+## Format code
+
+`crates/openkdx-legacy` reads and writes the originals' files. The rule is
+byte-exact round trips: every reader keeps the bytes it does not understand
+(`ignored_*` arrays, padding, gaps between sections, trailers) and every
+committed sample under `fixtures/legacy/` must satisfy
+`encode(decode(file)) == file` (`crates/openkdx-legacy/tests/`). A record
+that already exists on the wire is reused from `openkdx-proto`, not
+modelled twice. New samples come from the lab scenarios
+(`lab/scenarios/legacy-samples.sh`, `client-samples.sh`): one change per
+snapshot, listed in the fixture directory's README, and never anything of
+Haxial's (the stock news post, their artwork, their appearance pack).
+`lab/legacy.sh` then feeds what we write back to the original programs.
+
 ## Evidence
 
 Every protocol or format claim in `docs/` carries an evidence tag (see

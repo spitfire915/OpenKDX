@@ -11,32 +11,16 @@ use openkdx_proto::msg::session::{ExtraServerInfo, GetExtraServerInfo, GetMyAddr
 use crate::session::Session;
 use crate::{ClientError, Result};
 
-/// Replace the server name in section 0 without changing the section's
-/// length: the name is NUL-terminated inside a fixed buffer, so the new name
-/// plus its terminator must fit in the old name's bytes plus the zero tail.
+/// Replace the server name; the encoder recomputes the length byte at 0x52
+/// and the section's padding (reference administration.md; confirmed on the
+/// lab: without the length byte the server keeps the old length).
 pub fn set_server_name(settings: &mut ServerSettings, name: &[u8]) -> Result<()> {
-    let (offset, len) = settings.table[0];
-    let start = (offset as usize)
-        .checked_sub(ServerSettings::HEADER_LEN)
-        .ok_or(ClientError::Protocol("server settings section 0 offset"))?;
-    let end = start + len as usize;
-    let bytes = settings
-        .body
-        .get(start..end)
-        .ok_or(ClientError::Protocol("server settings section 0 range"))?;
-    let mut main = openkdx_proto::msg::admin::ServerSettingsMain::decode(bytes)?;
-    let room = main.server_name.len() + main.name_tail.len();
-    if name.is_empty() || name.len() + 1 > room || name.len() > 0xff || name.contains(&0) {
-        return Err(ClientError::Protocol("server name does not fit"));
+    if name.is_empty() || name.len() > 0xff || name.contains(&0) {
+        return Err(ClientError::Protocol(
+            "server name must be 1..=255 bytes without NUL",
+        ));
     }
-    main.server_name = name.to_vec();
-    main.name_tail = vec![0; room - name.len()];
-    // The byte at 0x52 is the name's length (reference administration.md,
-    // confirmed on the lab: without it the server keeps the old length).
-    main.ignored_52 = name.len() as u8;
-    let new = main.to_bytes();
-    debug_assert_eq!(new.len(), len as usize);
-    settings.body[start..end].copy_from_slice(&new);
+    settings.main.name = name.to_vec();
     Ok(())
 }
 

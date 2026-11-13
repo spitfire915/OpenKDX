@@ -1,0 +1,27 @@
+﻿26/11/13 06:23:07 PM	Set Server Settings	openkdx	admin		0
+26/11/13 06:23:07 PM	Disconnected	openkdx	admin	127.0.0.1:46640	0
+26/11/13 06:23:09 PM	Login	openkdx	admin	127.0.0.1:33172	0
+26/11/13 06:23:09 PM	Disconnected	openkdx	admin	127.0.0.1:33172	0
+26/11/13 06:23:11 PM	Login	openkdx	admin	127.0.0.1:33186	0
+26/11/13 06:23:11 PM	Create Account	openkdx	admin	hist1	0
+26/11/13 06:23:11 PM	Disconnected	openkdx	admin	127.0.0.1:33186	0
+26/11/13 06:23:12 PM	Login	openkdx	admin	127.0.0.1:33202	0
+26/11/13 06:23:12 PM	Upload File	openkdx	admin	small.txt	0	0	11
+26/11/13 06:23:12 PM	Finished File Upload	openkdx	admin	small.txt	0	11	11
+26/11/13 06:23:12 PM	Disconnected	openkdx	admin	127.0.0.1:33202	0
+26/11/13 06:23:14 PM	Login	openkdx	admin	127.0.0.1:33214	0
+26/11/13 06:23:14 PM	Get File List	openkdx	admin		0
+26/11/13 06:23:14 PM	Disconnected	openkdx	admin	127.0.0.1:33214	0
+26/11/13 06:23:16 PM	Login	openkdx	hist1	127.0.0.1:33224	0
+26/11/13 06:23:16 PM	Disconnected	openkdx	hist1	127.0.0.1:33224	0
+26/11/13 06:23:17 PM	Login	openkdx	admin	127.0.0.1:33230	0
+26/11/13 06:23:17 PM	Get Server Settings	openkdx	admin		0
+26/11/13 06:23:17 PM	Set Server Settings	openkdx	admin		0
+26/11/13 06:23:17 PM	Disconnected	openkdx	admin	127.0.0.1:33230	0
+26/11/13 06:23:19 PM	Login	openkdx	admin	127.0.0.1:52536	0
+26/11/13 06:23:19 PM	Move To Trash	openkdx	admin	small.txt	0
+26/11/13 06:23:19 PM	Disconnected	openkdx	admin	127.0.0.1:52536	0
+26/11/13 06:23:21 PM	Login	openkdx	admin	127.0.0.1:52540	0
+26/11/13 06:23:21 PM	Server History Join	openkdx	admin		0
+26/11/13 06:23:21 PM	Server History Leave	openkdx	admin		0
+26/11/13 06:23:21 PM	Disconnected	openkdx	admin	127.0.0.1:52540	0
