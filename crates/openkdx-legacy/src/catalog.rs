@@ -82,8 +82,7 @@ impl Catalog {
     pub fn path_of(&self, i: usize) -> Vec<&[u8]> {
         let mut out = Vec::new();
         let mut at = i;
-        loop {
-            let Some(e) = self.entries.get(at) else { break };
+        while let Some(e) = self.entries.get(at) {
             out.push(e.name.as_slice());
             if at == 0 || e.parent as usize == at {
                 break;
