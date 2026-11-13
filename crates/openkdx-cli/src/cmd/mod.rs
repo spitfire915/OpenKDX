@@ -1,4 +1,5 @@
 pub mod chat;
+pub mod news;
 pub mod session;
 
 use std::net::{SocketAddr, ToSocketAddrs};
@@ -118,5 +119,6 @@ pub async fn dispatch(ctx: &mut Ctx, command: Command) -> anyhow::Result<()> {
         Command::Run { keep_going } => session::run(ctx, keep_going).await,
         Command::Chat(c) => chat::chat(ctx, c).await,
         Command::Pm(c) => chat::pm(ctx, c).await,
+        Command::News(c) => news::news(ctx, c).await,
     }
 }

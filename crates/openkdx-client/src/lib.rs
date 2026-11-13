@@ -11,6 +11,7 @@ pub use table::{load_kdx_table, load_kdx_table_from};
 pub mod chat;
 pub mod connection;
 pub mod handshake;
+pub mod news;
 pub mod pm;
 pub mod session;
 pub mod txid;

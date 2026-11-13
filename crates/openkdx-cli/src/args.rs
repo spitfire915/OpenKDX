@@ -80,6 +80,41 @@ pub enum Command {
     /// Send a private message, or wait for them.
     #[command(subcommand)]
     Pm(PmCmd),
+    /// Newsgroups and news messages.
+    #[command(subcommand)]
+    News(NewsCmd),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum NewsCmd {
+    /// List the newsgroups.
+    Groups,
+    /// List the messages in a group (ID or name).
+    List { group: String },
+    /// Read one message.
+    Read { group: String, message: u32 },
+    /// Post a message.
+    Post {
+        group: String,
+        #[arg(long)]
+        subject: String,
+        /// The body; lines may end in LF, CR, or CRLF.
+        #[arg(long, conflicts_with = "body_file")]
+        body: Option<String>,
+        /// Read the body from a file.
+        #[arg(long)]
+        body_file: Option<std::path::PathBuf>,
+    },
+    /// Delete a message.
+    Delete { group: String, message: u32 },
+    /// Create a newsgroup.
+    CreateGroup {
+        name: String,
+        #[arg(long, default_value = "")]
+        description: String,
+    },
+    /// Delete a newsgroup.
+    DeleteGroup { group: String },
 }
 
 #[derive(Debug, Subcommand)]

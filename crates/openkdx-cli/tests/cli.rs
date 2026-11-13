@@ -175,3 +175,51 @@ async fn chat_say_sends_207_and_run_can_pm_by_nick() {
     assert_eq!(&pm[0][..4], &[0, 0, 0, 2]);
     assert!(pm[0].ends_with(b"hi bob"));
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn news_post_reports_the_message_id() {
+    use openkdx_proto::msg::news::NewsMessagePosted;
+    let mut steps = login_steps();
+    steps.push(Step::Expect(MessageType::POST_NEWS_MESSAGE));
+    steps.push(Step::Send(Message::NewsMessagePosted(NewsMessagePosted {
+        group_id: 1,
+        message_id: 9,
+        message_count: 1,
+    })));
+    let server = std::sync::Arc::new(MockServer::start(accounts(), vec![steps]).await);
+    let s2 = server.clone();
+    let (code, stdout, stderr) = tokio::task::spawn_blocking(move || {
+        openkdx(
+            &s2,
+            &[
+                "--json",
+                "news",
+                "post",
+                "1",
+                "--subject",
+                "s",
+                "--body",
+                "b",
+            ],
+            "",
+        )
+    })
+    .await
+    .unwrap();
+    assert_eq!(code, 0, "{stderr}");
+    server.check();
+    let v: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
+    assert_eq!(v["message_id"], 9);
+}
+
+#[path = "../src/out.rs"]
+#[allow(dead_code)]
+mod out;
+
+#[test]
+fn time_string_formats_a_known_instant() {
+    // `date -u -r 1794060399` = 2026-11-07 14:06:39.
+    let t = openkdx_proto::msg::common::Time1900::from_unix_ms(1_794_060_399_000);
+    assert_eq!(out::time_string(t), "2026-11-07 14:06:39");
+    assert_eq!(out::version_string(0x0654), "1.620");
+}

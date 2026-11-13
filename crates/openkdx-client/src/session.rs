@@ -205,6 +205,46 @@ impl Session {
         &self.conn
     }
 
+    /// The request timeout, also used when waiting for an unsolicited
+    /// confirmation.
+    pub fn set_timeout(&mut self, timeout: Duration) {
+        self.conn = self.conn.clone().with_timeout(timeout);
+    }
+
+    /// Wait up to the timeout for the first message `pick` accepts. The
+    /// receiver must have been subscribed before the request went out.
+    pub async fn wait_for<T>(
+        &self,
+        events: &mut broadcast::Receiver<Event>,
+        mut pick: impl FnMut(&Message) -> Option<T>,
+    ) -> Result<T> {
+        let deadline = Instant::now() + self.conn.timeout();
+        loop {
+            let remaining = deadline
+                .checked_duration_since(Instant::now())
+                .ok_or(ClientError::Timeout)?;
+            match tokio::time::timeout(remaining, events.recv()).await {
+                Err(_) => return Err(ClientError::Timeout),
+                Ok(Ok(Event::Message(m))) => {
+                    if let Some(v) = pick(&m) {
+                        return Ok(v);
+                    }
+                }
+                Ok(Ok(Event::Undecodable { .. })) => {}
+                Ok(Ok(Event::Disconnected(d))) => {
+                    return Err(match d.message {
+                        Some(m) => ClientError::DisconnectedBy(Box::new(m)),
+                        None => ClientError::Disconnected,
+                    });
+                }
+                Ok(Err(broadcast::error::RecvError::Closed)) => {
+                    return Err(ClientError::Disconnected);
+                }
+                Ok(Err(broadcast::error::RecvError::Lagged(_))) => {}
+            }
+        }
+    }
+
     pub fn events(&self) -> broadcast::Receiver<Event> {
         self.conn.events()
     }
