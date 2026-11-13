@@ -6,6 +6,7 @@
 
 pub mod bases;
 pub mod error;
+pub mod scramble;
 pub mod server_stg;
 pub mod store;
 

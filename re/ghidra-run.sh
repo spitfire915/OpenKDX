@@ -3,7 +3,7 @@
 # project, headless, and prints the script's output.
 #
 #   re/ghidra-run.sh PROGRAM SCRIPT [ARGS…]
-#   re/ghidra-run.sh KDXServer.lexe strings_xrefs.py Accounts.dat KDXServer.stg
+#   re/ghidra-run.sh KDXServer.lexe StringsXrefs.java Accounts.dat KDXServer.stg
 set -euo pipefail
 GHIDRA_HOME="${GHIDRA_HOME:-$HOME/ghidra}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
