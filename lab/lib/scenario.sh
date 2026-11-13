@@ -140,7 +140,7 @@ use_cli() {
 }
 
 # cli [--as LOGIN PASSWORD] [--nick NICK] ARGS... : one command, admin by default.
-cli() {
+_cli() {
   local login="$KDX_ADMIN_LOGIN" pw="$KDX_ADMIN_PASSWORD" nick="openkdx"
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -149,7 +149,12 @@ cli() {
       *) break ;;
     esac
   done
-  "$LAB" exec env OPENKDX_KDX_TABLE="$OPENKDX_KDX_TABLE" "$CLI_BIN"     -s 127.0.0.1 -l "$login" -p "$pw" --nick "$nick" "$@" 2>&1 | tee -a "$RUN/cli.out"
+  echo "\$ openkdx -l '$login' --nick $nick $*"
+  "$LAB" exec env OPENKDX_KDX_TABLE="$OPENKDX_KDX_TABLE" "$CLI_BIN" \
+    -s 127.0.0.1 -l "$login" -p "$pw" --nick "$nick" "$@" 2>&1
+}
+cli() {
+  _cli "$@" | tee -a "$RUN/cli.out"
   return "${PIPESTATUS[0]}"
 }
 
