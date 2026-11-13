@@ -371,12 +371,12 @@ lab_test!(lab_folder_access_list_create_delete, |lab| {
 lab_test!(lab_server_settings_set_name_round_trip, |lab| {
     let s = lab.login_admin("settings").await;
     let original = s.server_settings().await.unwrap();
-    let old_name = original.main().expect("section 0").server_name;
+    let old_name = original.main.name.clone();
     let mut changed = original.clone();
     set_server_name(&mut changed, b"OpenKDX Lab").unwrap();
     s.set_server_settings(changed).await.unwrap();
     let again = s.server_settings().await.unwrap();
-    assert_eq!(again.main().unwrap().server_name, b"OpenKDX Lab");
+    assert_eq!(again.main.name, b"OpenKDX Lab");
     let mut restore = again;
     set_server_name(&mut restore, &old_name).unwrap();
     s.set_server_settings(restore).await.unwrap();

@@ -63,21 +63,56 @@ pub async fn server(ctx: &mut Ctx, cmd: ServerCmd) -> anyhow::Result<()> {
     match cmd {
         ServerCmd::Settings => {
             let s = session.server_settings().await?;
-            let main = s.main();
-            let sections: Vec<u32> = s.table.iter().map(|(_, len)| *len).collect();
+            let main = &s.main;
+            let sections: Vec<u32> = s.table().iter().map(|(_, len)| *len).collect();
             out.record(
                 "server-settings",
                 &[
                     ("version", json!(s.version)),
-                    ("name", json!(main.as_ref().map(|m| lossy(&m.server_name)))),
+                    ("name", json!(lossy(&main.name))),
+                    ("description", json!(lossy(&main.description))),
+                    ("address", json!(lossy(&main.address))),
+                    ("port", json!(main.port)),
+                    ("alternate_port", json!(main.alternate_port)),
+                    ("file_transfer_port", json!(main.file_transfer_port)),
+                    ("greeting_enabled", json!(main.greeting_enabled())),
                     (
-                        "greeting_enabled",
-                        json!(main.as_ref().map(|m| m.greeting_enabled())),
+                        "greeting",
+                        json!(s.greeting.as_ref().map(|g| lossy(&g.text))),
+                    ),
+                    (
+                        "register_with_trackers",
+                        json!(main.register_with_trackers()),
                     ),
                     (
                         "total_outgoing_speed_limit",
-                        json!(main.as_ref().map(|m| m.total_outgoing_speed_limit)),
+                        json!(main.total_outgoing_speed_limit),
                     ),
+                    ("history_kinds", json!(main.history_kinds)),
+                    ("history_max_file_size", json!(main.history_max_file_size)),
+                    (
+                        "trackers",
+                        json!(
+                            s.trackers
+                                .iter()
+                                .map(|t| lossy(&t.address))
+                                .collect::<Vec<_>>()
+                        ),
+                    ),
+                    (
+                        "allow_deny",
+                        json!(
+                            s.allow_deny
+                                .iter()
+                                .map(|a| format!(
+                                    "{} {}",
+                                    if a.allow { "allow" } else { "deny" },
+                                    lossy(&a.address)
+                                ))
+                                .collect::<Vec<_>>()
+                        ),
+                    ),
+                    ("icon_bytes", json!(s.icon.as_ref().map_or(0, |i| i.len()))),
                     ("section_lengths", json!(sections)),
                 ],
             );

@@ -134,33 +134,16 @@ fn broadcasts() {
 }
 
 fn settings() -> ServerSettings {
-    ServerSettings {
-        version: 1,
-        ignored: [0; 2],
-        table: [
-            (0x70, 0x68),
-            (0xd8, 4),
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (0, 0),
-            (0, 0),
-        ],
-        value_64: [1, 1, 1, 1, 0, 1, 0, 2, 0, 0, 0, 0],
-        body: {
-            let mut b = vec![0u8; 0x68];
-            b[0x23] = 0x02;
-            b[0x38..0x3c].copy_from_slice(&0x5000u32.to_be_bytes());
-            b[0x52] = 10;
-            b[0x5c..0x5c + 10].copy_from_slice(b"New Server");
-            b.extend_from_slice(&[9, 9, 9, 9]);
-            b
-        },
-    }
+    let mut s = ServerSettings::default();
+    s.main.flags = 2;
+    s.main.total_outgoing_speed_limit = 0x5000;
+    s.trackers.push(openkdx_proto::msg::admin::TrackerEntry {
+        name: b"t".to_vec(),
+        address: b"10.0.0.9".to_vec(),
+        ..Default::default()
+    });
+    s.chats = vec![9, 9, 9, 9];
+    s
 }
 
 #[test]
@@ -170,13 +153,17 @@ fn server_settings_blob() {
         settings: s.clone(),
     });
     assert_eq!(&bytes[..8], b"%KDXSSTG");
-    assert_eq!(bytes.len(), 0x70 + 0x68 + 4);
-    assert_eq!(s.section(0).unwrap().len(), 0x68);
-    assert_eq!(s.section(1).unwrap(), &[9, 9, 9, 9]);
-    assert!(s.section(2).is_none());
-    assert_eq!(s.main().unwrap().server_name, b"New Server");
-    assert_eq!(s.main().unwrap().total_outgoing_speed_limit, 0x5000);
-    assert!(s.main().unwrap().greeting_enabled());
+    let table = s.table();
+    assert_eq!(table[0], (0x70, 0x68));
+    assert_eq!(table[1], (0xd8, 0x2c));
+    assert_eq!(table[2], (0x104, 0));
+    assert_eq!(table[4], (0, 0));
+    assert_eq!(table[7], (0x104, 4));
+    assert_eq!(bytes.len(), 0x108);
+    assert_eq!(bytes[0x6f], 1, "tracker count");
+    assert_eq!(s.main.name, b"New Server");
+    assert_eq!(s.main.total_outgoing_speed_limit, 0x5000);
+    assert!(s.main.greeting_enabled());
     round_trip(SetServerSettings { settings: s });
     assert!(ServerSettingsInfo::decode(&bytes[..0x6f]).is_err());
     let mut bad = bytes.clone();

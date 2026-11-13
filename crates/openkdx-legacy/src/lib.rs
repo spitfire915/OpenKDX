@@ -6,6 +6,7 @@
 
 pub mod bases;
 pub mod error;
+pub mod server_stg;
 pub mod store;
 
 pub use bases::{BaseName, BaseTag, format_base_name, parse_base_name};

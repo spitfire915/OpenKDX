@@ -819,13 +819,14 @@ fn folder_access(f: &openkdx_proto::msg::misc::FolderAccess) -> String {
 }
 
 fn server_settings(s: &openkdx_proto::msg::admin::ServerSettings) -> String {
-    let sections: Vec<String> = (0..s.table.len())
-        .filter_map(|i| s.section(i).map(|d| format!("{i}: {} bytes", d.len())))
+    let sections: Vec<String> = s
+        .table()
+        .iter()
+        .enumerate()
+        .filter(|(_, (_, len))| *len > 0)
+        .map(|(i, (_, len))| format!("{i}: {len} bytes"))
         .collect();
-    let name = s
-        .main()
-        .map(|m| quoted(&m.server_name))
-        .unwrap_or_else(|| "?".into());
+    let name = quoted(&s.main.name);
     format!(
         "version {} name {} sections [{}]",
         s.version,
