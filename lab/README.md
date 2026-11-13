@@ -32,7 +32,7 @@ Layout under `/home/openkdx`:
 | `lab/kdx-lab` | openkdx | starts, stops, and captures the original programs in a private network namespace |
 | `lab/ci-smoke.sh` | the runner | the `lab` CI job: proves the sandbox and the original server work |
 | `lab/differential.sh` | the runner | the `lab` CI job: `crates/openkdx-client/tests/lab.rs` against Server 1.620 and Tracker 1.110 (16 tests, serial, under 25 connections: the server bans an address after 30 in 300 s) |
-| `lab/scenarios/*.sh` | openkdx | the scripted capture scenarios |
+| `lab/scenarios/*.sh` | openkdx | the scripted capture scenarios; from Phase 2 most drive the OpenKDX `openkdx` CLI (`use_cli`, `cli`, `cli_run`, `cli_bg` in `lab/lib/scenario.sh`) |
 
 ## Admin login
 
@@ -58,10 +58,21 @@ machine, and both must stay in place:
 
 ## Lock
 
-One lab session at a time. `scenario_begin`, `kdx-lab selftest`, and
-`lab/ci-smoke.sh` take `~/lab/run/lab.lock` and refuse if a namespace is
-already up, so a CI job cannot trample a human session or record its traffic.
-`FORCE=1` (scenarios) or `--force` (selftest) overrides the namespace check.
+One lab session at a time. `scenario_begin`, `kdx-lab selftest`,
+`lab/ci-smoke.sh`, and `lab/differential.sh` take `~/lab/run/lab.lock` and
+refuse if a namespace is already up, so a CI job cannot trample a human
+session or record its traffic. `FORCE=1` (scenarios) or `--force` (selftest)
+overrides the namespace check. The CI job runs on every push, so the lab is
+busy for a minute or two after one; a refused run leaves the running session
+alone (its cleanup trap is armed only after the lock).
+
+## Captures with the OpenKDX client
+
+`dumpcap` hands packets over in blocks that close after about a second, so
+`kdx-lab capture start` waits for its packet socket and `capture stop` lets
+that timeout pass before the SIGINT; a one-shot `openkdx` session is a few
+hundred milliseconds and was lost otherwise. The scenario notes get a
+`## Client transcript` section from `$RUN/cli.out`.
 
 ## Rules
 

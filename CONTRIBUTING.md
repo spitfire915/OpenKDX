@@ -14,9 +14,12 @@ for t in ci/*_test.py; do python3 -m unittest "$t"; done
 ```
 
 CI runs the same on Linux, macOS, and Windows, checks the MSRV (Rust 1.88),
-and on the self-hosted lab runner runs the smoke test and the protocol tests
-with the real KDX challenge table. Locally the table tests skip unless the
-table is in the `openkdx-table` cache or `OPENKDX_KDX_TABLE`.
+and on the self-hosted lab runner runs the smoke test, the protocol tests
+with the real KDX challenge table, and `lab/differential.sh`: the client
+library against KDX Server 1.620 and Tracker 1.110
+(`crates/openkdx-client/tests/lab.rs`). Locally the table tests skip unless
+the table is in the `openkdx-table` cache or `OPENKDX_KDX_TABLE`, and the
+differential tests skip unless `OPENKDX_LAB_SERVER` is set.
 
 ## Protocol code
 
@@ -30,6 +33,29 @@ table is in the `openkdx-table` cache or `OPENKDX_KDX_TABLE`.
 - A new or changed capture is committed with its scenario script and notes;
   the notes end with the `## Messages` inventory that `openkdx-dissect
   --inventory` prints (the scenario framework appends it).
+
+## Client code
+
+- `openkdx-client` talks to servers only through `Connection` (requests
+  correlated by txid and reply flag, everything else on the event stream) and
+  `Transfer` (one download or upload per connection). New server features are
+  `impl Session` blocks in a file per area, each with a mock-server test in
+  `crates/openkdx-client/tests/` (`tests/common/mock.rs` runs the real
+  handshake and framing, needs no table, and records script violations; end
+  each test with `server.check()`).
+- Records with a trailing `padding` field (accounts, classes, folder access)
+  go out padded to a multiple of 4; the server rejects them otherwise.
+- Anything the original server does that the reference spec does not say, or
+  says differently, goes in `docs/protocol/README.md` with an evidence tag,
+  and where it can, a capture.
+- The differential tests run serially and open at most two connections each:
+  the server bans an address after 30 connections in 300 s. Keep a run under
+  25 connections, or restart the server.
+- `openkdx-cli` stays thin: argument parsing in `src/args.rs`, output in
+  `src/out.rs` (text and `--json`), one `src/cmd/*.rs` per area, and nothing
+  the library could do instead. Its binary tests drive the built `openkdx`
+  against the mock. New subcommands are reachable from `openkdx run`, which
+  the lab scenarios use.
 
 ## Commits
 

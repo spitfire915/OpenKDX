@@ -44,8 +44,10 @@ mismatch.
 
 ## For tests
 
-Tests that need a table read it through `openkdx_table::from_env`, then the
-default cache, and **skip** (printing `skipped: no … table available`) when
+The `openkdx` command-line client needs the KDX table to log in to any
+server (`openkdx_client::load_kdx_table`: `OPENKDX_KDX_TABLE`, then the
+cache; without it the error names these commands). Tests that need a table
+read it through `openkdx_table::from_env`, then the default cache, and **skip** (printing `skipped: no … table available`) when
 neither has it. Run `cargo run -p openkdx-table -- fetch` once to make them
 real. The dissector works the same way: with a table it checks the challenge
 bytes of every proof in a capture; without one it checks only the key proofs
