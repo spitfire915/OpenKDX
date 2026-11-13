@@ -24,10 +24,13 @@ ade24eb5daa728e2aa950692458dd28a9dce0cdf90afb5758ce3f95b69760d57  AppearanceEdit
 # Not a compatibility reference; compare against the stock build above.
 7366c49f6d8a0788afe38b584d773f823b9710fc062f68592332c24323eefdaa  KDXClient1600-Win-unlocked.zip https://kdx.technowiki.info/downloads/KDXClient1600-Win.zip
 
-# Manual downloads (the site gates downloads behind a browser timer; fetch by
-# hand into ~/haxial/bin/). Hashes from scottanderson/kdx vendor/MANIFEST.md.
-# Appearances041205.sit: Haxial's official appearance pack, same files as the
-#   .zip twin (8d62a7577f78c561643a903d85baa624a56c9b64f639041a61413773208bb1bd).
+# macintoshrepository.org downloads: GET the page, POST its hidden `d` token
+# to download.php?u=0&id=<id>&go=1 (no timer). Unpack .sit with The
+# Unarchiver's `unar` (https://cdn.theunarchiver.com/downloads/unarMac.zip).
+# Appearances041205.sit: Haxial's official appearance pack, 111 .hap files
+#   (Haxial's and third parties' artwork: lab-only, ~/haxial/legacy/appearances/).
+#   e034815d2c6f0c8b2c87a9ac4e8bc8d5e76efb9547a61e0a578b6ce31bcafbc0 (the .sit);
+#   the .zip twin is 8d62a7577f78c561643a903d85baa624a56c9b64f639041a61413773208bb1bd.
 #   https://www.macintoshrepository.org/download.php?id=70117
 # KDX___Haxial_Bundle.sit: a user's collection of Mac builds, appearances and
 #   sound lists. Its KDX client/server are MODIFIED builds: never a reference.
