@@ -80,7 +80,7 @@ ss_begin ports;   ss_replace 235 174 "10702" 6;      ss_save;  snap 14-ftport
 ss_begin trackers
 tap "$SS" 85 81; ui_wait "Edit Tracker" 5 "$CLASS"; T=$(ui_win "Edit Tracker" "$CLASS" || true)
 press "$T" 230 44; ui_type "Second"; press "$T" 230 90; ui_type "tracker comment"; press "$T" 230 136; ui_type "10.0.0.2"
-press "$T" 230 166; ui_type "tlogin"; press "$T" 230 196; ui_type "tpass"; press "$T" 230 266; ui_type "grp"; tap "$T" 369 341; sleep 1
+press "$T" 230 166; ui_type "tlogin"; press "$T" 230 196; sleep 0.3; ui_type "tpass"; press "$T" 230 266; ui_type "grp"; ui_shot legacy-samples-tracker-dialog; tap "$T" 369 341; sleep 1
 ss_save;                                                        snap 15-tracker-full
 ss_begin allowdeny
 tap "$SS" 80 81; ui_wait "Edit A/D Address" 5 "$CLASS"; D=$(ui_win "Edit A/D Address" "$CLASS" || true)
@@ -88,3 +88,13 @@ press "$D" 230 44; ui_type "Noted"; press "$D" 230 74; ui_type "10.5.5.5"; press
 ss_save;                                                        snap 16-deny-comment
 ss_begin general; ui_shot legacy-samples-settings; ui_close "$SS"
 echo "settings snapshots done"
+
+# --- Accounts.dat: classes, accounts, folder access, through the CLI ---------
+cli accounts create legacy1 --new-password p1 --name "Name X" --class 1 >/dev/null; snap 20-account-created
+cli accounts set legacy1 --name "Name Y" >/dev/null;                               snap 21-account-renamed
+cli accounts set legacy1 --new-password p2 >/dev/null;                            snap 22-account-password
+cli classes set 3 --name "Custom Renamed" >/dev/null;                             snap 23-class-renamed
+cli folder-access create Pics --icon pictures >/dev/null;                         snap 24-folder-access
+cli accounts create legacy2 --new-password p2 --class 2 >/dev/null;               snap 25-second-account
+cli accounts delete legacy2 >/dev/null;                                           snap 26-account-deleted
+echo "accounts snapshots done"

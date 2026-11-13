@@ -4,12 +4,15 @@
 //! Every reader keeps the bytes it does not understand, so that
 //! `encode(decode(file)) == file`; see `docs/formats/`.
 
+pub mod accounts;
 pub mod bases;
 pub mod error;
 pub mod scramble;
 pub mod server_stg;
 pub mod store;
 
+pub use accounts::AccountsFile;
 pub use bases::{BaseName, BaseTag, format_base_name, parse_base_name};
 pub use error::{LegacyError, Result};
+pub use openkdx_proto::msg::admin::ServerSettings;
 pub use store::{LegacyDir, ServerFile};
