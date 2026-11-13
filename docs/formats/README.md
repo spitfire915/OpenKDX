@@ -13,7 +13,7 @@ samples of the client-side formats.
 | File | Side | Holds | Status | Page |
 |---|---|---|---|---|
 | `Accounts.dat` | server | accounts, classes, folder access, 32-byte derived keys | verified (lab) | `accounts-dat.md` |
-| `KDXServer.stg` | server | settings: name, description, address, ports, greeting, server icon, speed limit, allow/deny, trackers, history | read/write | `server-stg.md` |
+| `KDXServer.stg` | server | settings: name, description, address, ports, greeting, server icon, speed limit, allow/deny, trackers, history | verified (lab) | `server-stg.md` |
 | `KDXTrackerServ.stg` | tracker | tracker settings | read/write | `tracker-stg.md` |
 | `News.dat` | server | newsgroups and messages (created empty at first run) | read/write | `news-dat.md` |
 | `News Archives/` | server | archived news, text | read/write | `news-archives.md` |
