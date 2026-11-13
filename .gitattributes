@@ -1,0 +1,2 @@
+# Files written by the original programs are byte-exact fixtures: no line-ending conversion anywhere.
+fixtures/legacy/** -text
