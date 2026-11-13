@@ -15,8 +15,8 @@ PROJECT="openkdx"
 
 GHIDRA_URL="https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.2_build/ghidra_12.2_PUBLIC_20261016.zip"
 GHIDRA_SHA="2c2cd776db3c1f6a097ba418922378ac3649cadd5e844a6f5f088ae628a7be67"
-JDK_URL="https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_linux_hotspot_21.0.13_9.tar.gz"
-JDK_SHA="d7f5d5cf865a2902b70ff549b97586a7d3f234e016f041ab447ea740c7d66d1c"
+JDK_URL="https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.5%2B8/OpenJDK25U-jdk_x64_linux_hotspot_25.0.5_8.tar.gz"
+JDK_SHA="68982529869257d0ee6b824ec5aa270ff8b118bb438670da0b97ebdab178d7fb"
 
 fetch() { # URL SHA DEST
   if [[ -f "$3" ]] && echo "$2  $3" | sha256sum -c --quiet 2>/dev/null; then return; fi
