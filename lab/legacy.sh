@@ -42,10 +42,11 @@ test -f "$RUN/server/Accounts.dat.orig" && test -f "$RUN/server/KDXServer.stg.or
 "$LAB" server start >/dev/null
 for _ in $(seq 1 50); do grep -q "KDX Server started" "$RUN/server.log" && break; sleep 0.2; done
 if [[ -z "${OPENKDX_KDX_TABLE:-}" ]]; then
-  OPENKDX_KDX_TABLE="$(base64 -w0 "$(cargo run -q -p openkdx-table -- path | head -1)/kdx.bin")"
+  table_dir=$(cargo run -q -p openkdx-table -- path 2>/dev/null | sed -n 1p)
+  OPENKDX_KDX_TABLE="$(base64 -w0 "$table_dir/kdx.bin")"
 fi
-out=$("$LAB" exec env OPENKDX_KDX_TABLE="$OPENKDX_KDX_TABLE" "$CLI" -s 127.0.0.1 -l legacyuser -p secret --json login)
-echo "$out" | grep -q '"Written by OpenKDX"' || { echo "legacy: server did not take our files: $out" >&2; exit 1; }
+out=$("$LAB" exec env OPENKDX_KDX_TABLE="$OPENKDX_KDX_TABLE" "$CLI" -s 127.0.0.1 -l legacyuser -p secret --json login 2>&1)
+case "$out" in *'"Written by OpenKDX"'*) ;; *) echo "legacy: server did not take our files: $out" >&2; exit 1 ;; esac
 "$LAB" exec env OPENKDX_KDX_TABLE="$OPENKDX_KDX_TABLE" "$CLI" -s 127.0.0.1 -l "$KDX_ADMIN_LOGIN" -p "$KDX_ADMIN_PASSWORD" accounts show legacyuser > "$RUN/legacy-show.out"; grep -q legacyuser "$RUN/legacy-show.out"
 if grep -qi "licen\|damaged\|corrupt" "$RUN/server.log"; then echo "legacy: server log complains" >&2; tail -20 "$RUN/server.log" >&2; exit 1; fi
 "$LAB" ns stop >/dev/null 2>&1 || true
