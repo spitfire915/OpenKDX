@@ -81,3 +81,5 @@ jobs:
             || cargo run -q -p openkdx-table -- import "$HOME/haxial/bin/KDXServer1620-Lnx/KDXServer1620-Lnx/KDXServer.lexe"
           export OPENKDX_KDX_TABLE="$(base64 -w0 "$(cargo run -q -p openkdx-table -- path | head -1)/kdx.bin")"
           cargo test -q -p openkdx-proto -p openkdx-codec -p openkdx-dissect
+      - name: Differential tests against KDX Server 1.620 and Tracker 1.110
+        run: lab/differential.sh

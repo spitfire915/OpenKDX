@@ -31,6 +31,7 @@ Layout under `/home/openkdx`:
 | `lab/fetch-binaries.sh` | openkdx | downloads and verifies every archive in `MANIFEST.txt`, unpacks it, extracts the challenge tables |
 | `lab/kdx-lab` | openkdx | starts, stops, and captures the original programs in a private network namespace |
 | `lab/ci-smoke.sh` | the runner | the `lab` CI job: proves the sandbox and the original server work |
+| `lab/differential.sh` | the runner | the `lab` CI job: `crates/openkdx-client/tests/lab.rs` against Server 1.620 and Tracker 1.110 (16 tests, serial, under 25 connections: the server bans an address after 30 in 300 s) |
 | `lab/scenarios/*.sh` | openkdx | the scripted capture scenarios |
 
 ## Admin login

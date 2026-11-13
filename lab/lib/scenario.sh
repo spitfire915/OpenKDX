@@ -121,6 +121,63 @@ connect_to() { # connect_to ADDRESS LOGIN PASSWORD
 }
 
 capture_begin() { "$LAB" capture start "$SCENARIO" >/dev/null; step "Start capturing loopback."; }
+
+# --- The OpenKDX command-line client (crates/openkdx-cli) ---------------------
+# use_cli builds it once and makes cli/cli_guest/cli_run drive it inside the
+# namespace. Its transcript goes to $RUN/cli.out for the scenario notes.
+CLI_BIN=""
+use_cli() {
+  export PATH="$HOME/.cargo/bin:$PATH"
+  cargo build -q -p openkdx-cli --manifest-path "$HERE/../Cargo.toml"
+  CLI_BIN="$HERE/../target/debug/openkdx"
+  [[ -x "$CLI_BIN" ]] || { echo "openkdx CLI did not build" >&2; exit 1; }
+  if [[ -z "${OPENKDX_KDX_TABLE:-}" ]]; then
+    OPENKDX_KDX_TABLE="$(base64 -w0 "$(cargo run -q -p openkdx-table --manifest-path "$HERE/../Cargo.toml" -- path 2>/dev/null | head -1)/kdx.bin")"
+    export OPENKDX_KDX_TABLE
+  fi
+  PROGRAMS="${PROGRAMS:-KDX Server 1.620 (Linux), OpenKDX client (openkdx CLI, $(git -C "$HERE/.." rev-parse --short HEAD))}"
+  : > "$RUN/cli.out"
+}
+
+# cli [--as LOGIN PASSWORD] [--nick NICK] ARGS... : one command, admin by default.
+_cli() {
+  local login="$KDX_ADMIN_LOGIN" pw="$KDX_ADMIN_PASSWORD" nick="openkdx"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --as) login=$2; pw=$3; shift 3 ;;
+      --nick) nick=$2; shift 2 ;;
+      *) break ;;
+    esac
+  done
+  echo "\$ openkdx -l '$login' --nick $nick $*"
+  "$LAB" exec env OPENKDX_KDX_TABLE="$OPENKDX_KDX_TABLE" "$CLI_BIN" \
+    -s 127.0.0.1 -l "$login" -p "$pw" --nick "$nick" "$@" 2>&1
+}
+cli() {
+  _cli "$@" | tee -a "$RUN/cli.out"
+  return "${PIPESTATUS[0]}"
+}
+
+cli_guest() { cli --as "" "" "$@"; }
+
+# cli_run [cli options] <<'EOF' … EOF : many commands on one session (openkdx run).
+cli_run() { cli "$@" run --keep-going; }
+
+# cli_bg NAME [cli options] ARGS... : in the background; wait with cli_wait NAME.
+cli_bg() {
+  local name=$1; shift
+  _cli "$@" > "$RUN/cli-$name.out" 2>&1 &
+  echo $! > "$RUN/cli-$name.pid"
+  sleep 1
+}
+cli_wait() {
+  local name=$1 rc=0
+  wait "$(cat "$RUN/cli-$name.pid")" || rc=$?
+  cat "$RUN/cli-$name.out" >> "$RUN/cli.out"
+  return $rc
+}
+# For the notes: the background client's transcript.
+cli_bg_out() { cat "$RUN/cli-$1.out"; }
 capture_end() { "$LAB" capture stop | tail -1; }
 
 scenario_end() {
@@ -141,8 +198,16 @@ scenario_end() {
     echo "## Server log"
     echo
     echo '```'
-    sed 's/\x1b\[[0-9;]*[A-Za-z]//g' "$RUN/server.log" | tr -d '\r' | head -40
+    sed 's/\x1b\[[0-9;]*[A-Za-z]//g' "$RUN/server.log" | tr -d '\r' | head -60
     echo '```'
+    if [[ -n "$CLI_BIN" && -s "$RUN/cli.out" ]]; then
+      echo
+      echo "## Client transcript"
+      echo
+      echo '```'
+      head -80 "$RUN/cli.out"
+      echo '```'
+    fi
   } > "$CAPTURES/$SCENARIO.md"
   # The decoded message inventory; crates/openkdx-dissect/tests/captures.rs checks it.
   if command -v cargo >/dev/null 2>&1 || [[ -x "$HOME/.cargo/bin/cargo" ]]; then
@@ -150,10 +215,11 @@ scenario_end() {
       echo
       echo "## Messages"
       echo
-      echo "Decoded by \`openkdx-dissect --inventory -p openkdx-lab captures/$SCENARIO.pcapng\`; checked by \`crates/openkdx-dissect/tests/captures.rs\`."
+      echo "Decoded by \`openkdx-dissect --inventory -p openkdx-lab ${INVENTORY_EXTRA_ARGS:+$INVENTORY_EXTRA_ARGS }captures/$SCENARIO.pcapng\`; checked by \`crates/openkdx-dissect/tests/captures.rs\`."
       echo
+      # shellcheck disable=SC2086
       PATH="$HOME/.cargo/bin:$PATH" cargo run -q -p openkdx-dissect --manifest-path "$HERE/../Cargo.toml" -- \
-        --inventory -p "$KDX_ADMIN_PASSWORD" "$CAPTURES/$SCENARIO.pcapng" 2>/dev/null \
+        --inventory -p "$KDX_ADMIN_PASSWORD" ${INVENTORY_EXTRA_ARGS:-} "$CAPTURES/$SCENARIO.pcapng" 2>/dev/null \
         || echo "(openkdx-dissect failed; run it by hand and paste the inventory here)"
     } >> "$CAPTURES/$SCENARIO.md"
   fi

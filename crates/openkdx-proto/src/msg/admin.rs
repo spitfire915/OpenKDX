@@ -32,7 +32,7 @@ fn sized_path(r: &mut Reader, len: usize) -> Result<FilePath, DecodeError> {
 }
 
 /// One connection or transfer in 143.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MonitoredConnection {
     pub user_id: u32,
     /// 0 for a connection, the transfer's ID for a transfer.
@@ -678,6 +678,25 @@ pub struct HistoryRecord {
     pub detail: Vec<u8>,
     pub path: FilePath,
     pub padding: Vec<u8>,
+}
+
+impl Default for HistoryRecord {
+    fn default() -> Self {
+        HistoryRecord {
+            time: Time1900::default(),
+            kind: HistoryKind::default(),
+            user_id: 0,
+            ignored_10: [0; 50],
+            ignored_44: [0; 2],
+            ignored_4a: [0; 2],
+            address: Vec::new(),
+            nick: Vec::new(),
+            login: Vec::new(),
+            detail: Vec::new(),
+            path: FilePath::default(),
+            padding: Vec::new(),
+        }
+    }
 }
 
 impl HistoryRecord {

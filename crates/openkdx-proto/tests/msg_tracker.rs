@@ -124,3 +124,13 @@ fn statistics() {
     });
     assert_eq!(bytes.len(), 0x38);
 }
+
+#[test]
+fn empty_server_list_is_an_empty_payload() {
+    // Tracker 1.110 answers 702 for a group with no servers with 0 bytes
+    // (lab, Phase 2 differential run), not a zero count.
+    use openkdx_proto::Payload;
+    let list = openkdx_proto::msg::tracker::TrackerServerList::decode(&[]).unwrap();
+    assert!(list.servers.is_empty());
+    assert!(list.to_bytes().is_empty());
+}

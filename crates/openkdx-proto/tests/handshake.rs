@@ -108,6 +108,8 @@ fn client_hello() -> Hello {
         name: b"admin".to_vec(),
         pad_len: 0,
         skipped_len: 0,
+        pad: Vec::new(),
+        skipped: Vec::new(),
         ignored: [0; 4],
         padding: vec![0; 3],
     }
@@ -151,10 +153,12 @@ fn hello_decode_wants_more_bytes_when_short() {
 }
 
 #[test]
-fn hello_skips_pad_and_truncates_name_to_31() {
+fn hello_with_pad_and_long_name_round_trips_byte_exact() {
     let hello = Hello {
         pad_len: 3,
         skipped_len: 2,
+        pad: vec![0xaa, 0xbb, 0xcc],
+        skipped: vec![0xdd, 0xee],
         name: vec![b'x'; 40],
         padding: vec![],
         ..client_hello()
@@ -165,9 +169,18 @@ fn hello_skips_pad_and_truncates_name_to_31() {
     assert_eq!(bytes.len(), 84);
     let (decoded, used) = Hello::decode(&bytes).unwrap();
     assert_eq!(used, 84);
-    assert_eq!(decoded.name, vec![b'x'; 31]);
-    assert_eq!(decoded.pad_len, 3);
-    assert_eq!(decoded.skipped_len, 2);
+    assert_eq!(decoded.name, vec![b'x'; 40], "every name byte is kept");
+    assert_eq!(decoded.login(), &vec![b'x'; 31][..], "the server uses 31");
+    assert_eq!(decoded.pad, vec![0xaa, 0xbb, 0xcc]);
+    assert_eq!(decoded.skipped, vec![0xdd, 0xee]);
+    assert_eq!(decoded.encode(99), bytes, "re-encodes byte for byte");
+    assert_eq!(
+        decoded,
+        Hello {
+            padding: vec![0; 3],
+            ..hello
+        }
+    );
 }
 
 #[test]
@@ -299,4 +312,16 @@ fn lab_table() -> Option<Vec<u8>> {
         .get(Story::Kdx)
         .ok()
         .flatten()
+}
+
+#[test]
+fn proof_status_1_is_failed() {
+    // Server 1.620 answers a bad proof with status 1 (lab server log
+    // "Login failed"; the reference lists only 0x10, 2, 3, 4).
+    use openkdx_proto::handshake::{Proof, ProofStatus};
+    let bytes = Proof::failure(&[0; 12], ProofStatus::Failed).encode();
+    let p = Proof::decode(&bytes).unwrap();
+    assert_eq!(p.status, ProofStatus::Failed);
+    assert_eq!(p.status as u8, 1);
+    assert_eq!(p.encode(), bytes);
 }

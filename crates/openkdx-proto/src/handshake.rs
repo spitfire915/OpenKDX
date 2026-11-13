@@ -87,11 +87,16 @@ pub struct Hello {
     pub challenge: u16,
     pub nonce: [u8; 12],
     /// The login name from a client: empty for guest, `\0` + u32 session ID to
-    /// attach a transfer connection. At most 31 bytes are kept.
+    /// attach a transfer connection. All `name_len` bytes as sent; the server
+    /// uses the first 31 ([`login`](Self::login)).
     pub name: Vec<u8>,
     pub pad_len: u8,
     pub skipped_len: u16,
     pub ignored: [u8; 4],
+    /// The `pad_len` bytes before the name, kept so a hello re-encodes exactly.
+    pub pad: Vec<u8>,
+    /// The `skipped_len` bytes after them, likewise.
+    pub skipped: Vec<u8>,
     pub padding: Vec<u8>,
 }
 
@@ -157,9 +162,9 @@ impl Hello {
         xor_stream(key, &mut whole);
         body.copy_from_slice(&whole[HELLO_FIXED - 4..]);
         let mut r = Reader::new(&body);
-        r.bytes(usize::from(pad_len) + usize::from(skipped_len))?;
-        let mut name = r.bytes(usize::from(name_len))?;
-        name.truncate(NAME_KEPT);
+        let pad = r.bytes(usize::from(pad_len))?;
+        let skipped = r.bytes(usize::from(skipped_len))?;
+        let name = r.bytes(usize::from(name_len))?;
         let padding = r.rest();
         Ok((
             Hello {
@@ -172,6 +177,8 @@ impl Hello {
                 pad_len,
                 skipped_len,
                 ignored,
+                pad,
+                skipped,
                 padding,
             },
             total,
@@ -192,11 +199,14 @@ impl Hello {
         w.u16(self.skipped_len);
         w.u16(self.challenge);
         w.bytes(&self.nonce);
-        w.bytes(&vec![
-            0u8;
-            usize::from(self.pad_len)
-                + usize::from(self.skipped_len)
-        ]);
+        let mut gap = vec![0u8; usize::from(self.pad_len) + usize::from(self.skipped_len)];
+        for (dst, src) in gap
+            .iter_mut()
+            .zip(self.pad.iter().chain(self.skipped.iter()))
+        {
+            *dst = *src;
+        }
+        w.bytes(&gap);
         w.bytes(&self.name[..name_len]);
         w.pad4(0, &self.padding);
         let mut body = w.into_inner();
@@ -204,6 +214,11 @@ impl Hello {
         let mut out = key.to_be_bytes().to_vec();
         out.extend_from_slice(&body);
         out
+    }
+
+    /// The login the server acts on: the first 31 bytes of the name.
+    pub fn login(&self) -> &[u8] {
+        &self.name[..self.name.len().min(NAME_KEPT)]
     }
 
     pub fn role(&self) -> Option<Role> {
@@ -221,6 +236,9 @@ impl Hello {
 #[repr(u8)]
 pub enum ProofStatus {
     Ok = 0x10,
+    /// Server 1.620 answers a bad proof with this (lab, Phase 2); the
+    /// reference lists it only for the 0.9x handshake.
+    Failed = 1,
     UnknownProtocol = 2,
     TooOld = 3,
     TooNew = 4,
@@ -230,6 +248,7 @@ impl ProofStatus {
     fn from_u8(v: u8) -> Option<Self> {
         match v {
             0x10 => Some(ProofStatus::Ok),
+            1 => Some(ProofStatus::Failed),
             2 => Some(ProofStatus::UnknownProtocol),
             3 => Some(ProofStatus::TooOld),
             4 => Some(ProofStatus::TooNew),

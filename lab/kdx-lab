@@ -260,13 +260,26 @@ capture_start() {
   in_ns dumpcap -q -i lo -w "$out" >"$RUN/capture.log" 2>&1 &
   echo $! > "$(pidfile capture)"
   echo "$out" > "$RUN/capture.current"
-  sleep 1
+  # Wait until dumpcap's packet socket exists in the namespace: it prints
+  # "File:" before it is attached, and a fixed sleep let the Rust client's
+  # one-shot sessions slip through uncaptured.
+  local attached=0
+  for _ in $(seq 1 200); do
+    if in_ns sh -c '[ "$(wc -l < /proc/net/packet)" -gt 1 ]' 2>/dev/null; then attached=1; break; fi
+    alive "$(pidfile capture)" || break
+    sleep 0.1
+  done
   alive "$(pidfile capture)" || { cat "$RUN/capture.log" >&2; die "dumpcap did not start"; }
+  [[ $attached -eq 1 ]] || { cat "$RUN/capture.log" >&2; die "dumpcap did not attach to lo"; }
+  sleep 0.2
   echo "capture: started → $out"
 }
 
 capture_stop() {
   if alive "$(pidfile capture)"; then
+    # libpcap hands dumpcap packets in blocks that close after a timeout
+    # (about a second); a stop right after a short session lost all of it.
+    sleep 1.5
     in_ns pkill -INT -x dumpcap 2>/dev/null || true
     for _ in $(seq 1 50); do alive "$(pidfile capture)" || break; sleep 0.2; done
   fi

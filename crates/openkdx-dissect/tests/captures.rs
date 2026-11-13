@@ -6,14 +6,23 @@ use std::path::{Path, PathBuf};
 
 use openkdx_dissect::audit::Audit;
 use openkdx_dissect::connection::{
-    Capture, ConnectionKind, Options, Ports, Record, dissect_capture,
+    Capture, ConnectionKind, Dir, Options, Ports, Record, dissect_capture,
 };
 use openkdx_proto::ChallengeTable;
 use openkdx_proto::message_type::MessageType;
 use openkdx_proto::msg::Message;
+use openkdx_proto::msg::admin::HistoryKind;
 use openkdx_proto::registration::Registration;
 
-const CAPTURES: [&str; 7] = [
+const CAPTURES: [&str; 15] = [
+    "upload-resume",
+    "accounts-classes",
+    "folder-access",
+    "server-settings",
+    "broadcast",
+    "disconnect-ban",
+    "server-history",
+    "connection-monitor",
     "first-connect",
     "guest-login",
     "chat-basic",
@@ -43,7 +52,8 @@ fn table() -> Option<ChallengeTable> {
 
 fn opts() -> Options {
     Options {
-        passwords: vec![b"openkdx-lab".to_vec()],
+        // The lab password, and the wrong one `disconnect-ban` tries.
+        passwords: vec![b"openkdx-lab".to_vec(), b"wrong-password".to_vec()],
         table: table(),
         ..Options::default()
     }
@@ -80,11 +90,17 @@ fn assert_clean(cap: &Capture, name: &str) {
                     )
                 }
                 Record::Proof {
+                    proof,
                     auth_ok,
                     challenge_ok,
                     frame,
                     ..
                 } => {
+                    if proof.status != openkdx_proto::handshake::ProofStatus::Ok {
+                        // A failure proof: a zeroed auth and response.
+                        assert_eq!(*auth_ok, None, "{name}: failure proof at frame {frame}");
+                        continue;
+                    }
                     assert_eq!(*auth_ok, Some(true), "{name}: proof auth at frame {frame}");
                     if cap.table_present {
                         assert_eq!(
@@ -607,4 +623,386 @@ fn unknown_payloads_audit_as_unknown_not_mismatch() {
             );
         }
     }
+}
+
+#[test]
+fn upload_resume_is_byte_exact() {
+    let cap = load("upload-resume");
+    assert_clean(&cap, "upload-resume");
+    assert_exact(&cap, "upload-resume");
+    // main, cut transfer, main (ls), resumed transfer's main..., etc.
+    assert!(cap.connections.len() >= 4, "{}", cap.connections.len());
+    // The first transfer: 415, 416 (offset 0), a 417 header for the whole
+    // file, 150000 bytes, then the client closes.
+    let cut = &cap.connections[1];
+    assert_eq!(kinds(&cap, 1), vec![415, 416, 417]);
+    let cut_record = cut
+        .records
+        .iter()
+        .find_map(|r| match r {
+            Record::DataCut {
+                captured, declared, ..
+            } => Some((*captured, *declared)),
+            _ => None,
+        })
+        .expect("the cut transfer is recorded as DataCut");
+    assert_eq!(cut_record, (150_000, 262_144));
+    let t = messages(&cap, 1);
+    let Message::UploadFile(up) = t[0] else {
+        panic!("{:?}", t[0].kind())
+    };
+    assert_eq!(up.data_size, 262_144);
+    assert_eq!(up.strings.name, b"big.bin");
+    assert_eq!(up.strings.second, b"exttype/bin");
+    let Message::UploadReply(r) = t[1] else {
+        panic!("{:?}", t[1].kind())
+    };
+    assert_eq!(r.data_offset, 0);
+
+    // The resumed transfer: 416 offers a multiple of 0x1000, the client
+    // sends the rest under one 417 header (reply to 415's txid), an empty
+    // 417 (fresh txid), and gets 418.
+    let resumed = cap
+        .connections
+        .iter()
+        .enumerate()
+        .skip(2)
+        .find(|(i, _)| kinds(&cap, *i).starts_with(&[415, 416]))
+        .map(|(i, _)| i)
+        .expect("a resumed upload");
+    assert_eq!(kinds(&cap, resumed), vec![415, 416, 417, 417, 418]);
+    let t = messages(&cap, resumed);
+    let Message::UploadReply(r) = t[1] else {
+        panic!("{:?}", t[1].kind())
+    };
+    assert_eq!(r.data_offset, 131_072);
+    let headers: Vec<(u64, bool)> = cap.connections[resumed]
+        .records
+        .iter()
+        .filter_map(|r| match r {
+            Record::DataHeader { header, .. } => Some((header.len, header.reply)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(headers, vec![(262_144 - 131_072, true), (0, false)]);
+    let (txid_415, txid_417) = {
+        let mut it = cap.connections[resumed]
+            .records
+            .iter()
+            .filter_map(|r| match r {
+                Record::Message { header, .. } | Record::DataHeader { header, .. } => Some(header),
+                _ => None,
+            });
+        let a = it.next().unwrap().txid;
+        let c = it.nth(1).unwrap().txid;
+        (a, c)
+    };
+    assert_eq!(txid_415, txid_417, "the data-fork 417 answers 415");
+
+    // A download of the whole file at the end, on its own transfer connection.
+    let down = cap
+        .connections
+        .iter()
+        .enumerate()
+        .find(|(i, _)| kinds(&cap, *i).starts_with(&[412]))
+        .map(|(i, _)| i)
+        .expect("a download");
+    assert_eq!(kinds(&cap, down), vec![412, 413, 414, 414]);
+}
+
+#[test]
+fn accounts_classes_is_byte_exact() {
+    let cap = load("accounts-classes");
+    assert_clean(&cap, "accounts-classes");
+    assert_exact(&cap, "accounts-classes");
+    assert_eq!(cap.connections.len(), 1);
+    assert_eq!(
+        kinds(&cap, 0),
+        vec![
+            100, 101, 105, 118, 505, 506, 502, 503, 512, 513, 507, 1, 509, 510, 509, 510, 511, 1,
+            509, 510, 508, 515, 512, 513
+        ]
+    );
+    let msgs = messages(&cap, 0);
+    let Message::Status(s) = msgs[11] else {
+        panic!("{:?}", msgs[11].kind())
+    };
+    assert_eq!(
+        (s.code, s.request_type_or_value),
+        (0, 507),
+        "507 → success Status 0x1fb"
+    );
+    let Message::AccountInfo(info) = msgs[13] else {
+        panic!("{:?}", msgs[13].kind())
+    };
+    assert_eq!(info.account.login, b"tester");
+    assert!(info.account.has_password());
+    assert_eq!(info.account.editor, b"admin", "510 carries the last editor");
+    let Message::SetAccount(set) = msgs[16] else {
+        panic!("{:?}", msgs[16].kind())
+    };
+    assert_eq!(set.account.name, b"Tester 2");
+    assert_eq!(
+        set.account.editor, b"tester",
+        "511 names the account in editor"
+    );
+    let Message::AccountDeleted(d) = msgs[21] else {
+        panic!("{:?}", msgs[21].kind())
+    };
+    assert_eq!(d.login, b"tester");
+}
+
+#[test]
+fn folder_access_is_byte_exact() {
+    let cap = load("folder-access");
+    assert_clean(&cap, "folder-access");
+    assert_exact(&cap, "folder-access");
+    assert_eq!(
+        kinds(&cap, 0),
+        vec![
+            100, 101, 105, 118, 1106, 1107, 1103, 1104, 1100, 1, 1103, 1104, 402, 1, 400, 401,
+            1101, 1102, 1106, 1107
+        ]
+    );
+    let msgs = messages(&cap, 0);
+    let Message::FolderAccessInfo(ul) = msgs[7] else {
+        panic!("{:?}", msgs[7].kind())
+    };
+    assert_eq!(ul.item.name, b"UL");
+    assert_eq!(ul.item.icon, 0x2b);
+    let Message::Status(s) = msgs[9] else {
+        panic!("{:?}", msgs[9].kind())
+    };
+    assert_eq!((s.code, s.request_type_or_value), (0, 1100));
+    let Message::FileList(list) = msgs[15] else {
+        panic!("{:?}", msgs[15].kind())
+    };
+    assert!(
+        list.entries
+            .iter()
+            .any(|e| e.name == b"Pictures [Pictures]" && e.is_folder()),
+        "{:?}",
+        list.entries
+            .iter()
+            .map(|e| String::from_utf8_lossy(&e.name).into_owned())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn server_settings_is_byte_exact() {
+    let cap = load("server-settings");
+    assert_clean(&cap, "server-settings");
+    assert_exact(&cap, "server-settings");
+    assert_eq!(cap.connections.len(), 3);
+    assert_eq!(
+        kinds(&cap, 0),
+        vec![100, 101, 105, 118, 170, 171, 170, 171, 172, 173, 170, 171]
+    );
+    let msgs = messages(&cap, 0);
+    let Message::ServerSettingsInfo(before) = msgs[5] else {
+        panic!("{:?}", msgs[5].kind())
+    };
+    assert_eq!(before.settings.main().unwrap().server_name, b"New Server");
+    let Message::SetServerSettings(set) = msgs[8] else {
+        panic!("{:?}", msgs[8].kind())
+    };
+    let main = set.settings.main().unwrap();
+    assert_eq!(main.server_name, b"OpenKDX Lab");
+    assert_eq!(main.ignored_52, 11, "the length byte at 0x52");
+    assert_eq!(
+        set.settings.table, before.settings.table,
+        "sections untouched"
+    );
+    let Message::ServerSettingsInfo(after) = msgs[11] else {
+        panic!("{:?}", msgs[11].kind())
+    };
+    assert_eq!(after.settings.main().unwrap().server_name, b"OpenKDX Lab");
+    // The second login sees the new name in 105.
+    let m2 = messages(&cap, 1);
+    let Message::ServerInfo(info) = m2[2] else {
+        panic!("{:?}", m2[2].kind())
+    };
+    assert_eq!(info.name, b"OpenKDX Lab");
+    assert_eq!(kinds(&cap, 2), vec![100, 101, 105, 118, 170, 171, 172, 173]);
+}
+
+#[test]
+fn broadcast_is_byte_exact() {
+    let cap = load("broadcast");
+    assert_clean(&cap, "broadcast");
+    assert_exact(&cap, "broadcast");
+    assert_eq!(cap.connections.len(), 3);
+    assert_eq!(kinds(&cap, 2), vec![100, 101, 105, 118, 154, 155]);
+    assert!(
+        kinds(&cap, 0).contains(&155),
+        "the guest gets the broadcast"
+    );
+    assert!(kinds(&cap, 1).contains(&155), "the other admin gets it");
+    let msgs = messages(&cap, 2);
+    let Message::SendBroadcast(b) = msgs[4] else {
+        panic!("{:?}", msgs[4].kind())
+    };
+    assert_eq!(b.text, b"hello all");
+    let Message::RcvBroadcast(r) = msgs[5] else {
+        panic!("{:?}", msgs[5].kind())
+    };
+    assert_eq!(r.text, b"hello all");
+    assert_eq!(
+        r.user_id,
+        cap_user_id(&cap, 2),
+        "the sender gets its own 155"
+    );
+}
+
+fn cap_user_id(cap: &Capture, conn: usize) -> u32 {
+    messages(cap, conn)
+        .iter()
+        .find_map(|m| match m {
+            Message::ServerInfo(i) => Some(i.user_id),
+            _ => None,
+        })
+        .expect("105")
+}
+
+#[test]
+fn disconnect_ban_is_byte_exact() {
+    let cap = load("disconnect-ban");
+    assert_clean(&cap, "disconnect-ban");
+    assert_exact(&cap, "disconnect-ban");
+    assert_eq!(cap.connections.len(), 5);
+    // The wrong password: the server's proof has status Failed (1).
+    let failed = cap.connections[0]
+        .records
+        .iter()
+        .find_map(|r| match r {
+            Record::Proof {
+                dir: Dir::ServerToClient,
+                proof,
+                ..
+            } => Some(proof.status),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(failed, openkdx_proto::handshake::ProofStatus::Failed);
+    assert!(kinds(&cap, 0).is_empty(), "nothing after a failed login");
+    // The victim: 151 with the banned flag, then the close.
+    assert_eq!(kinds(&cap, 1), vec![100, 101, 105, 118, 103, 104, 103, 151]);
+    let v = messages(&cap, 1);
+    let Message::DisconnectMessage(d) = v[7] else {
+        panic!("{:?}", v[7].kind())
+    };
+    assert_eq!(d.message, b"bye");
+    assert_eq!(d.flags & 2, 2);
+    // The admin: 150 → success Status, then the victim's 104.
+    assert_eq!(kinds(&cap, 3), vec![100, 101, 105, 118, 150, 1, 104]);
+    let a = messages(&cap, 3);
+    let Message::DisconnectUser(du) = a[4] else {
+        panic!("{:?}", a[4].kind())
+    };
+    assert_eq!((du.user_id, du.ban_seconds), (cap_user_id(&cap, 1), 10));
+    // The server's ban list does not apply to 127.0.0.1: the next guest
+    // login succeeds.
+    assert_eq!(kinds(&cap, 4), vec![100, 101, 105, 118]);
+}
+
+#[test]
+fn server_history_is_byte_exact() {
+    let cap = load("server-history");
+    assert_clean(&cap, "server-history");
+    assert_exact(&cap, "server-history");
+    assert_eq!(
+        kinds(&cap, 0),
+        vec![
+            100, 101, 105, 118, 180, 181, 103, 183, 183, 104, 103, 183, 183, 182
+        ]
+    );
+    let msgs = messages(&cap, 0);
+    let Message::HistoryList(list) = msgs[5] else {
+        panic!("{:?}", msgs[5].kind())
+    };
+    assert!(list.records.iter().any(|r| r.kind == HistoryKind::LOGIN));
+    let Message::HistoryAdded(h) = msgs[7] else {
+        panic!("{:?}", msgs[7].kind())
+    };
+    assert_eq!(h.record.kind, HistoryKind::LOGIN);
+    assert_eq!(h.record.nick, b"passer-by");
+    // A guest's 611 gets an error Status: no Post News privilege.
+    let g = messages(&cap, 2);
+    let Message::Status(s) = g[5] else {
+        panic!("{:?}", g[5].kind())
+    };
+    assert!(s.is_error());
+    assert_eq!(s.request_type_or_value, 611);
+}
+
+#[test]
+fn connection_monitor_is_byte_exact() {
+    let cap = load("connection-monitor");
+    assert_clean(&cap, "connection-monitor");
+    assert_exact(&cap, "connection-monitor");
+    assert_eq!(cap.connections.len(), 3);
+    assert_eq!(kinds(&cap, 1), vec![412, 413, 414, 414]);
+    assert_eq!(
+        kinds(&cap, 2),
+        vec![
+            100, 101, 105, 118, 140, 142, 143, 142, 143, 142, 143, 142, 143, 141
+        ]
+    );
+    let msgs = messages(&cap, 2);
+    let Message::ConnectionMonitorInfo(info) = msgs[6] else {
+        panic!("{:?}", msgs[6].kind())
+    };
+    let transfer = info
+        .records
+        .iter()
+        .find(|r| r.is_transfer())
+        .expect("the download shows as a transfer");
+    assert_eq!(transfer.bytes_total, 4 * 1024 * 1024);
+    assert_eq!(transfer.path.to_string(), "four.bin");
+    assert!(
+        info.records
+            .iter()
+            .any(|r| !r.is_transfer() && r.nick == b"downloader")
+    );
+}
+
+#[test]
+fn a_cut_transfer_is_data_cut_only_when_the_stream_closed() {
+    use openkdx_dissect::capture::{parse_packets, read_capture, tcp_flows};
+    use openkdx_dissect::connection::dissect_flow;
+    let path = capture_path("upload-resume");
+    let cap = load("upload-resume");
+    let keys = cap.connections[0].harvested_keys.clone();
+    let frames = read_capture(&path).unwrap();
+    let packets = parse_packets(&frames);
+    let mut flows = tcp_flows(&packets, |p| p == 10700);
+    flows.sort_by_key(|f| f.first_frame);
+    let mut flow = flows[1].clone();
+    assert!(flow.c2s.closed, "the client closed the cut transfer");
+    let o = opts();
+    let with_close = dissect_flow(1, &flow, &o, &keys);
+    assert!(
+        with_close
+            .records
+            .iter()
+            .any(|r| matches!(r, Record::DataCut { .. }))
+    );
+    // The same bytes with no FIN/RST seen: the capture stopped early, so it
+    // is a stop, not a cut.
+    flow.c2s.closed = false;
+    flow.s2c.closed = false;
+    let truncated = dissect_flow(1, &flow, &o, &keys);
+    assert!(
+        truncated
+            .records
+            .iter()
+            .any(|r| matches!(r, Record::Stopped { .. }))
+    );
+    assert!(
+        !truncated
+            .records
+            .iter()
+            .any(|r| matches!(r, Record::DataCut { .. }))
+    );
 }
