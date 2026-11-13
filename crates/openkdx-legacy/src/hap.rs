@@ -1,8 +1,9 @@
 //! `.hap` appearance files, as the KDX Client loads them and Appearance
 //! Editor 1.240 writes them. See `docs/formats/hap.md`.
 //!
-//! `%HAP`, version 1, a table of 13 `(offset, length)` sections, 20 bytes,
-//! then the sections at 4-aligned offsets. Section 4 is the information
+//! `%HAP`, version 1, six zero bytes, a table of 13 `(offset, length)`
+//! sections, 20 more bytes, then the sections, contiguous, each a multiple
+//! of 4 bytes long. Section 4 is the information
 //! page, 5 the images, 6 the 204 colours, 7 the icons; the rest have never
 //! been seen non-empty. Images and icons are slot tables (528 and 768
 //! `u32` offsets, one per UI element, 0 for "none", several slots may share
@@ -12,7 +13,7 @@
 //! pixels (most significant bits first) padded to 4 bytes.
 
 use openkdx_proto::msg::common::Time1900;
-use openkdx_proto::wire::{DecodeError, Reader, Writer, pad4_len};
+use openkdx_proto::wire::{Reader, Writer, pad4_len};
 
 use crate::error::{LegacyError, Result};
 
@@ -184,6 +185,9 @@ impl Bitmap {
         if !matches!(depth, 1 | 2 | 4 | 8) {
             return Err(LegacyError::Invalid("hap: bitmap depth"));
         }
+        if flag > 1 {
+            return Err(LegacyError::Invalid("hap: bitmap flag"));
+        }
         let extra = if with_extra {
             Some(ImageExtra {
                 color: r.u32()?,
@@ -306,6 +310,9 @@ fn decode_bitmaps(
     let mut used: Vec<usize> = offsets.iter().copied().filter(|&o| o != 0).collect();
     used.sort_unstable();
     used.dedup();
+    if used.is_empty() {
+        return Err(LegacyError::Invalid("hap: slot table without records"));
+    }
     let mut bitmaps = Vec::with_capacity(used.len());
     for &o in &used {
         if o != r.pos() {
@@ -421,6 +428,25 @@ impl Theme {
                 "hap: images carry the extra header, icons do not",
             ));
         }
+        for (list, slots, want) in [
+            (&self.images, &self.image_slots, IMAGE_SLOTS),
+            (&self.icons, &self.icon_slots, ICON_SLOTS),
+        ] {
+            if slots.len() != want {
+                return Err(LegacyError::Invalid("hap: slot table of the wrong length"));
+            }
+            if slots.iter().flatten().any(|&k| k >= list.len()) {
+                return Err(LegacyError::Invalid("hap: slot past the bitmap list"));
+            }
+            if (0..list.len()).any(|k| !slots.contains(&Some(k))) {
+                return Err(LegacyError::Invalid("hap: bitmap no slot uses"));
+            }
+        }
+        for i in [SECTION_INFO, SECTION_IMAGES, SECTION_COLORS, SECTION_ICONS] {
+            if !self.other[i].is_empty() {
+                return Err(LegacyError::Invalid("hap: raw bytes in a typed section"));
+            }
+        }
         Ok(())
     }
 
@@ -448,7 +474,7 @@ impl Theme {
             let len = self.section_bytes(i).len();
             if len > 0 {
                 *entry = (offset as u32, len as u32);
-                offset += len + pad4_len(len);
+                offset += len;
             } else if self.placeholders[i] {
                 *entry = (offset as u32, 0);
             }
@@ -488,29 +514,24 @@ pub fn decode_hap(bytes: &[u8]) -> Result<Theme> {
     }
     let ignored_74: [u8; 20] = r.array()?;
     debug_assert_eq!(r.pos(), HEADER_LEN);
+    // Only what the encoder writes is accepted, so that a successful decode
+    // means the file can be rewritten byte for byte: sections of 4-aligned
+    // length, contiguous, an empty section at 0 or the running offset.
     let mut placeholders = [false; TABLE_LEN];
     let mut sections: [Vec<u8>; TABLE_LEN] = Default::default();
     for (i, &(offset, len)) in table.iter().enumerate() {
         placeholders[i] = offset != 0;
+        let here = r.pos();
         if len == 0 {
+            if offset != 0 && offset != here {
+                return Err(LegacyError::Invalid("hap: empty section offset"));
+            }
             continue;
         }
-        let here = r.pos();
-        if offset < here || offset - here > 3 {
-            return Err(LegacyError::Invalid("hap: section offset"));
-        }
-        let pad = r.bytes(offset - here)?;
-        if pad.iter().any(|&b| b != 0) {
-            return Err(LegacyError::Invalid("hap: section padding"));
+        if offset != here || !len.is_multiple_of(4) {
+            return Err(LegacyError::Invalid("hap: section offset or length"));
         }
         sections[i] = r.bytes(len)?;
-    }
-    let pad = pad4_len(r.pos());
-    if r.remaining() >= pad {
-        let p = r.bytes(pad)?;
-        if p.iter().any(|&b| b != 0) {
-            return Err(LegacyError::Invalid("hap: tail padding"));
-        }
     }
     let trailing = r.rest();
     let info = ThemeInfo::decode(&std::mem::take(&mut sections[SECTION_INFO]))?;
@@ -526,9 +547,9 @@ pub fn decode_hap(bytes: &[u8]) -> Result<Theme> {
     )?;
     let colors_bytes = std::mem::take(&mut sections[SECTION_COLORS]);
     if colors_bytes.len() != COLOR_COUNT * 4 {
-        return Err(LegacyError::Decode(DecodeError::Invalid(
+        return Err(LegacyError::Invalid(
             "hap: colour section is not 204 entries",
-        )));
+        ));
     }
     let colors = colors_bytes
         .as_chunks::<4>()
@@ -563,14 +584,8 @@ pub fn encode_hap(t: &Theme) -> Vec<u8> {
     }
     w.bytes(&t.ignored_74);
     for i in 0..TABLE_LEN {
-        let bytes = t.section_bytes(i);
-        if bytes.is_empty() {
-            continue;
-        }
-        w.pad4(0, &[]);
-        w.bytes(&bytes);
+        w.bytes(&t.section_bytes(i));
     }
-    w.pad4(0, &[]);
     w.bytes(&t.trailing);
     w.into_inner()
 }

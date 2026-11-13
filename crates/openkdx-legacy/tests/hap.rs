@@ -167,3 +167,54 @@ fn lab_pack_has_the_known_shapes() {
     assert!(t.images.is_empty() && t.icons.is_empty());
     assert_eq!(t.colors[1], 0x00ff_ffff);
 }
+
+#[test]
+fn decode_only_accepts_what_encode_writes() {
+    let base = encode_hap(&sample());
+    // An empty section whose table offset is neither 0 nor the running offset.
+    let mut b = base.clone();
+    b[0x0c + 8 * 9..0x0c + 8 * 9 + 4].copy_from_slice(&0x1234u32.to_be_bytes());
+    assert!(decode_hap(&b).is_err(), "stray empty-section offset");
+    // A bitmap flag that is neither 0 nor 1.
+    let t = decode_hap(&base).unwrap();
+    let (img_off, _) = t.table()[5];
+    let rec = img_off as usize + 528 * 4;
+    let mut b = base.clone();
+    b[rec + 4] = 2;
+    assert!(decode_hap(&b).is_err(), "bitmap flag 2");
+    // A section whose length is not a multiple of 4 (the info section
+    // without its padding, the pad bytes left as a gap).
+    let mut b = base.clone();
+    let len = u32::from_be_bytes(b[0x0c + 8 * 4 + 4..0x0c + 8 * 4 + 8].try_into().unwrap());
+    b[0x0c + 8 * 4 + 4..0x0c + 8 * 4 + 8].copy_from_slice(&(len - 1).to_be_bytes());
+    assert!(decode_hap(&b).is_err(), "unpadded section");
+    // A slot table with no records at all.
+    let mut t = sample();
+    t.icons.clear();
+    t.icon_slots = vec![None; 768];
+    let mut b = encode_hap(&t);
+    // Forge: make section 7 a 768-slot table of zeros.
+    let tail_len = b.len();
+    b.extend(std::iter::repeat_n(0u8, 768 * 4));
+    b[0x0c + 8 * 7..0x0c + 8 * 7 + 8]
+        .copy_from_slice(&[(tail_len as u32).to_be_bytes(), (768u32 * 4).to_be_bytes()].concat());
+    assert!(decode_hap(&b).is_err(), "all-zero slot table");
+}
+
+#[test]
+fn validate_catches_themes_that_would_not_read_back() {
+    let good = sample();
+    assert!(good.validate().is_ok());
+    let mut t = good.clone();
+    t.images.push(t.images[0].clone());
+    assert!(t.validate().is_err(), "an image no slot uses");
+    let mut t = good.clone();
+    t.image_slots[3] = Some(9);
+    assert!(t.validate().is_err(), "slot past the list");
+    let mut t = good.clone();
+    t.image_slots.truncate(10);
+    assert!(t.validate().is_err(), "short slot table");
+    let mut t = good.clone();
+    t.other[6] = vec![1];
+    assert!(t.validate().is_err(), "bytes in a typed section's raw slot");
+}

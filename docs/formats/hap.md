@@ -23,7 +23,7 @@ under Wine, so nothing can be saved from it.
 | 0x06 | 6 | zero |
 | 0x0c | 104 | 13 × (`u32` offset, `u32` length) |
 | 0x74 | 20 | `00 ×8, 01 01 01 01, 00 ×8` in every file |
-| 0x88 | … | sections at 4-aligned offsets, in index order |
+| 0x88 | … | sections, contiguous and in index order; every length is a multiple of 4. The decoder accepts only this shape (and an empty section at offset 0 or the running offset), so a successful decode means the file rewrites byte for byte |
 
 | Section | Holds |
 |---|---|
@@ -31,10 +31,10 @@ under Wine, so nothing can be saved from it.
 | 5 | images: a 528-slot table, then bitmap records with the 12-byte extra header |
 | 6 | 204 colours, `00 RR GG BB` each |
 | 7 | icons: a 768-slot table, then bitmap records without the extra header |
-| others | never seen non-empty; empty 5 and 7 carry the running offset, the others `(0, 0)` |
+| others | never seen non-empty; empty 5 and 7 carry the running offset, the others `(0, 0)` (`Theme::default` marks 4–7 as placeholders; 4 and 6 are never empty) |
 
 A slot table is one `u32` per UI element: 0 for none, else the record's
-offset from the section start; several slots may share one record. Records follow the table contiguously in offset order.
+offset from the section start; several slots may share one record, and every record is used by at least one slot (a table of zeros with no records is rejected). Records follow the table contiguously in offset order.
 
 ### A bitmap record
 
@@ -45,7 +45,7 @@ offset from the section start; several slots may share one record. Records follo
 | 0x04 | 1 | flag: 1 when byte 7 names a transparent palette index `[I]` |
 | 0x05 | 1 | depth in bits per pixel: 1, 2, 4 or 8 |
 | 0x06 | 1 | palette entries − 1 |
-| 0x07 | 1 | the transparent index when the flag is set, else 0 `[I]` |
+| 0x07 | 1 | the transparent index when the flag is set; otherwise usually 0, kept as read `[I]`. The flag is 0 or 1; anything else is rejected |
 | 0x08 | 12 | images only: a colour (`00 RR GG BB`), four bytes that look like insets (`08 08 07 07`, `0b 0b 0a 0a`), a word (0, `04 00 00 00`, …) `[I]` |
 | | 4 × n | the palette, `00 RR GG BB` |
 | | stride × height | pixels, most significant bits first, rows padded to 4 bytes |
@@ -79,11 +79,16 @@ Group (Bar, Bar Frame, Bar Hilite, Bar Hilite Frame), Slider Indicator
 (Light, Indicator, Dark, Frame), Slider Indicator Hilite (same), Slider
 Disable (Light, Disable, Dark, Frame); Column Header Group (Frame, Light,
 Header, Dark, Label, Hilite Light, Hilite, Hilite Dark, Hilite Label); File
-Label Colors 0–15. That is 215 rows against 204 entries in the file, so the
-row-to-slot mapping is not a plain 1:1 and is left to Phase 6, which can
-read it from the client's rendering.
+Label Colors 0–15. Counting each header row with a swatch as one row gives more rows (about
+215) than the 204 entries in the file, so the row-to-slot mapping is not a
+plain 1:1 and is left to Phase 6, which can read it from the client's
+rendering.
 
 ## Not supported (yet)
 
 Nothing is rendered yet (`openkdx-ui`, Phase 6); `Bitmap::rgba` gives RGBA
-with the transparent index at alpha 0. Fonts: the format carries none.
+with the transparent index at alpha 0 (a 65535×65535 bitmap would need 17 GB
+there; the renderer should cap what it draws). Fonts: none seen — sections
+0–3 and 8–12 have never been non-empty — though §7.3 expected them.
+`Bitmap`'s fields are public; `pixel` and `rgba` assume the invariants
+`Bitmap::new` and `decode_hap` establish.
