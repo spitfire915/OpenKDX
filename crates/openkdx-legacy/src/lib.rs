@@ -10,6 +10,7 @@ pub mod catalog;
 pub mod civil;
 pub mod client_stg;
 pub mod error;
+pub mod hap;
 pub mod history;
 pub mod news;
 pub mod news_archive;
