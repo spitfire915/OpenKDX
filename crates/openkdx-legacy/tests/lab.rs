@@ -89,3 +89,44 @@ fn lab_client_files_round_trip() {
         );
     }
 }
+
+#[test]
+fn lab_news_files_round_trip_and_archive_matches() {
+    for (path, bytes) in files("News.dat") {
+        let s =
+            openkdx_legacy::news::decode_news(&bytes).unwrap_or_else(|e| panic!("{path:?}: {e}"));
+        assert_eq!(openkdx_legacy::news::encode_news(&s), bytes, "{path:?}");
+    }
+    let Some(root) = lab_dir() else { return };
+    let archive = root.join("37-news-archived/News Archives/Second Group");
+    let Ok(dir) = fs::read_dir(&archive) else {
+        panic!("no archive under {}", archive.display())
+    };
+    for e in dir {
+        let bytes = fs::read(e.unwrap().path()).unwrap();
+        let entries = openkdx_legacy::news_archive::parse_news_archive(&bytes).unwrap();
+        let mut again = b"\xef\xbb\xbf".to_vec();
+        for e in &entries {
+            again.extend(e.to_bytes());
+        }
+        assert_eq!(again, bytes);
+    }
+}
+
+#[test]
+fn lab_history_files_round_trip() {
+    let Some(root) = lab_dir() else { return };
+    let mut seen = 0;
+    for step in fs::read_dir(&root).unwrap().map(|e| e.unwrap().path()) {
+        let Ok(dir) = fs::read_dir(step.join("History")) else {
+            continue;
+        };
+        for f in dir {
+            let bytes = fs::read(f.unwrap().path()).unwrap();
+            let h = openkdx_legacy::history::parse_history(&bytes).unwrap();
+            assert_eq!(h.to_bytes(), bytes);
+            seen += 1;
+        }
+    }
+    assert!(seen > 0, "no History/ files under {}", root.display());
+}

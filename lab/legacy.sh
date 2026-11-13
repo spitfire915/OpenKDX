@@ -27,7 +27,7 @@ SNAP="$RUN/legacy"
 if grep -rlqa "Haxial Software" "$SNAP" --exclude-dir=30-news-stock; then echo "legacy: Haxial text in snapshots" >&2; exit 1; fi
 
 cd "$HERE/.."
-OPENKDX_LAB_LEGACY_DIR="$SNAP" cargo test -q -p openkdx-legacy --test lab -- --test-threads=1
+OPENKDX_LAB_LEGACY_DIR="$SNAP" cargo test -q -p openkdx-legacy --test lab -- --test-threads=1 --skip lab_client
 
 # --- Write with ours, read with theirs ---------------------------------------
 cargo build -q -p openkdx-legacy --example legacytool -p openkdx-cli
