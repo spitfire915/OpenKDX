@@ -24,6 +24,12 @@ Every claim we add carries its evidence, in the reference spec's style:
 | Payload padding (framing.md) | "`txid * 0x41c64e6d + 0x3039` as repeated 32-bit memory words" | The word is laid down little-endian, phase-aligned to the payload offset: byte `i` of the padded buffer is `word.to_le_bytes()[i % 4]`. `openkdx_proto::session::padding_bytes`. | `[O first-connect 10, 13; files-basic 16, 28]` | clarification, to report upstream |
 | 414 data padding (framing.md) | "a different repeated 32-bit value" | `0xfedc7e9f` (little-endian) for txid `28814ca0`; not the txid LCG, formula unknown. | `[O files-basic 30]` | open |
 | 401 File List `kind` | `exttype/bin` for a `.bin` file | Empty for `tiny.txt`; the matching 413 gives `text/plain`, so the server has a MIME table and 401 does not always carry a type. | `[O files-basic 16, 28]` | observation |
+| Proof `status` (handshake.md) | `0x10` OK, `2`, `3`, `4` for the 1.x handshake; `1` failed only in 0.9x | Server 1.620 answers a wrong password with status `1` and closes; the log says `Login failed`. `openkdx_proto::handshake::ProofStatus::Failed`. | `[O lab]` Phase 2 differential run; capture pending | to report upstream |
+| 703 Tracker Server List for an empty group (tracker.md) | a u32 count, then the entries | Tracker 1.110 sends a 0-byte payload when the group has no servers. | `[O lab]` Phase 2 differential run | to report upstream |
+| 415/417 upload, partial files (files.md) | "The server resumes an earlier partial upload of the same name." | True, with two details: the partial is kept as `<name>.prt` in the folder (it shows in 401 with size 0 until flushed), and the server writes it in large chunks, so a transfer cut after 20000 bytes leaves a 0-byte `.prt` and 416 offers offset 0; after 150000 bytes it offers a multiple of 0x1000 below that. | `[O lab]` `crates/openkdx-client/tests/lab.rs` `lab_files_list_get_put_resume` | clarification |
+| 171 main section byte 0x52 (administration.md) | "Probably the name's length" | Confirmed: when 172 carries a new name without updating it, the server keeps the old length (`OpenKDX Lab` read back as `OpenKDX La`). `openkdx_client::admin::set_server_name` sets it. | `[O lab]` `lab_server_settings_set_name_round_trip` | confirmation |
+| 511 Set Account `editor` (accounts.md) | holds the current login | Confirmed, and 510 returns the *last editor* there, so a client that echoes a 510 record back as 511 asks for a rename (`0x1000d` item already exists). | `[O lab]` `lab_accounts_create_show_delete` | clarification |
+| 1100 Create Folder Access length check (folder-access.md) | "Its total length, padded to a multiple of 4, must equal the payload length." | Confirmed: an unpadded record gets `0x1000a` corrupt data. The same holds for 507/511/504. | `[O lab]` `lab_folder_access_list_create_delete` | confirmation |
 
 ## Confirmed so far
 
@@ -41,3 +47,7 @@ Every claim we add carries its evidence, in the reference spec's style:
 | A download sends two 414 data headers: the data fork (reply bit set) and a 0-byte resource fork (reply bit clear, own txid) | `[O files-basic 29, 31]` |
 | Client 1.600 sends `rsrc_offset = 0xffffffffffffffff` in 412 | `[O files-basic 27]` |
 | The server's 215 Chat List and 401 File List are in creation and `readdir` order; the client sorts | `[O chat-basic 16; files-basic 16]` |
+| A client that sends `118 { value: 1 }` after 100 (a registered Client 1.600) logs in normally; Server 1.620 logs no licence line | `lab/differential.sh` greps the log |
+| The 417 data-fork header may carry 415's txid with the reply bit, as the server's 414 answers 412; the resource fork's header is a fresh txid of length 0; the server then sends 418 | `[O lab]` every upload in `tests/lab.rs`; capture in `upload-resume` |
+| 402, 507, 511, 172, 1100 are answered by a success Status (`code 0`, value = request type) | `[O lab]`; reference status.md |
+| 155 Broadcast reaches other sessions; 151 arrives before the close on a disconnect with a ban and carries flag 2 | `[O lab]` `lab_broadcast_received_by_other_session`, `lab_disconnect_from_victim_side` |
