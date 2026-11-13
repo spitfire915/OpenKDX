@@ -13,7 +13,7 @@ openkdx-codec.workspace = true
 openkdx-table = { workspace = true, default-features = false }
 tokio.workspace = true
 tokio-util.workspace = true
-futures-util.workspace = true
+futures-util = { workspace = true, features = ["sink"] }
 bytes.workspace = true
 thiserror.workspace = true
 rand.workspace = true

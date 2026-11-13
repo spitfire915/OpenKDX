@@ -8,3 +8,5 @@ pub mod table;
 pub use error::{ClientError, Result};
 pub use identity::Identity;
 pub use table::{load_kdx_table, load_kdx_table_from};
+pub mod handshake;
+pub mod txid;
