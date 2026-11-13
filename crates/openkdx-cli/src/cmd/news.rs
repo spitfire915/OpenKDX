@@ -105,12 +105,10 @@ pub async fn news(ctx: &mut Ctx, cmd: NewsCmd) -> anyhow::Result<()> {
             let mut info = session.newsgroup(id).await?;
             info.size_limit_kib = size_kib;
             let changed = session.set_newsgroup(info).await?;
+            let size = changed.map_or(size_kib, |g| g.size_limit_kib);
             out.record(
                 "newsgroup",
-                &[
-                    ("group_id", json!(changed.group_id)),
-                    ("size_limit_kib", json!(changed.size_limit_kib)),
-                ],
+                &[("group_id", json!(id)), ("size_limit_kib", json!(size))],
             );
         }
         NewsCmd::CreateGroup {

@@ -116,13 +116,16 @@ impl Session {
         }
     }
 
-    /// 604 → 603.
-    pub async fn set_newsgroup(&self, group: NewsgroupInfo) -> Result<NewsgroupInfo> {
-        let reply: NewsgroupInfoReply = self
+    /// 604 → 603, or a success Status (Server 1.620; `[O lab]`), `None` then.
+    pub async fn set_newsgroup(&self, group: NewsgroupInfo) -> Result<Option<NewsgroupInfo>> {
+        match self
             .connection()
-            .request_as(&SetNewsgroup { group })
-            .await?;
-        Ok(reply.group)
+            .request_ok(&SetNewsgroup { group })
+            .await?
+        {
+            Message::NewsgroupInfo(NewsgroupInfoReply { group }) => Ok(Some(group)),
+            _ => Ok(None),
+        }
     }
 
     /// 601; whatever the server answers.
