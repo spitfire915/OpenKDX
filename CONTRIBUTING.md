@@ -75,6 +75,9 @@ modelled twice. New samples come from the lab scenarios
 snapshot, listed in the fixture directory's README, and never anything of
 Haxial's (the stock news post, their artwork, their appearance pack).
 `lab/legacy.sh` then feeds what we write back to the original programs.
+Haxial's appearance pack is lab-only input for the `.hap` tests
+(`OPENKDX_LAB_HAP_DIR`); nothing from it, not even one file, is committed —
+every file's hash is in `ci/haxial-blocklist.txt`.
 
 ## Evidence
 
@@ -86,8 +89,11 @@ and notes that produced it.
 
 - **Never commit Haxial material**: binaries, archives, the challenge-table
   stories (not even a 20-byte excerpt — compare digests instead), `.hap`
-  files, icons, or artwork. `ci/check-blocklist.py` catches the known hashes;
-  the rule covers the rest.
+  files, icons, or artwork. `ci/check-blocklist.py` catches the known hashes
+  (including every file of the appearance pack); the rule covers the rest.
+  Files the originals *wrote from our inputs* in the lab are ours and may be
+  committed (`fixtures/legacy/`), minus anything of theirs inside them, such
+  as the server's stock welcome post.
 - Ghidra projects and decompiled output stay local. Our own notes, scripts,
   and address landmarks are fine to commit.
 - The challenge tables are fetched or imported at runtime

@@ -49,11 +49,18 @@ cargo run -p openkdx-cli -- -s kdx.example.net chat watch "Public Chat" --for 60
 cargo run -p openkdx-cli -- -s kdx.example.net files ls -L
 ```
 
+Or look inside an original server's files:
+
+```sh
+cargo run -p openkdx-legacy --example legacytool -- dump /path/to/Accounts.dat
+```
+
 ## Documentation
 
 - [Design](docs/superpowers/specs/2026-11-08-openkdx-design.md) — intent, goals, constraints, architecture, phases.
 - [Protocol notes](docs/protocol/README.md) — what we confirmed, and where our captures differ from the reference spec.
 - [Captures](captures/README.md) — the lab scenarios and what each one shows.
+- [On-disk formats](docs/formats/README.md) — every file the originals keep, how far each is pinned, and the evidence.
 - [Contributing](CONTRIBUTING.md) — checks, commit style, and the legal rules.
 - [NOTICE](NOTICE.md) — what this project does and does not contain.
 
