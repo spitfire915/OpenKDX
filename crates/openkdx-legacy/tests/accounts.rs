@@ -117,9 +117,10 @@ fn account_with_31_byte_login_round_trips() {
 fn upsert_then_remove_restores_the_fresh_bytes() {
     let fresh = fixture("20-fresh.dat");
     let mut f = decode_accounts(&fresh).unwrap();
-    let mut a = Account::default();
-    a.login = b"tmp".to_vec();
-    f.upsert(a);
+    f.upsert(Account {
+        login: b"tmp".to_vec(),
+        ..Default::default()
+    });
     assert_ne!(encode_accounts(&f), fresh);
     assert!(f.remove(b"tmp"));
     assert!(!f.remove(b"tmp"));
