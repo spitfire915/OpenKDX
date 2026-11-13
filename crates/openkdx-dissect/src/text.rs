@@ -42,6 +42,14 @@ pub fn inventory(cap: &Capture) -> String {
                     )
                 }
                 Record::Data { len, .. } => format!("transfer data, {len} bytes"),
+                Record::DataCut {
+                    captured, declared, ..
+                } => format!("transfer data cut, {captured} of {declared} bytes"),
+                Record::DataCut {
+                    captured, declared, ..
+                } => format!(
+                    "transfer data cut: {captured} of {declared} bytes, then the connection closed"
+                ),
                 Record::Stopped { reason, .. } => format!("stopped: {reason}"),
             };
             lines.push((
@@ -190,6 +198,11 @@ pub fn summary(record: &Record) -> String {
             header.len
         ),
         Record::Data { len, .. } => format!("transfer data: {len} bytes"),
+        Record::DataCut {
+            captured, declared, ..
+        } => {
+            format!("transfer data cut: {captured} of {declared} bytes, then the connection closed")
+        }
         Record::Stopped { reason, .. } => format!("stopped: {reason}"),
     }
 }

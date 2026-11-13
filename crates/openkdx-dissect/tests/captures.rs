@@ -13,7 +13,8 @@ use openkdx_proto::message_type::MessageType;
 use openkdx_proto::msg::Message;
 use openkdx_proto::registration::Registration;
 
-const CAPTURES: [&str; 7] = [
+const CAPTURES: [&str; 8] = [
+    "upload-resume",
     "first-connect",
     "guest-login",
     "chat-basic",
@@ -607,4 +608,89 @@ fn unknown_payloads_audit_as_unknown_not_mismatch() {
             );
         }
     }
+}
+
+#[test]
+fn upload_resume_is_byte_exact() {
+    let cap = load("upload-resume");
+    assert_clean(&cap, "upload-resume");
+    assert_exact(&cap, "upload-resume");
+    // main, cut transfer, main (ls), resumed transfer's main..., etc.
+    assert!(cap.connections.len() >= 4, "{}", cap.connections.len());
+    // The first transfer: 415, 416 (offset 0), a 417 header for the whole
+    // file, 150000 bytes, then the client closes.
+    let cut = &cap.connections[1];
+    assert_eq!(kinds(&cap, 1), vec![415, 416, 417]);
+    let cut_record = cut
+        .records
+        .iter()
+        .find_map(|r| match r {
+            Record::DataCut {
+                captured, declared, ..
+            } => Some((*captured, *declared)),
+            _ => None,
+        })
+        .expect("the cut transfer is recorded as DataCut");
+    assert_eq!(cut_record, (150_000, 262_144));
+    let t = messages(&cap, 1);
+    let Message::UploadFile(up) = t[0] else {
+        panic!("{:?}", t[0].kind())
+    };
+    assert_eq!(up.data_size, 262_144);
+    assert_eq!(up.strings.name, b"big.bin");
+    assert_eq!(up.strings.second, b"exttype/bin");
+    let Message::UploadReply(r) = t[1] else {
+        panic!("{:?}", t[1].kind())
+    };
+    assert_eq!(r.data_offset, 0);
+
+    // The resumed transfer: 416 offers a multiple of 0x1000, the client
+    // sends the rest under one 417 header (reply to 415's txid), an empty
+    // 417 (fresh txid), and gets 418.
+    let resumed = cap
+        .connections
+        .iter()
+        .enumerate()
+        .skip(2)
+        .find(|(i, _)| kinds(&cap, *i).starts_with(&[415, 416]))
+        .map(|(i, _)| i)
+        .expect("a resumed upload");
+    assert_eq!(kinds(&cap, resumed), vec![415, 416, 417, 417, 418]);
+    let t = messages(&cap, resumed);
+    let Message::UploadReply(r) = t[1] else {
+        panic!("{:?}", t[1].kind())
+    };
+    assert_eq!(r.data_offset, 131_072);
+    let headers: Vec<(u64, bool)> = cap.connections[resumed]
+        .records
+        .iter()
+        .filter_map(|r| match r {
+            Record::DataHeader { header, .. } => Some((header.len, header.reply)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(headers, vec![(262_144 - 131_072, true), (0, false)]);
+    let (txid_415, txid_417) = {
+        let mut it = cap.connections[resumed]
+            .records
+            .iter()
+            .filter_map(|r| match r {
+                Record::Message { header, .. } | Record::DataHeader { header, .. } => Some(header),
+                _ => None,
+            });
+        let a = it.next().unwrap().txid;
+        let c = it.nth(1).unwrap().txid;
+        (a, c)
+    };
+    assert_eq!(txid_415, txid_417, "the data-fork 417 answers 415");
+
+    // A download of the whole file at the end, on its own transfer connection.
+    let down = cap
+        .connections
+        .iter()
+        .enumerate()
+        .find(|(i, _)| kinds(&cap, *i).starts_with(&[412]))
+        .map(|(i, _)| i)
+        .expect("a download");
+    assert_eq!(kinds(&cap, down), vec![412, 413, 414, 414]);
 }

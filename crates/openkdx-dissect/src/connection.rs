@@ -148,6 +148,14 @@ pub enum Record {
         frame: usize,
         len: u64,
     },
+    /// Transfer data the connection closed in the middle of: `captured`
+    /// of `declared` bytes arrived. Not a fault; a transfer the peer cut.
+    DataCut {
+        dir: Dir,
+        frame: usize,
+        captured: u64,
+        declared: u64,
+    },
     Stopped {
         dir: Dir,
         frame: usize,
@@ -163,6 +171,7 @@ impl Record {
             | Record::Message { dir, .. }
             | Record::DataHeader { dir, .. }
             | Record::Data { dir, .. }
+            | Record::DataCut { dir, .. }
             | Record::Stopped { dir, .. } => *dir,
         }
     }
@@ -174,6 +183,7 @@ impl Record {
             | Record::Message { frame, .. }
             | Record::DataHeader { frame, .. }
             | Record::Data { frame, .. }
+            | Record::DataCut { frame, .. }
             | Record::Stopped { frame, .. } => *frame,
         }
     }
@@ -518,10 +528,11 @@ fn decode_session(
                 });
             }
             if taken < padded {
-                conn.records.push(Record::Stopped {
+                conn.records.push(Record::DataCut {
                     dir,
                     frame: stream.frame_at(data.len().saturating_sub(1)),
-                    reason: format!("transfer data: {} of {} bytes captured", available, padded),
+                    captured: (available as u64).min(header.len),
+                    declared: header.len,
                 });
                 return;
             }
