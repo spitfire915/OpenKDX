@@ -5,6 +5,7 @@
 //!   legacytool unscramble <file> <server|tracker|client>   plaintext to stdout
 //!   legacytool add-account <dir> <login> <password> [class]
 //!   legacytool set-name <dir> <name>             server name in KDXServer.stg
+//!   legacytool set-nick <KDX.stg> <name>         the client's identity name
 //!   legacytool rewrite <dir>                     load and save every known file
 
 use std::io::Write;
@@ -41,6 +42,7 @@ fn main() {
             add_account(Path::new(dir), login.as_bytes(), password.as_bytes(), class)
         }
         ["set-name", dir, name] => set_name(Path::new(dir), name.as_bytes()),
+        ["set-nick", file, name] => set_nick(Path::new(file), name.as_bytes()),
         ["rewrite", dir] => rewrite(Path::new(dir)),
         _ => return usage(),
     };
@@ -52,7 +54,7 @@ fn main() {
 
 fn usage() {
     eprintln!(
-        "usage: legacytool dump FILE | unscramble FILE server|tracker|client | add-account DIR LOGIN PASSWORD [CLASS] | set-name DIR NAME | rewrite DIR"
+        "usage: legacytool dump FILE | unscramble FILE server|tracker|client | add-account DIR LOGIN PASSWORD [CLASS] | set-name DIR NAME | set-nick KDX.stg NAME | rewrite DIR"
     );
     std::process::exit(2);
 }
@@ -140,6 +142,26 @@ fn dump(path: &Path) -> openkdx_legacy::Result<()> {
                 println!("  greeting {:?}", lossy(&g.text));
             }
         }
+        _ if openkdx_legacy::client_stg::decode_client_stg(&bytes).is_ok() => {
+            let s = openkdx_legacy::client_stg::decode_client_stg(&bytes)?;
+            println!(
+                "KDX.stg: name {:?} description {:?} bg {:?} text {:?}",
+                lossy(&s.identity.name),
+                lossy(&s.identity.description),
+                s.identity.background_color,
+                s.identity.text_color
+            );
+            for e in &s.address_book {
+                println!(
+                    "  address book {} {:?} {:?} login {:?} {:?}",
+                    e.id,
+                    lossy(&e.name),
+                    lossy(&e.address),
+                    lossy(&e.login),
+                    lossy(&e.description)
+                );
+            }
+        }
         _ => {
             println!(
                 "{}: {} bytes, not a format legacytool dumps",
@@ -186,6 +208,14 @@ fn set_name(dir: &Path, name: &[u8]) -> openkdx_legacy::Result<()> {
     let mut s = store.load_settings()?.expect("KDXServer.stg");
     s.main.name = name.to_vec();
     store.save_settings(&s)
+}
+
+fn set_nick(file: &Path, name: &[u8]) -> openkdx_legacy::Result<()> {
+    let bytes = std::fs::read(file).expect("read");
+    let mut s = openkdx_legacy::client_stg::decode_client_stg(&bytes)?;
+    s.identity.name = name.to_vec();
+    std::fs::write(file, openkdx_legacy::client_stg::encode_client_stg(&s)).expect("write");
+    Ok(())
 }
 
 fn rewrite(dir: &Path) -> openkdx_legacy::Result<()> {

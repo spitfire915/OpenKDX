@@ -76,3 +76,16 @@ fn lab_accounts_match_cli_changes() {
     assert_eq!(last.find(b"legacy1").expect("legacy1").class_index, 1);
     assert!(last.folder_access.iter().any(|f| f.name == b"Pics"));
 }
+
+#[test]
+fn lab_client_files_round_trip() {
+    for (path, bytes) in files("KDX.stg") {
+        let s = openkdx_legacy::client_stg::decode_client_stg(&bytes)
+            .unwrap_or_else(|e| panic!("{path:?}: {e}"));
+        assert_eq!(
+            openkdx_legacy::client_stg::encode_client_stg(&s),
+            bytes,
+            "{path:?}"
+        );
+    }
+}

@@ -48,4 +48,9 @@ echo "$out" | grep -q '"Written by OpenKDX"' || { echo "legacy: server did not t
 "$LAB" exec env OPENKDX_KDX_TABLE="$OPENKDX_KDX_TABLE" "$CLI" -s 127.0.0.1 -l "$KDX_ADMIN_LOGIN" -p "$KDX_ADMIN_PASSWORD" accounts show legacyuser > "$RUN/legacy-show.out"; grep -q legacyuser "$RUN/legacy-show.out"
 if grep -qi "licen\|damaged\|corrupt" "$RUN/server.log"; then echo "legacy: server log complains" >&2; tail -20 "$RUN/server.log" >&2; exit 1; fi
 "$LAB" ns stop >/dev/null 2>&1 || true
+
+# --- The client's file: samples, round trips, write-back --------------------
+FORCE=1 "$HERE/scenarios/client-samples.sh"
+OPENKDX_LAB_LEGACY_DIR="$SNAP" cargo test -q -p openkdx-legacy --test lab -- --test-threads=1 lab_client
+"$LAB" ns stop >/dev/null 2>&1 || true
 echo "legacy: ok"

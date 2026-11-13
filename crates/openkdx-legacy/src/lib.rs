@@ -8,6 +8,7 @@ pub mod accounts;
 pub mod bases;
 pub mod catalog;
 pub mod civil;
+pub mod client_stg;
 pub mod error;
 pub mod history;
 pub mod news;
