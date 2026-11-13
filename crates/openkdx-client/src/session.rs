@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use openkdx_proto::msg::common::UserRecord;
 use openkdx_proto::msg::session::{LicenseReport, Ping, Pong, ServerInfo, SetIdentity};
 use openkdx_proto::session::CLIENT_RECV_CAP;
-use openkdx_proto::{AccountKey, ChallengeTable, Message, Payload};
+use openkdx_proto::{AccountKey, ChallengeTable, Message, MessageType, Payload};
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
@@ -158,6 +158,12 @@ impl Session {
                         .unwrap_or_else(PoisonError::into_inner)
                         .apply(&m);
                 }
+                Ok(Event::Undecodable { kind, error, .. })
+                    if kind == MessageType::USER_LIST || kind == MessageType::SERVER_INFO =>
+                {
+                    return Err(ClientError::Decode(error));
+                }
+                Ok(Event::Undecodable { .. }) => {}
                 Ok(Event::Disconnected(d)) => {
                     return Err(match d.message {
                         Some(m) => ClientError::DisconnectedBy(Box::new(m)),
@@ -178,7 +184,8 @@ impl Session {
                         .unwrap_or_else(PoisonError::into_inner)
                         .apply(&m),
                     Ok(Event::Disconnected(_)) | Err(broadcast::error::RecvError::Closed) => break,
-                    Err(broadcast::error::RecvError::Lagged(_)) => {}
+                    Ok(Event::Undecodable { .. }) | Err(broadcast::error::RecvError::Lagged(_)) => {
+                    }
                 }
             }
         });

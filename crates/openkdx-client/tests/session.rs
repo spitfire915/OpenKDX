@@ -250,3 +250,30 @@ async fn must_join_chat_is_recorded() {
     assert!(session.must_join_chat());
     server.check();
 }
+
+#[tokio::test]
+async fn undecodable_login_reply_is_an_error_not_a_timeout() {
+    let server = MockServer::start(
+        accounts(),
+        vec![vec![
+            Step::Expect(MessageType::SET_IDENTITY),
+            Step::Expect(MessageType::LICENSE_REPORT),
+            Step::Send(Message::UserList(UserList {
+                users: vec![user(1, "openkdx")],
+            })),
+            Step::Send(Message::Unknown {
+                kind: MessageType::SERVER_INFO,
+                bytes: vec![1, 2, 3],
+            }),
+        ]],
+    )
+    .await;
+    let err = Session::connect(server.addr, &creds(), opts())
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(err, openkdx_client::ClientError::Decode(_)),
+        "{err:?}"
+    );
+    server.check();
+}

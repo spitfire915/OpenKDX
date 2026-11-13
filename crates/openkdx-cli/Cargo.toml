@@ -1,0 +1,29 @@
+[package]
+name = "openkdx-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "A thin command-line KDX client over openkdx-client."
+
+[[bin]]
+name = "openkdx"
+path = "src/main.rs"
+
+[dependencies]
+openkdx-client.workspace = true
+openkdx-proto.workspace = true
+clap = { workspace = true, features = ["env"] }
+tokio.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+shlex.workspace = true
+hex.workspace = true
+
+[dev-dependencies]
+openkdx-codec.workspace = true
+tokio-util.workspace = true
+futures-util = { workspace = true, features = ["sink"] }
+bytes.workspace = true

@@ -13,6 +13,7 @@ use openkdx_codec::{Event as CodecEvent, Item, SessionCodec};
 use openkdx_proto::msg::admin::DisconnectMessage;
 use openkdx_proto::msg::error_name;
 use openkdx_proto::session::Header;
+use openkdx_proto::wire::DecodeError;
 use openkdx_proto::{AccountKey, Message, MessageType, Payload};
 use tokio::net::TcpStream;
 use tokio::sync::{broadcast, mpsc, oneshot};
@@ -36,6 +37,12 @@ pub struct Disconnect {
 #[derive(Debug, Clone)]
 pub enum Event {
     Message(Box<Message>),
+    /// A frame of a known type whose payload did not decode.
+    Undecodable {
+        kind: MessageType,
+        error: DecodeError,
+        bytes: Bytes,
+    },
     Disconnected(Disconnect),
 }
 
@@ -357,26 +364,68 @@ impl Shared {
         let kind = MessageType(header.kind);
         let message = match Message::decode(kind, &payload) {
             Ok(m) => m,
-            Err(_) => Message::Unknown {
-                kind,
-                bytes: payload.to_vec(),
-            },
-        };
-        if header.reply {
-            let waiter = self
-                .pending
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .as_mut()
-                .and_then(|p| p.remove(&header.txid));
-            if let Some(tx) = waiter {
-                let _ = tx.send((message, payload));
+            Err(error) => {
+                if !header.reply
+                    || !self.take_waiter(
+                        header.txid,
+                        Message::Unknown {
+                            kind,
+                            bytes: payload.to_vec(),
+                        },
+                        payload.clone(),
+                    )
+                {
+                    let _ = self.events.send(Event::Undecodable {
+                        kind,
+                        error,
+                        bytes: payload,
+                    });
+                }
                 return;
             }
+        };
+        if header.reply {
+            let message = match self.try_take_waiter(header.txid, message, payload) {
+                Ok(()) => return,
+                Err(m) => *m,
+            };
+            self.publish(message);
+            return;
         }
+        self.publish(message);
+    }
+
+    fn publish(&self, message: Message) {
         if let Message::DisconnectMessage(d) = &message {
             *self.last_151.lock().unwrap_or_else(PoisonError::into_inner) = Some(d.clone());
         }
         let _ = self.events.send(Event::Message(Box::new(message)));
+    }
+
+    /// Hand a reply to its waiter; `Err` gives the message back when nobody
+    /// is waiting for that txid.
+    fn try_take_waiter(
+        &self,
+        txid: u32,
+        message: Message,
+        payload: Bytes,
+    ) -> std::result::Result<(), Box<Message>> {
+        let waiter = self
+            .pending
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_mut()
+            .and_then(|p| p.remove(&txid));
+        match waiter {
+            Some(tx) => {
+                let _ = tx.send((message, payload));
+                Ok(())
+            }
+            None => Err(Box::new(message)),
+        }
+    }
+
+    fn take_waiter(&self, txid: u32, message: Message, payload: Bytes) -> bool {
+        self.try_take_waiter(txid, message, payload).is_ok()
     }
 }
