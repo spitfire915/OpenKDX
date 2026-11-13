@@ -260,8 +260,16 @@ capture_start() {
   in_ns dumpcap -q -i lo -w "$out" >"$RUN/capture.log" 2>&1 &
   echo $! > "$(pidfile capture)"
   echo "$out" > "$RUN/capture.current"
-  sleep 1
+  # dumpcap announces the file once it is capturing; a fixed sleep let short
+  # sessions (the Rust client's one-shot commands) slip through uncaptured.
+  for _ in $(seq 1 100); do
+    grep -q "^File: " "$RUN/capture.log" 2>/dev/null && break
+    alive "$(pidfile capture)" || break
+    sleep 0.1
+  done
+  sleep 0.5
   alive "$(pidfile capture)" || { cat "$RUN/capture.log" >&2; die "dumpcap did not start"; }
+  grep -q "^File: " "$RUN/capture.log" || { cat "$RUN/capture.log" >&2; die "dumpcap did not open $out"; }
   echo "capture: started → $out"
 }
 
