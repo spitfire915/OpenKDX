@@ -2,12 +2,12 @@ mod common;
 
 use std::time::Duration;
 
-use common::mock::{MockServer, key, table};
+use common::mock::{MockConfig, MockServer, key, table};
 use openkdx_client::ClientError;
 use openkdx_client::handshake::client_handshake;
 use openkdx_client::txid::TxidSource;
 use openkdx_proto::AccountKey;
-use openkdx_proto::handshake::Role;
+use openkdx_proto::handshake::{ProofStatus, Role};
 use tokio::net::TcpStream;
 
 #[tokio::test]
@@ -33,10 +33,28 @@ async fn handshake_wrong_password_is_login_failed() {
     .expect("no hang")
     .unwrap_err();
     assert!(
-        matches!(
-            err,
-            ClientError::LoginFailed(_) | ClientError::ProofMismatch
-        ),
+        matches!(err, ClientError::LoginFailed(ProofStatus::Ok)),
+        "{err:?}"
+    );
+}
+
+#[tokio::test]
+async fn handshake_reports_the_servers_failure_status() {
+    let server = MockServer::start_with(
+        MockConfig {
+            reject: Some(ProofStatus::TooNew),
+            ..MockConfig::default()
+        },
+        vec![(b"admin".to_vec(), key("pw"))],
+        vec![vec![]],
+    )
+    .await;
+    let mut stream = TcpStream::connect(server.addr).await.unwrap();
+    let err = client_handshake(&mut stream, b"admin", &key("wrong"), &table())
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(err, ClientError::LoginFailed(ProofStatus::TooNew)),
         "{err:?}"
     );
 }

@@ -1,5 +1,6 @@
 use openkdx_proto::MessageType;
 use openkdx_proto::handshake::ProofStatus;
+use openkdx_proto::msg::admin::DisconnectMessage;
 use openkdx_proto::wire::DecodeError;
 
 /// Everything that can go wrong between the client library and a server.
@@ -27,6 +28,10 @@ pub enum ClientError {
     Timeout,
     #[error("disconnected")]
     Disconnected,
+    #[error("disconnected by the server: {}", String::from_utf8_lossy(&.0.message))]
+    DisconnectedBy(Box<DisconnectMessage>),
+    #[error("protocol: {0}")]
+    Protocol(&'static str),
     #[error("server error {code:#x}{} in reply to {request}", name.map(|n| format!(" ({n})")).unwrap_or_default())]
     Server {
         code: u32,

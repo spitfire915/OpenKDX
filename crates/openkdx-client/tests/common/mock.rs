@@ -45,6 +45,27 @@ pub type Script = Vec<Step>;
 pub struct Captured {
     pub messages: Vec<(MessageType, u32, Vec<u8>)>,
     pub data: Vec<(u64, Vec<u8>)>,
+    /// Script expectations the client violated.
+    pub failures: Vec<String>,
+}
+
+/// How the mock presents itself and how it rejects a bad login.
+#[derive(Debug, Clone)]
+pub struct MockConfig {
+    /// 0x20 server, 0x30 tracker.
+    pub sub_version: u8,
+    /// `None`: close the connection on a bad proof, as Server 1.620 does.
+    /// `Some(status)`: answer with a failure proof carrying that status.
+    pub reject: Option<ProofStatus>,
+}
+
+impl Default for MockConfig {
+    fn default() -> Self {
+        MockConfig {
+            sub_version: 0x20,
+            reject: None,
+        }
+    }
 }
 
 pub struct MockServer {
@@ -73,6 +94,22 @@ impl MockServer {
         accounts: Vec<(Vec<u8>, AccountKey)>,
         scripts: Vec<Script>,
     ) -> MockServer {
+        Self::start_with(
+            MockConfig {
+                sub_version,
+                ..MockConfig::default()
+            },
+            accounts,
+            scripts,
+        )
+        .await
+    }
+
+    pub async fn start_with(
+        config: MockConfig,
+        accounts: Vec<(Vec<u8>, AccountKey)>,
+        scripts: Vec<Script>,
+    ) -> MockServer {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         let captured = Arc::new(Mutex::new(Captured::default()));
@@ -83,8 +120,9 @@ impl MockServer {
                 let (stream, _) = listener.accept().await.unwrap();
                 let accounts = accounts.clone();
                 let cap = cap.clone();
+                let config = config.clone();
                 tasks.push(tokio::spawn(async move {
-                    serve(stream, sub_version, accounts, script, cap).await;
+                    serve(stream, config, accounts, script, cap).await;
                 }));
             }
             for t in tasks {
@@ -105,6 +143,12 @@ impl MockServer {
             .unwrap();
     }
 
+    /// Panic in the test if the client violated the script.
+    pub fn check(&self) {
+        let failures = &self.captured.lock().unwrap().failures;
+        assert!(failures.is_empty(), "mock script violated: {failures:?}");
+    }
+
     pub fn payloads(&self, kind: MessageType) -> Vec<Vec<u8>> {
         self.captured
             .lock()
@@ -119,7 +163,7 @@ impl MockServer {
 
 async fn serve(
     stream: TcpStream,
-    sub_version: u8,
+    config: MockConfig,
     accounts: Vec<(Vec<u8>, AccountKey)>,
     script: Script,
     captured: Arc<Mutex<Captured>>,
@@ -133,7 +177,7 @@ async fn serve(
     let our_hello = Hello {
         sub_protocol: SubProtocol::Kdx,
         version: 1,
-        sub_version,
+        sub_version: config.sub_version,
         challenge: our_hello_challenge,
         nonce,
         name: Vec::new(),
@@ -153,12 +197,14 @@ async fn serve(
     let ok = key.is_some_and(|k| proof_auth(&k, &nonce) == client_proof.auth)
         && table().verify(our_hello_challenge, &client_proof.response);
     let Some(key) = key.filter(|_| ok) else {
-        let _ = framed
-            .send(HandshakeFrame::Proof(Proof::failure(
-                &client_hello.nonce,
-                ProofStatus::Ok,
-            )))
-            .await;
+        if let Some(status) = config.reject {
+            let _ = framed
+                .send(HandshakeFrame::Proof(Proof::failure(
+                    &client_hello.nonce,
+                    status,
+                )))
+                .await;
+        }
         return;
     };
     let proof =
@@ -176,20 +222,23 @@ async fn serve(
         match step {
             Step::Expect(kind) => match session.next().await {
                 Some(Ok(Event::Message { header, payload })) => {
-                    captured.lock().unwrap().messages.push((
-                        MessageType(header.kind),
-                        header.txid,
-                        payload.to_vec(),
-                    ));
-                    assert_eq!(
-                        MessageType(header.kind),
-                        kind,
-                        "mock expected {kind}, got {}",
-                        MessageType(header.kind)
-                    );
+                    let got = MessageType(header.kind);
+                    let mut cap = captured.lock().unwrap();
+                    cap.messages.push((got, header.txid, payload.to_vec()));
+                    if got != kind {
+                        cap.failures.push(format!("expected {kind}, got {got}"));
+                        return;
+                    }
                     last_txid = header.txid;
                 }
-                other => panic!("mock expected {kind}, got {other:?}"),
+                other => {
+                    captured
+                        .lock()
+                        .unwrap()
+                        .failures
+                        .push(format!("expected {kind}, got {other:?}"));
+                    return;
+                }
             },
             Step::Reply(msg) => {
                 let payload = msg.encode();
@@ -234,7 +283,14 @@ async fn serve(
                         Some(Ok(Event::DataStart(h))) => declared = h.len,
                         Some(Ok(Event::Data(b))) => got.extend_from_slice(&b),
                         Some(Ok(Event::DataEnd)) => break,
-                        other => panic!("mock expected data, got {other:?}"),
+                        other => {
+                            captured
+                                .lock()
+                                .unwrap()
+                                .failures
+                                .push(format!("expected data, got {other:?}"));
+                            return;
+                        }
                     }
                 }
                 captured.lock().unwrap().data.push((declared, got));

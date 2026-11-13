@@ -51,7 +51,7 @@ pub async fn client_handshake<S: AsyncRead + AsyncWrite + Unpin>(
     let server_hello = match framed.next().await {
         Some(Ok(HandshakeFrame::Hello(h))) => h,
         Some(Ok(HandshakeFrame::Proof(_))) => {
-            return Err(ClientError::Transfer("proof before hello"));
+            return Err(ClientError::Protocol("proof before hello"));
         }
         Some(Err(e)) => return Err(e.into()),
         None => return Err(ClientError::Disconnected),
@@ -62,7 +62,7 @@ pub async fn client_handshake<S: AsyncRead + AsyncWrite + Unpin>(
     let server_proof = match framed.next().await {
         Some(Ok(HandshakeFrame::Proof(p))) => p,
         Some(Ok(HandshakeFrame::Hello(_))) => {
-            return Err(ClientError::Transfer("second hello"));
+            return Err(ClientError::Protocol("second hello"));
         }
         Some(Err(e)) => return Err(e.into()),
         // Server 1.620 just closes on a bad proof.

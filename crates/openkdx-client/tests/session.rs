@@ -97,6 +97,7 @@ async fn login_collects_user_list_and_server_info() {
         server.payloads(MessageType::LICENSE_REPORT),
         vec![vec![0, 0, 0, 1]]
     );
+    server.check();
 }
 
 #[tokio::test]
@@ -127,6 +128,7 @@ async fn guest_login_sends_no_118_when_unregistered() {
         "{err:?}"
     );
     assert!(server.payloads(MessageType::LICENSE_REPORT).is_empty());
+    server.check();
 }
 
 #[tokio::test]
@@ -155,12 +157,76 @@ async fn user_list_tracks_joins_and_departs() {
     let session = Session::connect(server.addr, &creds(), opts())
         .await
         .unwrap();
-    tokio::time::sleep(Duration::from_millis(50)).await;
-    assert_eq!(session.users().len(), 2);
-    tokio::time::sleep(Duration::from_millis(150)).await;
-    let users = session.users();
-    assert_eq!(users.len(), 1);
-    assert_eq!(users[0].nick, b"bob");
+    wait_for(|| session.users().len() == 2).await;
+    wait_for(|| session.users().len() == 1).await;
+    assert_eq!(session.users()[0].nick, b"bob");
+    server.check();
+}
+
+async fn wait_for(mut cond: impl FnMut() -> bool) {
+    let deadline = std::time::Instant::now() + Duration::from_secs(3);
+    while !cond() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "condition not met in time"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+#[tokio::test]
+async fn disconnect_during_login_carries_the_151() {
+    use openkdx_proto::msg::admin::DisconnectMessage;
+    let server = MockServer::start(
+        accounts(),
+        vec![vec![
+            Step::Expect(MessageType::SET_IDENTITY),
+            Step::Expect(MessageType::LICENSE_REPORT),
+            Step::Send(Message::DisconnectMessage(DisconnectMessage {
+                user_id: 0,
+                ignored: [0; 8],
+                flags: DisconnectMessage::FLAG_BANNED,
+                value_0e: 0,
+                value_10: 0,
+                message: b"banned".to_vec(),
+                name: Vec::new(),
+            })),
+            Step::Close,
+        ]],
+    )
+    .await;
+    match Session::connect(server.addr, &creds(), opts())
+        .await
+        .unwrap_err()
+    {
+        openkdx_client::ClientError::DisconnectedBy(d) => assert_eq!(d.message, b"banned"),
+        other => panic!("{other:?}"),
+    }
+    server.check();
+}
+
+#[tokio::test]
+async fn transfer_port_wider_than_u16_falls_back_to_main_port() {
+    let server = MockServer::start(
+        accounts(),
+        vec![vec![
+            Step::Expect(MessageType::SET_IDENTITY),
+            Step::Expect(MessageType::LICENSE_REPORT),
+            Step::Send(Message::UserList(UserList {
+                users: vec![user(1, "openkdx")],
+            })),
+            Step::Send(Message::ServerInfo(ServerInfo {
+                file_transfer_port: 0x1_0001,
+                ..server_info(1)
+            })),
+        ]],
+    )
+    .await;
+    let session = Session::connect(server.addr, &creds(), opts())
+        .await
+        .unwrap();
+    assert_eq!(session.transfer_addr(), server.addr);
+    server.check();
 }
 
 #[tokio::test]
@@ -182,4 +248,5 @@ async fn must_join_chat_is_recorded() {
         .await
         .unwrap();
     assert!(session.must_join_chat());
+    server.check();
 }

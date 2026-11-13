@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use bytes::{Bytes, BytesMut};
@@ -16,34 +16,76 @@ use openkdx_proto::session::Header;
 use openkdx_proto::{AccountKey, Message, MessageType, Payload};
 use tokio::net::TcpStream;
 use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::task::AbortHandle;
 use tokio_util::codec::{Framed, FramedParts};
 
 use crate::txid::TxidSource;
 use crate::{ClientError, Result};
 
+/// Why a connection ended.
+#[derive(Debug, Clone, Default)]
+pub struct Disconnect {
+    /// The 151 Disconnect Message, if the server sent one first.
+    pub message: Option<DisconnectMessage>,
+    /// A framing or protocol fault on our side of the read, if any; `None`
+    /// for a plain close.
+    pub error: Option<Arc<ClientError>>,
+}
+
 /// What arrives without being the reply to one of our requests.
 #[derive(Debug, Clone)]
 pub enum Event {
     Message(Box<Message>),
-    /// The connection ended; with the 151 Disconnect Message if one came.
-    Disconnected(Option<DisconnectMessage>),
+    Disconnected(Disconnect),
 }
 
 type Reply = (Message, Bytes);
-type Pending = Arc<Mutex<Option<HashMap<u32, oneshot::Sender<Reply>>>>>;
+type PendingMap = HashMap<u32, oneshot::Sender<Reply>>;
 
 enum Outgoing {
-    Item(Item),
-    Close,
+    Item(Item, oneshot::Sender<Result<()>>),
+    Close(oneshot::Sender<()>),
+}
+
+/// State the reader and the handles share.
+struct Shared {
+    pending: Mutex<Option<PendingMap>>,
+    last_151: Mutex<Option<DisconnectMessage>>,
+    events: broadcast::Sender<Event>,
+    closed: AtomicBool,
+    finalized: AtomicBool,
+}
+
+impl Shared {
+    /// Mark the connection dead once: fail every waiter, tell subscribers.
+    fn finalize(&self, error: Option<ClientError>) {
+        if self.finalized.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        self.closed.store(true, Ordering::SeqCst);
+        // Dropping the senders makes every pending request see Disconnected.
+        self.pending
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
+        let message = self
+            .last_151
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
+        let _ = self.events.send(Event::Disconnected(Disconnect {
+            message,
+            error: error.map(Arc::new),
+        }));
+    }
 }
 
 #[derive(Clone)]
 pub struct Connection {
     writer: mpsc::Sender<Outgoing>,
-    pending: Pending,
+    shared: Arc<Shared>,
+    reader: Arc<Mutex<Option<AbortHandle>>>,
     txids: Arc<TxidSource>,
-    events: broadcast::Sender<Event>,
-    closed: Arc<AtomicBool>,
     timeout: Duration,
     local_addr: Option<SocketAddr>,
     peer_addr: Option<SocketAddr>,
@@ -60,81 +102,84 @@ impl std::fmt::Debug for Connection {
 
 impl Connection {
     /// Take over a stream whose handshake is done. `read_buf` holds whatever
-    /// the handshake read past the proof; `max_len` is the receive cap.
-    pub fn spawn(stream: TcpStream, read_buf: BytesMut, key: &AccountKey, max_len: u64) -> Self {
+    /// the handshake read past the proof; `max_len` is the receive cap. The
+    /// returned receiver was subscribed before the reader started, so it
+    /// misses nothing.
+    pub fn spawn(
+        stream: TcpStream,
+        read_buf: BytesMut,
+        key: &AccountKey,
+        max_len: u64,
+    ) -> (Self, broadcast::Receiver<Event>) {
         let local_addr = stream.local_addr().ok();
         let peer_addr = stream.peer_addr().ok();
         let mut parts = FramedParts::new::<Item>(stream, SessionCodec::new(key, max_len));
         parts.read_buf = read_buf;
-        let framed = Framed::from_parts(parts);
-        let (mut sink, mut source) = framed.split();
+        let (mut sink, mut source) = Framed::from_parts(parts).split();
 
         let (writer, mut outgoing) = mpsc::channel::<Outgoing>(64);
-        let (events, _) = broadcast::channel(256);
-        let pending: Pending = Arc::new(Mutex::new(Some(HashMap::new())));
-        let closed = Arc::new(AtomicBool::new(false));
-
-        tokio::spawn(async move {
-            while let Some(Outgoing::Item(item)) = outgoing.recv().await {
-                if sink.send(item).await.is_err() {
-                    break;
-                }
-            }
-            let _ = sink.close().await;
+        let (events, first_receiver) = broadcast::channel(256);
+        let shared = Arc::new(Shared {
+            pending: Mutex::new(Some(HashMap::new())),
+            last_151: Mutex::new(None),
+            events,
+            closed: AtomicBool::new(false),
+            finalized: AtomicBool::new(false),
         });
 
-        let reader_pending = pending.clone();
-        let reader_events = events.clone();
-        let reader_closed = closed.clone();
         tokio::spawn(async move {
-            let mut last_151 = None;
-            loop {
-                let frame = source.next().await;
-                let Some(Ok(CodecEvent::Message { header, payload })) = frame else {
-                    break;
-                };
-                let kind = MessageType(header.kind);
-                let message = match Message::decode(kind, &payload) {
-                    Ok(m) => m,
-                    Err(_) => Message::Unknown {
-                        kind,
-                        bytes: payload.to_vec(),
-                    },
-                };
-                if header.reply {
-                    let waiter = reader_pending
-                        .lock()
-                        .unwrap()
-                        .as_mut()
-                        .and_then(|p| p.remove(&header.txid));
-                    if let Some(tx) = waiter {
-                        let _ = tx.send((message, payload));
-                        continue;
+            while let Some(out) = outgoing.recv().await {
+                match out {
+                    Outgoing::Item(item, ack) => {
+                        let result = sink.send(item).await.map_err(ClientError::from);
+                        let failed = result.is_err();
+                        let _ = ack.send(result);
+                        if failed {
+                            break;
+                        }
+                    }
+                    Outgoing::Close(ack) => {
+                        let _ = sink.close().await;
+                        let _ = ack.send(());
+                        break;
                     }
                 }
-                if let Message::DisconnectMessage(d) = &message {
-                    last_151 = Some(d.clone());
-                }
-                let _ = reader_events.send(Event::Message(Box::new(message)));
             }
-            reader_closed.store(true, Ordering::SeqCst);
-            // Drop every pending sender: their receivers see Disconnected.
-            reader_pending.lock().unwrap().take();
-            let _ = reader_events.send(Event::Disconnected(last_151));
         });
 
-        Connection {
+        let reader_shared = shared.clone();
+        let reader_writer = writer.clone();
+        let reader = tokio::spawn(async move {
+            let error = loop {
+                match source.next().await {
+                    Some(Ok(CodecEvent::Message { header, payload })) => {
+                        reader_shared.deliver(header, payload);
+                    }
+                    Some(Ok(_)) => {
+                        break Some(ClientError::Protocol("data on a message connection"));
+                    }
+                    Some(Err(e)) => break Some(ClientError::Codec(e)),
+                    None => break None,
+                }
+            };
+            reader_shared.finalize(error);
+            let (ack, _) = oneshot::channel();
+            let _ = reader_writer.try_send(Outgoing::Close(ack));
+        });
+
+        let conn = Connection {
             writer,
-            pending,
+            shared,
+            reader: Arc::new(Mutex::new(Some(reader.abort_handle()))),
             txids: Arc::new(TxidSource::new_random()),
-            events,
-            closed,
             timeout: Duration::from_secs(30),
             local_addr,
             peer_addr,
-        }
+        };
+        (conn, first_receiver)
     }
 
+    /// The request timeout for this handle (clones keep their own).
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
@@ -145,11 +190,11 @@ impl Connection {
     }
 
     pub fn events(&self) -> broadcast::Receiver<Event> {
-        self.events.subscribe()
+        self.shared.events.subscribe()
     }
 
     pub fn is_closed(&self) -> bool {
-        self.closed.load(Ordering::SeqCst)
+        self.shared.closed.load(Ordering::SeqCst)
     }
 
     pub fn local_addr(&self) -> Option<SocketAddr> {
@@ -160,7 +205,17 @@ impl Connection {
         self.peer_addr
     }
 
-    /// Send a message that expects no reply; returns its txid.
+    /// The 151 Disconnect Message, once one has arrived.
+    pub fn disconnect_message(&self) -> Option<DisconnectMessage> {
+        self.shared
+            .last_151
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Send a message that expects no reply; returns its txid once the
+    /// bytes have been written.
     pub async fn send<T: Payload>(&self, msg: &T) -> Result<u32> {
         let txid = self.txids.next();
         self.send_with_txid(txid, msg).await?;
@@ -187,9 +242,13 @@ impl Connection {
         let txid = self.txids.next();
         let (tx, rx) = oneshot::channel();
         {
-            let mut guard = self.pending.lock().unwrap();
+            let mut guard = self
+                .shared
+                .pending
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
             let Some(pending) = guard.as_mut() else {
-                return Err(ClientError::Disconnected);
+                return Err(self.disconnected());
             };
             pending.insert(txid, tx);
         }
@@ -198,8 +257,8 @@ impl Connection {
             return Err(e);
         }
         match tokio::time::timeout(self.timeout, rx).await {
-            Ok(Ok(message)) => Ok(message),
-            Ok(Err(_)) => Err(ClientError::Disconnected),
+            Ok(Ok(reply)) => Ok(reply),
+            Ok(Err(_)) => Err(self.disconnected()),
             Err(_) => {
                 self.forget(txid);
                 Err(ClientError::Timeout)
@@ -230,22 +289,94 @@ impl Connection {
         })
     }
 
-    /// Hand the raw writer an item (used by transfers).
+    /// Write one codec item and wait until it has gone out (transfers use
+    /// this for data headers and data).
     pub(crate) async fn send_item(&self, item: Item) -> Result<()> {
+        if self.is_closed() {
+            return Err(self.disconnected());
+        }
+        let (ack, done) = oneshot::channel();
         self.writer
-            .send(Outgoing::Item(item))
+            .send(Outgoing::Item(item, ack))
             .await
-            .map_err(|_| ClientError::Disconnected)
+            .map_err(|_| self.disconnected())?;
+        done.await.map_err(|_| self.disconnected())?
+    }
+
+    fn disconnected(&self) -> ClientError {
+        match self.disconnect_message() {
+            Some(m) => ClientError::DisconnectedBy(Box::new(m)),
+            None => ClientError::Disconnected,
+        }
     }
 
     fn forget(&self, txid: u32) {
-        if let Some(p) = self.pending.lock().unwrap().as_mut() {
+        if let Some(p) = self
+            .shared
+            .pending
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_mut()
+        {
             p.remove(&txid);
         }
     }
 
-    /// Shut the socket down for writing; the reader then sees the peer close.
+    /// Shut the socket down for writing, give the peer a moment to close,
+    /// then end the reader. Afterwards `is_closed()` is true, every pending
+    /// request has failed, and subscribers have seen `Disconnected`.
     pub async fn close(&self) {
-        let _ = self.writer.send(Outgoing::Close).await;
+        let (ack, done) = oneshot::channel();
+        if self.writer.send(Outgoing::Close(ack)).await.is_ok() {
+            let _ = tokio::time::timeout(Duration::from_secs(2), done).await;
+        }
+        let mut events = self.events();
+        let graceful = tokio::time::timeout(Duration::from_secs(1), async {
+            while !self.is_closed() {
+                if events.recv().await.is_err() {
+                    break;
+                }
+            }
+        })
+        .await;
+        if graceful.is_err()
+            && let Some(h) = self
+                .reader
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .take()
+        {
+            h.abort();
+        }
+        self.shared.finalize(None);
+    }
+}
+
+impl Shared {
+    fn deliver(&self, header: Header, payload: Bytes) {
+        let kind = MessageType(header.kind);
+        let message = match Message::decode(kind, &payload) {
+            Ok(m) => m,
+            Err(_) => Message::Unknown {
+                kind,
+                bytes: payload.to_vec(),
+            },
+        };
+        if header.reply {
+            let waiter = self
+                .pending
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .as_mut()
+                .and_then(|p| p.remove(&header.txid));
+            if let Some(tx) = waiter {
+                let _ = tx.send((message, payload));
+                return;
+            }
+        }
+        if let Message::DisconnectMessage(d) = &message {
+            *self.last_151.lock().unwrap_or_else(PoisonError::into_inner) = Some(d.clone());
+        }
+        let _ = self.events.send(Event::Message(Box::new(message)));
     }
 }

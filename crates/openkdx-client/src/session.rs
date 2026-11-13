@@ -1,7 +1,7 @@
 //! A logged-in connection to a KDX server.
 
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use openkdx_proto::msg::common::UserRecord;
@@ -106,7 +106,6 @@ impl Session {
             None => load_kdx_table()?,
         };
         let key = creds.account_key();
-        let deadline = Instant::now() + opts.timeout;
         let mut stream = tokio::time::timeout(opts.timeout, TcpStream::connect(addr))
             .await
             .map_err(|_| ClientError::Timeout)??;
@@ -116,9 +115,11 @@ impl Session {
         )
         .await
         .map_err(|_| ClientError::Timeout)??;
-        let conn = Connection::spawn(stream, out.read_buf, &key, CLIENT_RECV_CAP)
-            .with_timeout(opts.timeout);
-        let mut events = conn.events();
+        let (conn, mut events) = Connection::spawn(stream, out.read_buf, &key, CLIENT_RECV_CAP);
+        let conn = conn.with_timeout(opts.timeout);
+        // The login replies get the full timeout from here, after connect
+        // and handshake each had their own.
+        let deadline = Instant::now() + opts.timeout;
 
         conn.send(&SetIdentity {
             user: opts.identity.user_record(),
@@ -152,11 +153,18 @@ impl Session {
                         }
                         _ => {}
                     }
-                    state.lock().unwrap().apply(&m);
+                    state
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .apply(&m);
                 }
-                Ok(Event::Disconnected(_)) | Err(broadcast::error::RecvError::Closed) => {
-                    return Err(ClientError::Disconnected);
+                Ok(Event::Disconnected(d)) => {
+                    return Err(match d.message {
+                        Some(m) => ClientError::DisconnectedBy(Box::new(m)),
+                        None => ClientError::Disconnected,
+                    });
                 }
+                Err(broadcast::error::RecvError::Closed) => return Err(ClientError::Disconnected),
                 Err(broadcast::error::RecvError::Lagged(_)) => {}
             }
         }
@@ -165,7 +173,10 @@ impl Session {
         tokio::spawn(async move {
             loop {
                 match events.recv().await {
-                    Ok(Event::Message(m)) => tracker_state.lock().unwrap().apply(&m),
+                    Ok(Event::Message(m)) => tracker_state
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .apply(&m),
                     Ok(Event::Disconnected(_)) | Err(broadcast::error::RecvError::Closed) => break,
                     Err(broadcast::error::RecvError::Lagged(_)) => {}
                 }
@@ -204,8 +215,10 @@ impl Session {
     /// names one, else the main port.
     pub fn transfer_addr(&self) -> SocketAddr {
         let mut addr = self.server_addr;
-        if self.server.file_transfer_port != 0 {
-            addr.set_port(self.server.file_transfer_port as u16);
+        if self.server.file_transfer_port != 0
+            && let Ok(port) = u16::try_from(self.server.file_transfer_port)
+        {
+            addr.set_port(port);
         }
         addr
     }
@@ -215,15 +228,26 @@ impl Session {
     }
 
     pub fn users(&self) -> Vec<UserRecord> {
-        self.state.lock().unwrap().users.clone()
+        self.state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .users
+            .clone()
     }
 
     pub fn greeting(&self) -> Option<Vec<u8>> {
-        self.state.lock().unwrap().greeting.clone()
+        self.state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .greeting
+            .clone()
     }
 
     pub fn must_join_chat(&self) -> bool {
-        self.state.lock().unwrap().must_join_chat
+        self.state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .must_join_chat
     }
 
     pub async fn set_identity(&self, identity: &Identity) -> Result<()> {
