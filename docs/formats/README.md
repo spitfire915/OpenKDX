@@ -21,7 +21,7 @@ samples of the client-side formats.
 | `Downloads/` (client) | client | downloaded files, optionally auto-sorted | from docs | — |
 | `Catalog.dat` | server | file catalog for Search | read/write | `catalog.md` |
 | `Bases/` conventions | server | `[UL]`, `[DB]`, `[<item>]` suffixes; drop-box owner | read | `bases.md` |
-| `KDX.stg` | client | identity, icon, address book, settings, window positions, registration | unknown | `client-stg.md` |
+| `KDX.stg` | client | identity, icon, address book, settings, window positions, registration | verified (identity, address book) | `client-stg.md` |
 | `Appearances/*.hap` | client | appearance (theme) files | unknown | `hap.md` |
 | `Sound Lists/*` | client | KDXSoundListEdit output | unknown | `soundlist.md` |
 

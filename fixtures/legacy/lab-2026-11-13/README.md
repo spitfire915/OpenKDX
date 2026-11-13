@@ -78,3 +78,16 @@ login as `hist1`, `server set-name`, `files trash`.
 A separate run (`catalog-probe`): `files catalog` on a fresh server (50),
 after `files put alpha.txt "Uploads [UL]"` (51), after `files put beta.txt`
 and `files mkdir "" Docs` (52).
+
+## `client/` — `KDX.stg`
+
+`lab/scenarios/client-samples.sh`, KDX Client 1.600 under Wine, one change
+per clean exit:
+
+| Snapshot | Change |
+|---|---|
+| 60-client-fresh | first run as `labuser`, exit |
+| 61-client-nick | Settings → Identity → Name `legacynick` |
+| 62-client-description | Settings → Identity → Description `A client description` |
+| 63-client-address-book | Address Book → New: `Lab`, `127.0.0.1`, login `admin`, password `openkdx-lab`, description `The lab server` |
+| 64-client-address-book-2 | Address Book → New: `Second`, `10.0.0.2` |
