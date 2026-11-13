@@ -95,6 +95,58 @@ pub enum Command {
     /// Folder access items (drop boxes, upload folders, ...).
     #[command(subcommand)]
     FolderAccess(FaCmd),
+    /// Server administration.
+    #[command(subcommand)]
+    Server(ServerCmd),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ServerCmd {
+    /// Show the server settings.
+    Settings,
+    /// Rename the server.
+    SetName { name: String },
+    /// Broadcast a message to every user.
+    Broadcast {
+        #[arg(trailing_var_arg = true, required = true)]
+        text: Vec<String>,
+    },
+    /// Disconnect a user (ID or nick), optionally banning the address.
+    Disconnect {
+        user: String,
+        /// Ban for this many seconds.
+        #[arg(long, default_value = "0")]
+        ban: u32,
+        #[arg(long, default_value = "")]
+        message: String,
+        /// No notice to the other users.
+        #[arg(long)]
+        quiet: bool,
+    },
+    /// Show the server history, optionally following new records.
+    History {
+        /// Keep printing new records for this many seconds.
+        #[arg(long)]
+        follow: Option<u64>,
+    },
+    /// Show the connection monitor.
+    Monitor {
+        /// Poll for this many seconds.
+        #[arg(long)]
+        r#for: Option<u64>,
+        /// Seconds between polls.
+        #[arg(long, default_value = "2")]
+        every: u64,
+    },
+    /// Shut the server down.
+    Shutdown {
+        #[arg(long, default_value = "0")]
+        mode: u8,
+        #[arg(long, default_value = "")]
+        message: String,
+    },
+    /// Extra server information: uptime, OS, your address.
+    Info,
 }
 
 #[derive(Debug, Subcommand)]

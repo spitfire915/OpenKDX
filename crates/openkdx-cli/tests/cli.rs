@@ -376,3 +376,29 @@ async fn accounts_create_sends_507_with_the_password_key() {
             .has(openkdx_proto::msg::accounts::Privilege::Download)
     );
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn server_broadcast_and_disconnect_send_154_and_150() {
+    use openkdx_proto::msg::admin::DisconnectUser;
+    let mut steps = login_steps();
+    steps.push(Step::Expect(MessageType::SEND_BROADCAST_MESSAGE));
+    steps.push(Step::Expect(MessageType::DISCONNECT_USER));
+    let server = std::sync::Arc::new(MockServer::start(accounts(), vec![steps]).await);
+    let s2 = server.clone();
+    let (code, _stdout, stderr) = tokio::task::spawn_blocking(move || {
+        openkdx(
+            &s2,
+            &["run"],
+            "server broadcast hello all\nserver disconnect bob --ban 10 --message bye\n",
+        )
+    })
+    .await
+    .unwrap();
+    assert_eq!(code, 0, "{stderr}");
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    server.check();
+    assert!(server.payloads(MessageType::SEND_BROADCAST_MESSAGE)[0].ends_with(b"hello all"));
+    let d = DisconnectUser::decode(&server.payloads(MessageType::DISCONNECT_USER)[0]).unwrap();
+    assert_eq!((d.user_id, d.ban_seconds), (2, 10));
+    assert_eq!(d.message, b"bye");
+}

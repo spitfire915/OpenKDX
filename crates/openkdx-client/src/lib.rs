@@ -9,6 +9,7 @@ pub use error::{ClientError, Result};
 pub use identity::Identity;
 pub use table::{load_kdx_table, load_kdx_table_from};
 pub mod accounts;
+pub mod admin;
 pub mod chat;
 pub mod connection;
 pub mod files;
