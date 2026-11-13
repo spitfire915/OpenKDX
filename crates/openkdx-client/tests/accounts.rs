@@ -98,6 +98,7 @@ async fn account_list_show_set_and_delete() {
     assert_eq!(acct.name, b"Tester");
     let mut changed = acct.clone();
     changed.name = b"Tester 2".to_vec();
+    changed.editor = b"admin".to_vec(); // as 510 returns it: the last editor
     session.set_account(changed.clone()).await.unwrap();
     let raw = &server.payloads(MessageType::SET_ACCOUNT)[0];
     let sent = SetAccount::decode(raw).unwrap();
@@ -143,7 +144,7 @@ async fn folder_access_create_is_padded_to_four() {
         .await
         .unwrap();
     let raw = &server.payloads(MessageType::CREATE_FOLDER_ACCESS)[0];
-    assert_eq!(raw.len(), (0xb8 + 9 + 4 + 3) / 4 * 4);
+    assert_eq!(raw.len(), (0xb8 + 9 + 4_usize).div_ceil(4) * 4);
     server.check();
 }
 

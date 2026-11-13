@@ -144,21 +144,22 @@ impl Session {
         self.connection().request_ok(&msg).await
     }
 
-    /// 511 → 1 Status 0x1ff. `editor` names the account to change (its
-    /// current login); a different `login` renames it.
+    /// 511 → 1 Status 0x1ff. On the wire `editor` names the account to
+    /// change; this sets it to `login` (510 returns the last editor there,
+    /// which would read as a rename). Use `rename_account` to rename.
     pub async fn set_account(&self, mut account: Account) -> Result<Message> {
-        if account.editor.is_empty() {
-            account.editor = account.login.clone();
-        }
+        account.editor = account.login.clone();
         account.padding.clear();
         let msg = padded(SetAccount { account }, |m, p| m.account.padding = p);
         self.connection().request_ok(&msg).await
     }
 
-    /// Like `set_account`, for a rename: `current` is the login as stored.
+    /// 511 with `editor` = the stored login and `login` = the new one.
     pub async fn rename_account(&self, current: &[u8], mut account: Account) -> Result<Message> {
         account.editor = current.to_vec();
-        self.set_account(account).await
+        account.padding.clear();
+        let msg = padded(SetAccount { account }, |m, p| m.account.padding = p);
+        self.connection().request_ok(&msg).await
     }
 
     /// 508; every user gets 515 with the login.

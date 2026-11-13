@@ -210,7 +210,7 @@ lab_test!(lab_files_list_get_put_resume, |lab| {
         .find(|e| e.is_folder() && e.access_item == 0x2b)
         .expect("an [UL] folder");
     let folder = parse_path(&String::from_utf8_lossy(&uploads.name));
-    let data = body(64 * 1024);
+    let data = body(256 * 1024);
     let dir = tempfile::tempdir().unwrap();
     let local = dir.path().join("big.bin");
     std::fs::write(&local, &data).unwrap();
