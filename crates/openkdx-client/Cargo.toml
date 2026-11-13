@@ -10,5 +10,14 @@ description = "Async client library for writing KDX clients."
 [dependencies]
 openkdx-proto.workspace = true
 openkdx-codec.workspace = true
-openkdx-table.workspace = true
+openkdx-table = { workspace = true, default-features = false }
 tokio.workspace = true
+tokio-util.workspace = true
+futures-util.workspace = true
+bytes.workspace = true
+thiserror.workspace = true
+rand.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+hex.workspace = true
