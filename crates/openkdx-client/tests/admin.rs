@@ -17,7 +17,7 @@ fn settings() -> ServerSettings {
         ignored_24: [0; 20],
         total_outgoing_speed_limit: 0,
         ignored_3c: [0; 22],
-        ignored_52: 0,
+        ignored_52: 10,
         ignored_53: [0; 9],
         server_name: b"New Server".to_vec(),
         name_tail: vec![0; 21],
@@ -47,6 +47,11 @@ fn set_server_name_rewrites_only_section_0_and_keeps_its_length() {
     let mut s = before.clone();
     set_server_name(&mut s, b"OpenKDX Lab").unwrap();
     assert_eq!(s.main().unwrap().server_name, b"OpenKDX Lab");
+    assert_eq!(
+        s.main().unwrap().ignored_52,
+        11,
+        "the length byte at 0x52 follows the name"
+    );
     assert_eq!(s.table, before.table);
     assert_eq!(s.section(1), before.section(1));
     assert_eq!(s.body.len(), before.body.len());

@@ -144,6 +144,13 @@ impl Payload for TrackerServerList {
     const KIND: MessageType = MessageType::TRACKER_SERVER_LIST;
 
     fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
+        // A group with no servers is an empty payload, not a zero count
+        // (Tracker 1.110 in the lab, Phase 2).
+        if bytes.is_empty() {
+            return Ok(TrackerServerList {
+                servers: Vec::new(),
+            });
+        }
         let mut r = Reader::new(bytes);
         let count = r.u32()? as usize;
         let mut servers = Vec::with_capacity(count.min(0xffff));
@@ -182,6 +189,9 @@ impl Payload for TrackerServerList {
     }
 
     fn encode(&self, w: &mut Writer) {
+        if self.servers.is_empty() {
+            return;
+        }
         w.u32(self.servers.len() as u32);
         for s in &self.servers {
             let start = w.pos();

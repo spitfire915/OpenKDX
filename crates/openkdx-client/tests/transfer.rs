@@ -247,7 +247,10 @@ async fn upload_stop_after_closes_early() {
         .await
         .unwrap_err();
     assert!(matches!(err, ClientError::Transfer(_)), "{err:?}");
-    assert!((20_000..70_000).contains(&last), "{last}");
+    assert_eq!(
+        last, 20_000,
+        "stop_after is exact so the lab can predict 416's offset"
+    );
     server.check();
 }
 

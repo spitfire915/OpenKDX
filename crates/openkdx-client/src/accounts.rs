@@ -53,6 +53,14 @@ pub fn new_account(
     }
 }
 
+/// Records with a trailing pad go out padded to a multiple of 4: the
+/// server checks the payload length (reference `folder-access.md`).
+fn padded<T: Payload>(mut msg: T, set_padding: impl Fn(&mut T, Vec<u8>)) -> T {
+    let len = msg.to_bytes().len();
+    set_padding(&mut msg, vec![0; openkdx_proto::wire::pad4_len(len)]);
+    msg
+}
+
 /// Privilege names in kebab-case: `can-login`.
 pub fn privilege_slug(p: Privilege) -> String {
     let mut out = String::new();
@@ -130,15 +138,27 @@ impl Session {
     }
 
     /// 507 → 1 Status 0x1fb.
-    pub async fn create_account(&self, account: Account) -> Result<Message> {
-        self.connection()
-            .request_ok(&CreateAccount { account })
-            .await
+    pub async fn create_account(&self, mut account: Account) -> Result<Message> {
+        account.padding.clear();
+        let msg = padded(CreateAccount { account }, |m, p| m.account.padding = p);
+        self.connection().request_ok(&msg).await
     }
 
-    /// 511 → 1 Status 0x1ff.
-    pub async fn set_account(&self, account: Account) -> Result<Message> {
-        self.connection().request_ok(&SetAccount { account }).await
+    /// 511 → 1 Status 0x1ff. `editor` names the account to change (its
+    /// current login); a different `login` renames it.
+    pub async fn set_account(&self, mut account: Account) -> Result<Message> {
+        if account.editor.is_empty() {
+            account.editor = account.login.clone();
+        }
+        account.padding.clear();
+        let msg = padded(SetAccount { account }, |m, p| m.account.padding = p);
+        self.connection().request_ok(&msg).await
+    }
+
+    /// Like `set_account`, for a rename: `current` is the login as stored.
+    pub async fn rename_account(&self, current: &[u8], mut account: Account) -> Result<Message> {
+        account.editor = current.to_vec();
+        self.set_account(account).await
     }
 
     /// 508; every user gets 515 with the login.
@@ -185,10 +205,10 @@ impl Session {
     }
 
     /// 504 → whatever the server answers (a Status or 503).
-    pub async fn set_class(&self, class: AccountClassInfo) -> Result<Message> {
-        self.connection()
-            .request_ok(&SetAccountClass { class })
-            .await
+    pub async fn set_class(&self, mut class: AccountClassInfo) -> Result<Message> {
+        class.padding.clear();
+        let msg = padded(SetAccountClass { class }, |m, p| m.class.padding = p);
+        self.connection().request_ok(&msg).await
     }
 
     /// 1106 (flags 0) → 1107.
@@ -213,18 +233,21 @@ impl Session {
         Ok(info.item)
     }
 
-    /// 1100 → Status or 1104.
-    pub async fn create_folder_access(&self, item: FolderAccess) -> Result<Message> {
-        self.connection()
-            .request_ok(&CreateFolderAccess { item })
-            .await
+    /// 1100 → 1 Status 0x44c.
+    pub async fn create_folder_access(&self, mut item: FolderAccess) -> Result<Message> {
+        item.padding.clear();
+        let msg = padded(CreateFolderAccess { item }, |m, p| m.item.padding = p);
+        self.connection().request_ok(&msg).await
     }
 
-    /// 1105 → Status or 1104.
-    pub async fn set_folder_access(&self, item: FolderAccess) -> Result<Message> {
-        self.connection()
-            .request_ok(&SetFolderAccess { item })
-            .await
+    /// 1105 → Status. `current_name` names the item to change.
+    pub async fn set_folder_access(&self, mut item: FolderAccess) -> Result<Message> {
+        if item.current_name.is_empty() {
+            item.current_name = item.name.clone();
+        }
+        item.padding.clear();
+        let msg = padded(SetFolderAccess { item }, |m, p| m.item.padding = p);
+        self.connection().request_ok(&msg).await
     }
 
     /// 1101; every user gets 1102.

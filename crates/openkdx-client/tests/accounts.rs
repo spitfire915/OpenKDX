@@ -99,10 +99,51 @@ async fn account_list_show_set_and_delete() {
     let mut changed = acct.clone();
     changed.name = b"Tester 2".to_vec();
     session.set_account(changed.clone()).await.unwrap();
-    let sent = SetAccount::decode(&server.payloads(MessageType::SET_ACCOUNT)[0]).unwrap();
+    let raw = &server.payloads(MessageType::SET_ACCOUNT)[0];
+    let sent = SetAccount::decode(raw).unwrap();
     assert_eq!(sent.account.name, b"Tester 2");
+    assert_eq!(
+        sent.account.editor, b"tester",
+        "511 names the current login in editor"
+    );
+    assert_eq!(raw.len() % 4, 0, "records go out padded to 4");
     session.delete_account(b"tester").await.unwrap();
     assert_eq!(server.payloads(MessageType::DELETE_ACCOUNT)[0], b"tester");
+    server.check();
+}
+
+#[tokio::test]
+async fn folder_access_create_is_padded_to_four() {
+    use openkdx_proto::msg::misc::{FolderAccess, FolderAccessRule};
+    let (server, session) = session_with(vec![
+        Step::Expect(MessageType::CREATE_FOLDER_ACCESS),
+        Step::Reply(Message::Status(Status {
+            code: 0,
+            request_type_or_value: 0x44c,
+            detail: None,
+        })),
+    ])
+    .await;
+    session
+        .create_folder_access(FolderAccess {
+            ignored_00: [0; 4],
+            flags: 0,
+            icon: FolderAccess::ICON_PICTURES,
+            class_rules: [FolderAccessRule::default(); 32],
+            rule: FolderAccessRule::default(),
+            ignored_90: [0; 29],
+            ignored_b0: 0,
+            ignored_b2: [0; 6],
+            name: b"Pictures1".to_vec(),
+            owner: Vec::new(),
+            description: b"pics".to_vec(),
+            current_name: Vec::new(),
+            padding: Vec::new(),
+        })
+        .await
+        .unwrap();
+    let raw = &server.payloads(MessageType::CREATE_FOLDER_ACCESS)[0];
+    assert_eq!(raw.len(), (0xb8 + 9 + 4 + 3) / 4 * 4);
     server.check();
 }
 

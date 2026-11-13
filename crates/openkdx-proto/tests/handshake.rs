@@ -300,3 +300,15 @@ fn lab_table() -> Option<Vec<u8>> {
         .ok()
         .flatten()
 }
+
+#[test]
+fn proof_status_1_is_failed() {
+    // Server 1.620 answers a bad proof with status 1 (lab server log
+    // "Login failed"; the reference lists only 0x10, 2, 3, 4).
+    use openkdx_proto::handshake::{Proof, ProofStatus};
+    let bytes = Proof::failure(&[0; 12], ProofStatus::Failed).encode();
+    let p = Proof::decode(&bytes).unwrap();
+    assert_eq!(p.status, ProofStatus::Failed);
+    assert_eq!(p.status as u8, 1);
+    assert_eq!(p.encode(), bytes);
+}

@@ -26,11 +26,14 @@ pub fn set_server_name(settings: &mut ServerSettings, name: &[u8]) -> Result<()>
         .ok_or(ClientError::Protocol("server settings section 0 range"))?;
     let mut main = openkdx_proto::msg::admin::ServerSettingsMain::decode(bytes)?;
     let room = main.server_name.len() + main.name_tail.len();
-    if name.is_empty() || name.len() + 1 > room || name.contains(&0) {
+    if name.is_empty() || name.len() + 1 > room || name.len() > 0xff || name.contains(&0) {
         return Err(ClientError::Protocol("server name does not fit"));
     }
     main.server_name = name.to_vec();
     main.name_tail = vec![0; room - name.len()];
+    // The byte at 0x52 is the name's length (reference administration.md,
+    // confirmed on the lab: without it the server keeps the old length).
+    main.ignored_52 = name.len() as u8;
     let new = main.to_bytes();
     debug_assert_eq!(new.len(), len as usize);
     settings.body[start..end].copy_from_slice(&new);

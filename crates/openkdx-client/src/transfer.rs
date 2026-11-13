@@ -304,7 +304,11 @@ impl Transfer {
         let mut buf = vec![0u8; CHUNK];
         on_progress(Progress { done, total: size });
         while done < size {
-            let n = file.read(&mut buf).await?;
+            let want = match stop_after {
+                Some(limit) => (limit.saturating_sub(done - offset)).min(CHUNK as u64) as usize,
+                None => CHUNK,
+            };
+            let n = file.read(&mut buf[..want.max(1)]).await?;
             if n == 0 {
                 return Err(ClientError::Transfer("local file shrank during upload"));
             }

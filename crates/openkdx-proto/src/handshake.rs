@@ -221,6 +221,9 @@ impl Hello {
 #[repr(u8)]
 pub enum ProofStatus {
     Ok = 0x10,
+    /// Server 1.620 answers a bad proof with this (lab, Phase 2); the
+    /// reference lists it only for the 0.9x handshake.
+    Failed = 1,
     UnknownProtocol = 2,
     TooOld = 3,
     TooNew = 4,
@@ -230,6 +233,7 @@ impl ProofStatus {
     fn from_u8(v: u8) -> Option<Self> {
         match v {
             0x10 => Some(ProofStatus::Ok),
+            1 => Some(ProofStatus::Failed),
             2 => Some(ProofStatus::UnknownProtocol),
             3 => Some(ProofStatus::TooOld),
             4 => Some(ProofStatus::TooNew),
