@@ -168,6 +168,11 @@ impl Transfer {
                 path: path.clone(),
             })
             .await?;
+        if existing > info.data_size {
+            return Err(ClientError::Transfer(
+                "the local file is longer than the server's; remove it or download without resume",
+            ));
+        }
 
         let header = self.data_start().await?;
         let start = info
@@ -281,16 +286,17 @@ impl Transfer {
                 rest: Vec::new(),
             })
             .await?;
-        let offset = if resume {
-            reply.data_offset.min(size)
-        } else {
-            0
-        };
         if !resume && reply.data_offset != 0 {
             return Err(ClientError::Transfer(
                 "the server holds a partial upload of this name; use resume",
             ));
         }
+        if reply.data_offset > size {
+            return Err(ClientError::Transfer(
+                "the server's partial upload is longer than the local file; it is not this file",
+            ));
+        }
+        let offset = reply.data_offset;
         let remaining = size - offset;
         // The data fork header answers 415, as the server's 414 answers 412.
         self.send(Item::DataHeader(Header::reply(

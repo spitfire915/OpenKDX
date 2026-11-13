@@ -283,3 +283,51 @@ async fn upload_name_exists_is_a_server_error() {
     );
     server.check();
 }
+
+#[tokio::test]
+async fn upload_resume_refuses_a_server_partial_larger_than_the_local_file() {
+    // The server holds 0x8000 bytes of an earlier upload; the local file is
+    // now 3 bytes. Sending nothing would "finish" the wrong file.
+    let (server, session) = session_with_extra(
+        vec![],
+        vec![vec![
+            Step::Expect(MessageType::UPLOAD_FILE),
+            Step::Reply(Message::UploadReply(UploadReply {
+                data_offset: 0x8000,
+                rsrc_offset: u64::MAX,
+                ignored: [0; 8],
+            })),
+        ]],
+    )
+    .await;
+    let dir = tempfile::tempdir().unwrap();
+    let local = dir.path().join("x.bin");
+    std::fs::write(&local, b"abc").unwrap();
+    let mut t = Transfer::open(&session).await.unwrap();
+    let err = t
+        .upload(&local, &parse_path("Uploads"), b"x.bin", true, |_| {}, None)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, ClientError::Transfer(_)), "{err:?}");
+    assert!(
+        server.captured.lock().unwrap().data.is_empty(),
+        "no data was sent"
+    );
+    server.check();
+}
+
+#[tokio::test]
+async fn download_resume_refuses_a_local_file_longer_than_the_remote() {
+    let (server, session) = session_with_extra(vec![], vec![download_script(3, Vec::new())]).await;
+    let dir = tempfile::tempdir().unwrap();
+    let dest = dir.path().join("tiny.txt");
+    std::fs::write(&dest, b"abcdefgh").unwrap();
+    let mut t = Transfer::open(&session).await.unwrap();
+    let err = t
+        .download(&parse_path("tiny.txt"), &dest, true, |_| {})
+        .await
+        .unwrap_err();
+    assert!(matches!(err, ClientError::Transfer(_)), "{err:?}");
+    assert_eq!(std::fs::read(&dest).unwrap(), b"abcdefgh", "left alone");
+    server.check();
+}

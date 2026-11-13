@@ -190,6 +190,8 @@ pub struct Stream {
     pub data: Vec<u8>,
     /// `(offset into data, frame number)` for each segment that added bytes.
     pub segments: Vec<(usize, usize)>,
+    /// A FIN or RST was seen in this direction: the sender closed.
+    pub closed: bool,
 }
 
 impl Stream {
@@ -219,6 +221,7 @@ pub struct Flow {
 struct Reassembly {
     isn: Option<u32>,
     segments: BTreeMap<u32, (usize, Vec<u8>)>,
+    closed: bool,
 }
 
 impl Reassembly {
@@ -227,6 +230,9 @@ impl Reassembly {
             self.isn = Some(seq.wrapping_add(1));
         } else if self.isn.is_none() {
             self.isn = Some(seq);
+        }
+        if flags.fin || flags.rst {
+            self.closed = true;
         }
         if payload.is_empty() {
             return;
@@ -238,7 +244,10 @@ impl Reassembly {
     }
 
     fn finish(self) -> Stream {
-        let mut stream = Stream::default();
+        let mut stream = Stream {
+            closed: self.closed,
+            ..Stream::default()
+        };
         for (rel, (frame, payload)) in self.segments {
             let rel = rel as usize;
             if rel < stream.data.len() {

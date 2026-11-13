@@ -535,12 +535,26 @@ fn decode_session(
                 });
             }
             if taken < padded {
-                conn.records.push(Record::DataCut {
-                    dir,
-                    frame: stream.frame_at(data.len().saturating_sub(1)),
-                    captured: (available as u64).min(header.len),
-                    declared: header.len,
-                });
+                let frame = stream.frame_at(data.len().saturating_sub(1));
+                // The peer closing mid-transfer is a cut; bytes missing from
+                // an open stream mean the capture (or we) lost them.
+                if stream.closed {
+                    conn.records.push(Record::DataCut {
+                        dir,
+                        frame,
+                        captured: (available as u64).min(header.len),
+                        declared: header.len,
+                    });
+                } else {
+                    conn.records.push(Record::Stopped {
+                        dir,
+                        frame,
+                        reason: format!(
+                            "transfer data: {} of {} bytes captured, stream not closed",
+                            available, padded
+                        ),
+                    });
+                }
                 return;
             }
             off += taken;

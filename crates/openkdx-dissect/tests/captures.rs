@@ -966,3 +966,43 @@ fn connection_monitor_is_byte_exact() {
             .any(|r| !r.is_transfer() && r.nick == b"downloader")
     );
 }
+
+#[test]
+fn a_cut_transfer_is_data_cut_only_when_the_stream_closed() {
+    use openkdx_dissect::capture::{parse_packets, read_capture, tcp_flows};
+    use openkdx_dissect::connection::dissect_flow;
+    let path = capture_path("upload-resume");
+    let cap = load("upload-resume");
+    let keys = cap.connections[0].harvested_keys.clone();
+    let frames = read_capture(&path).unwrap();
+    let packets = parse_packets(&frames);
+    let mut flows = tcp_flows(&packets, |p| p == 10700);
+    flows.sort_by_key(|f| f.first_frame);
+    let mut flow = flows[1].clone();
+    assert!(flow.c2s.closed, "the client closed the cut transfer");
+    let o = opts();
+    let with_close = dissect_flow(1, &flow, &o, &keys);
+    assert!(
+        with_close
+            .records
+            .iter()
+            .any(|r| matches!(r, Record::DataCut { .. }))
+    );
+    // The same bytes with no FIN/RST seen: the capture stopped early, so it
+    // is a stop, not a cut.
+    flow.c2s.closed = false;
+    flow.s2c.closed = false;
+    let truncated = dissect_flow(1, &flow, &o, &keys);
+    assert!(
+        truncated
+            .records
+            .iter()
+            .any(|r| matches!(r, Record::Stopped { .. }))
+    );
+    assert!(
+        !truncated
+            .records
+            .iter()
+            .any(|r| matches!(r, Record::DataCut { .. }))
+    );
+}
