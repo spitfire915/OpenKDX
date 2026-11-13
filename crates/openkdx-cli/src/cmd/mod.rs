@@ -1,3 +1,4 @@
+pub mod accounts;
 pub mod chat;
 pub mod files;
 pub mod news;
@@ -122,5 +123,8 @@ pub async fn dispatch(ctx: &mut Ctx, command: Command) -> anyhow::Result<()> {
         Command::Pm(c) => chat::pm(ctx, c).await,
         Command::News(c) => news::news(ctx, c).await,
         Command::Files(c) => files::files(ctx, c).await,
+        Command::Accounts(c) => accounts::accounts(ctx, c).await,
+        Command::Classes(c) => accounts::classes(ctx, c).await,
+        Command::FolderAccess(c) => accounts::folder_access(ctx, c).await,
     }
 }

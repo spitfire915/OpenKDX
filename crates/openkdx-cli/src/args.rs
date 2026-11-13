@@ -86,6 +86,103 @@ pub enum Command {
     /// Files and folders.
     #[command(subcommand)]
     Files(FilesCmd),
+    /// Accounts.
+    #[command(subcommand)]
+    Accounts(AccountsCmd),
+    /// Account classes.
+    #[command(subcommand)]
+    Classes(ClassesCmd),
+    /// Folder access items (drop boxes, upload folders, ...).
+    #[command(subcommand)]
+    FolderAccess(FaCmd),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum AccountsCmd {
+    /// List the accounts.
+    List,
+    /// Show one account.
+    Show {
+        #[arg(value_name = "LOGIN")]
+        account: String,
+    },
+    /// Create an account.
+    Create {
+        #[arg(value_name = "LOGIN")]
+        account: String,
+        /// The account's password (`--password` is your own login).
+        #[arg(long, default_value = "")]
+        new_password: String,
+        #[arg(long, default_value = "")]
+        name: String,
+        #[arg(long, default_value = "1")]
+        class: u8,
+        /// `all`, `none`, or comma-separated names such as can-login,download.
+        #[arg(long, default_value = "none")]
+        privileges: String,
+    },
+    /// Change an account.
+    Set {
+        #[arg(value_name = "LOGIN")]
+        account: String,
+        #[arg(long)]
+        new_password: Option<String>,
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long)]
+        class: Option<u8>,
+        #[arg(long)]
+        privileges: Option<String>,
+    },
+    /// Delete an account.
+    Delete {
+        #[arg(value_name = "LOGIN")]
+        account: String,
+    },
+    /// Change your own password.
+    Passwd { new_password: String },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ClassesCmd {
+    /// List the classes.
+    List,
+    /// Show one class.
+    Show { index: u8 },
+    /// Change a class.
+    Set {
+        index: u8,
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long)]
+        privileges: Option<String>,
+        #[arg(long)]
+        speed_limit: Option<u16>,
+        /// relaxed, average, or strict
+        #[arg(long)]
+        flood: Option<String>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum FaCmd {
+    /// List the folder access items.
+    List,
+    /// Show one item.
+    Show { name: String },
+    /// Create an item.
+    Create {
+        name: String,
+        /// normal, uploads, dropbox, pictures, or audio
+        #[arg(long, default_value = "normal")]
+        icon: String,
+        #[arg(long, default_value = "")]
+        owner: String,
+        #[arg(long, default_value = "")]
+        description: String,
+    },
+    /// Delete an item.
+    Delete { name: String },
 }
 
 #[derive(Debug, Subcommand)]

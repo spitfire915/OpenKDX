@@ -7,7 +7,7 @@ use std::process::{Command, Stdio};
 use mock::{MockServer, Step, key};
 use openkdx_proto::msg::common::{Color, UserRecord};
 use openkdx_proto::msg::session::{ServerInfo, UserList};
-use openkdx_proto::{Message, MessageType};
+use openkdx_proto::{Message, MessageType, Payload};
 
 /// A user record as the server sends it: padded to a multiple of 4.
 fn user(id: u32, nick: &str) -> UserRecord {
@@ -325,4 +325,54 @@ async fn files_get_and_put_use_a_transfer_connection() {
     assert_eq!(std::fs::read(&dest).unwrap(), b"abc");
     assert_eq!(server.captured.lock().unwrap().data[0].1, b"hello upload");
     assert!(stdout.contains("3 bytes"), "{stdout}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn accounts_create_sends_507_with_the_password_key() {
+    use openkdx_proto::msg::Status;
+    use openkdx_proto::msg::accounts::CreateAccount;
+    let mut steps = login_steps();
+    steps.push(Step::Expect(MessageType::CREATE_ACCOUNT));
+    steps.push(Step::Reply(Message::Status(Status {
+        code: 0,
+        request_type_or_value: 0x1fb,
+        detail: None,
+    })));
+    let server = std::sync::Arc::new(MockServer::start(accounts(), vec![steps]).await);
+    let s2 = server.clone();
+    let (code, _stdout, stderr) = tokio::task::spawn_blocking(move || {
+        openkdx(
+            &s2,
+            &[
+                "accounts",
+                "create",
+                "tester",
+                "--new-password",
+                "t",
+                "--name",
+                "Tester",
+                "--class",
+                "1",
+                "--privileges",
+                "can-login,download",
+            ],
+            "",
+        )
+    })
+    .await
+    .unwrap();
+    assert_eq!(code, 0, "{stderr}");
+    server.check();
+    let sent = CreateAccount::decode(&server.payloads(MessageType::CREATE_ACCOUNT)[0]).unwrap();
+    assert_eq!(sent.account.login, b"tester");
+    assert_eq!(sent.account.class_index, 1);
+    assert_eq!(
+        sent.account.key,
+        openkdx_proto::AccountKey::from_password(b"t").0
+    );
+    assert!(
+        sent.account
+            .privileges
+            .has(openkdx_proto::msg::accounts::Privilege::Download)
+    );
 }
