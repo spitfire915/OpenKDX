@@ -410,8 +410,8 @@ pub fn encode_client_stg(s: &ClientSettings) -> Vec<u8> {
     sections[SECTION_ADDRESS_BOOK] = encode_address_book(s.address_book_count2, &s.address_book);
     // Sections the order list does not name (new ones) go last, by index.
     let mut order = s.order.clone();
-    for i in 0..12 {
-        if !sections[i].is_empty() && !order.contains(&i) {
+    for (i, sec) in sections.iter().enumerate() {
+        if !sec.is_empty() && !order.contains(&i) {
             order.push(i);
         }
     }
