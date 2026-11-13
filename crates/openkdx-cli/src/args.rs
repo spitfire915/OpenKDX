@@ -74,6 +74,62 @@ pub enum Command {
         #[arg(long)]
         keep_going: bool,
     },
+    /// Chat rooms.
+    #[command(subcommand)]
+    Chat(ChatCmd),
+    /// Send a private message, or wait for them.
+    #[command(subcommand)]
+    Pm(PmCmd),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ChatCmd {
+    /// List the chat rooms.
+    List,
+    /// Join a chat and show its members and topic.
+    Join { chat: String },
+    /// Say something in a chat.
+    Say {
+        chat: String,
+        #[arg(trailing_var_arg = true, required = true)]
+        text: Vec<String>,
+    },
+    /// Send a `/me` action.
+    Me {
+        chat: String,
+        #[arg(trailing_var_arg = true, required = true)]
+        text: Vec<String>,
+    },
+    /// Set the topic.
+    Topic {
+        chat: String,
+        #[arg(trailing_var_arg = true, required = true)]
+        text: Vec<String>,
+    },
+    /// Join a chat and print what happens for a while.
+    Watch {
+        chat: String,
+        /// Seconds to watch.
+        #[arg(long, default_value = "30")]
+        r#for: u64,
+    },
+    /// Leave a chat.
+    Leave { chat: String },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum PmCmd {
+    /// Send a private message to a user (ID or nick).
+    Send {
+        user: String,
+        #[arg(trailing_var_arg = true, required = true)]
+        text: Vec<String>,
+    },
+    /// Print incoming private messages for a while.
+    Wait {
+        #[arg(long, default_value = "30")]
+        r#for: u64,
+    },
 }
 
 /// One line of `run` input, parsed with the same subcommands.

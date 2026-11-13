@@ -150,3 +150,28 @@ async fn json_users_is_one_object_per_line() {
     assert_eq!(lines[1]["nick"], "bob");
     assert_eq!(lines[1]["user_id"], 2);
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn chat_say_sends_207_and_run_can_pm_by_nick() {
+    let mut steps = login_steps();
+    steps.push(Step::Expect(MessageType::SEND_CHAT_TEXT));
+    steps.push(Step::Expect(MessageType::SEND_PRIVATE_MESSAGE));
+    let server = std::sync::Arc::new(MockServer::start(accounts(), vec![steps]).await);
+    let s2 = server.clone();
+    let (code, _stdout, stderr) = tokio::task::spawn_blocking(move || {
+        openkdx(
+            &s2,
+            &["run"],
+            "chat say 1 hello there\npm send bob hi bob\n",
+        )
+    })
+    .await
+    .unwrap();
+    assert_eq!(code, 0, "{stderr}");
+    server.check();
+    let chat = server.payloads(MessageType::SEND_CHAT_TEXT);
+    assert!(chat[0].ends_with(b"hello there"), "{chat:?}");
+    let pm = server.payloads(MessageType::SEND_PRIVATE_MESSAGE);
+    assert_eq!(&pm[0][..4], &[0, 0, 0, 2]);
+    assert!(pm[0].ends_with(b"hi bob"));
+}

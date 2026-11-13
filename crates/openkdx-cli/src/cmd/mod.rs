@@ -1,3 +1,4 @@
+pub mod chat;
 pub mod session;
 
 use std::net::{SocketAddr, ToSocketAddrs};
@@ -79,6 +80,19 @@ impl Ctx {
     }
 }
 
+/// A user named by ID or nick.
+pub fn find_user(session: &Session, spec: &str) -> anyhow::Result<u32> {
+    if let Ok(id) = spec.parse::<u32>() {
+        return Ok(id);
+    }
+    session
+        .users()
+        .iter()
+        .find(|u| u.nick == spec.as_bytes())
+        .map(|u| u.user_id)
+        .ok_or_else(|| anyhow!("no user named {spec}"))
+}
+
 /// `HOST`, `HOST:PORT`, or `[v6]:PORT` to one address.
 pub fn resolve(spec: &str, default_port: u16) -> anyhow::Result<SocketAddr> {
     if let Ok(addr) = spec.parse::<SocketAddr>() {
@@ -102,5 +116,7 @@ pub async fn dispatch(ctx: &mut Ctx, command: Command) -> anyhow::Result<()> {
         Command::Login { stay } => session::login(ctx, stay).await,
         Command::Users => session::users(ctx).await,
         Command::Run { keep_going } => session::run(ctx, keep_going).await,
+        Command::Chat(c) => chat::chat(ctx, c).await,
+        Command::Pm(c) => chat::pm(ctx, c).await,
     }
 }
