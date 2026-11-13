@@ -12,17 +12,19 @@ RUN="${OPENKDX_LAB_RUN:-$HOME/lab/run}"
 export PATH="$HOME/.cargo/bin:$PATH"
 
 cleanup() { "$LAB" ns stop >/dev/null 2>&1 || true; }
-trap cleanup EXIT
 
 exec 9>"$RUN/lab.lock"
 flock -n 9 || { echo "differential: the lab is in use (lock $RUN/lab.lock); not running" >&2; exit 1; }
 "$LAB" ns status | grep -q running && { echo "differential: a lab session is running; not running" >&2; exit 1; }
+# Only after the lock: a refused run must not tear down someone else's namespace.
+trap cleanup EXIT
 
 # The challenge table, from the cache or the server binary (as ci.yml does).
 cargo run -q -p openkdx-table --manifest-path "$REPO/Cargo.toml" -- path | grep -q "kdx.bin: present" \
   || cargo run -q -p openkdx-table --manifest-path "$REPO/Cargo.toml" -- import \
        "$HOME/haxial/bin/KDXServer1620-Lnx/KDXServer1620-Lnx/KDXServer.lexe"
-OPENKDX_KDX_TABLE="$(base64 -w0 "$(cargo run -q -p openkdx-table --manifest-path "$REPO/Cargo.toml" -- path | head -1)/kdx.bin")"
+TABLE_DIR=$(cargo run -q -p openkdx-table --manifest-path "$REPO/Cargo.toml" -- path 2>/dev/null | sed -n 1p)
+OPENKDX_KDX_TABLE="$(base64 -w0 "$TABLE_DIR/kdx.bin")"
 export OPENKDX_KDX_TABLE
 
 # Build outside the namespace (no network inside it).
