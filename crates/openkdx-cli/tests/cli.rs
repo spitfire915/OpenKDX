@@ -402,3 +402,43 @@ async fn server_broadcast_and_disconnect_send_154_and_150() {
     assert_eq!((d.user_id, d.ban_seconds), (2, 10));
     assert_eq!(d.message, b"bye");
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn tracker_servers_prints_addresses() {
+    use openkdx_proto::msg::tracker::{ServerListEntry, TrackerServerList};
+    let tracker = std::sync::Arc::new(
+        MockServer::start_as(
+            0x30,
+            vec![(Vec::new(), key(""))],
+            vec![vec![
+                Step::Expect(MessageType::GET_TRACKER_SERVER_LIST),
+                Step::Reply(Message::TrackerServerList(TrackerServerList {
+                    servers: vec![ServerListEntry {
+                        users: 2,
+                        address: u32::from_be_bytes([127, 0, 0, 1]),
+                        port: 10700,
+                        name: b"New Server".to_vec(),
+                        padding: vec![0; 2],
+                        ..ServerListEntry::default()
+                    }],
+                })),
+            ]],
+        )
+        .await,
+    );
+    let t2 = tracker.clone();
+    let (code, stdout, stderr) = tokio::task::spawn_blocking(move || {
+        let addr = t2.addr.to_string();
+        openkdx(
+            &t2,
+            &["tracker", "--tracker", &addr, "servers", "Default"],
+            "",
+        )
+    })
+    .await
+    .unwrap();
+    assert_eq!(code, 0, "{stderr}");
+    tracker.check();
+    assert!(stdout.contains("127.0.0.1:10700"), "{stdout}");
+    assert!(stdout.contains("New Server"), "{stdout}");
+}

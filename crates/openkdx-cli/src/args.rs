@@ -98,6 +98,22 @@ pub enum Command {
     /// Server administration.
     #[command(subcommand)]
     Server(ServerCmd),
+    /// Browse a tracker.
+    Tracker {
+        /// Tracker address, HOST or HOST:PORT (port 10800 by default).
+        #[arg(short, long, env = "OPENKDX_TRACKER", default_value = "127.0.0.1")]
+        tracker: String,
+        #[command(subcommand)]
+        command: TrackerCmd,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum TrackerCmd {
+    /// List the groups.
+    Groups,
+    /// List the servers in a group (the first group by default).
+    Servers { group: Option<String> },
 }
 
 #[derive(Debug, Subcommand)]

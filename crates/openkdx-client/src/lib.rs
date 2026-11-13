@@ -18,5 +18,6 @@ pub mod news;
 pub mod path;
 pub mod pm;
 pub mod session;
+pub mod tracker;
 pub mod transfer;
 pub mod txid;

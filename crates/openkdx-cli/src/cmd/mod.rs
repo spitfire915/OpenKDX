@@ -4,6 +4,7 @@ pub mod chat;
 pub mod files;
 pub mod news;
 pub mod session;
+pub mod tracker;
 
 use std::net::{SocketAddr, ToSocketAddrs};
 
@@ -128,5 +129,6 @@ pub async fn dispatch(ctx: &mut Ctx, command: Command) -> anyhow::Result<()> {
         Command::Classes(c) => accounts::classes(ctx, c).await,
         Command::FolderAccess(c) => accounts::folder_access(ctx, c).await,
         Command::Server(c) => admin::server(ctx, c).await,
+        Command::Tracker { tracker, command } => tracker::tracker(ctx, &tracker, command).await,
     }
 }
