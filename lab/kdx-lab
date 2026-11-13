@@ -277,6 +277,9 @@ capture_start() {
 
 capture_stop() {
   if alive "$(pidfile capture)"; then
+    # libpcap hands dumpcap packets in blocks that close after a timeout
+    # (about a second); a stop right after a short session lost all of it.
+    sleep 1.5
     in_ns pkill -INT -x dumpcap 2>/dev/null || true
     for _ in $(seq 1 50); do alive "$(pidfile capture)" || break; sleep 0.2; done
   fi
