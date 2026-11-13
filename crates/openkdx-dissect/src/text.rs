@@ -45,11 +45,6 @@ pub fn inventory(cap: &Capture) -> String {
                 Record::DataCut {
                     captured, declared, ..
                 } => format!("transfer data cut, {captured} of {declared} bytes"),
-                Record::DataCut {
-                    captured, declared, ..
-                } => format!(
-                    "transfer data cut: {captured} of {declared} bytes, then the connection closed"
-                ),
                 Record::Stopped { reason, .. } => format!("stopped: {reason}"),
             };
             lines.push((
