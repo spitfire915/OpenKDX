@@ -41,6 +41,9 @@ impl ServerFile {
 #[derive(Debug, Clone)]
 pub struct LegacyDir {
     root: PathBuf,
+    /// The server start this run's `History/` file is named after; the
+    /// moment of `open` unless set.
+    history_started: Option<openkdx_proto::msg::common::Time1900>,
 }
 
 impl LegacyDir {
@@ -53,11 +56,28 @@ impl LegacyDir {
                 std::io::Error::new(std::io::ErrorKind::NotADirectory, "not a directory"),
             ));
         }
-        let dir = LegacyDir { root };
+        let dir = LegacyDir {
+            root,
+            history_started: None,
+        };
         for file in ServerFile::ALL {
             dir.backup_once(file)?;
         }
         Ok(dir)
+    }
+
+    /// Names the `History/` file appends go to (one file per server start).
+    pub fn set_history_started(&mut self, started: openkdx_proto::msg::common::Time1900) {
+        self.history_started = Some(started);
+    }
+
+    pub fn history_started(&self) -> openkdx_proto::msg::common::Time1900 {
+        self.history_started.unwrap_or_else(|| {
+            let ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_millis() as i64);
+            openkdx_proto::msg::common::Time1900::from_unix_ms(ms)
+        })
     }
 
     /// Copies the live file to `<name>.orig` if the backup does not exist

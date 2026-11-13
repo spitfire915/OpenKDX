@@ -122,6 +122,17 @@ pub async fn server(ctx: &mut Ctx, cmd: ServerCmd) -> anyhow::Result<()> {
             set_server_name(&mut s, name.as_bytes())?;
             session.set_server_settings(s).await?;
         }
+        ServerCmd::SetHistory { kinds, max_kib } => {
+            let kinds = kinds
+                .strip_prefix("0x")
+                .map_or_else(|| kinds.parse::<u32>(), |hex| u32::from_str_radix(hex, 16))?;
+            let mut s = session.server_settings().await?;
+            s.main.history_kinds = kinds;
+            if let Some(kib) = max_kib {
+                s.main.history_max_file_size = kib * 1024;
+            }
+            session.set_server_settings(s).await?;
+        }
         ServerCmd::Broadcast { text } => {
             session.broadcast(text.join(" ").as_bytes()).await?;
         }

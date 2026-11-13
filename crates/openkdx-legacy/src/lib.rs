@@ -6,8 +6,11 @@
 
 pub mod accounts;
 pub mod bases;
+pub mod civil;
 pub mod error;
+pub mod history;
 pub mod news;
+pub mod news_archive;
 pub mod scramble;
 pub mod server_stg;
 pub mod store;

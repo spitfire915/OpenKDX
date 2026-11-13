@@ -16,8 +16,8 @@ samples of the client-side formats.
 | `KDXServer.stg` | server | settings: name, description, address, ports, greeting, server icon, speed limit, allow/deny, trackers, history | read/write | `server-stg.md` |
 | `KDXTrackerServ.stg` | tracker | tracker settings | read/write | `tracker-stg.md` |
 | `News.dat` | server | newsgroups and messages (created empty at first run) | read/write | `news-dat.md` |
-| `News Archives/` | server | archived news, text | unknown | `news-archives.md` |
-| `History/` | server | tab-separated history logs | unknown | `history.md` |
+| `News Archives/` | server | archived news, text | read/write | `news-archives.md` |
+| `History/` | server | tab-separated history logs | read/write | `history.md` |
 | `Downloads/` (client) | client | downloaded files, optionally auto-sorted | from docs | — |
 | catalog | server | file catalog for Search | unknown | `catalog.md` |
 | `Bases/` conventions | server | `[UL]`, `[DB]`, `[<item>]` suffixes; drop-box owner | read | `bases.md` |

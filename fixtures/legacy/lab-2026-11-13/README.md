@@ -66,3 +66,9 @@ not committed: it is Haxial's text):
 | 35-news-deleted | `news delete "General News" 2` |
 | 36-news-size-4 | `news set-group-size "Second Group" 4` |
 | 37-news-archived | four posts of 1500 `x` into `Second Group`; the archive file under `News Archives/Second Group/` is from this step |
+
+## `server/History/`
+
+A separate run (`history-probe`): `server set-history 0x7ff --max-kib 64`,
+then logins, `accounts create hist1`, `files put small.txt`, `files ls`, a
+login as `hist1`, `server set-name`, `files trash`.

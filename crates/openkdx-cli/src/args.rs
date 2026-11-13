@@ -122,6 +122,14 @@ pub enum ServerCmd {
     Settings,
     /// Rename the server.
     SetName { name: String },
+    /// Server History → "Record Server History to File": a bitmask in the
+    /// window's order (bit 0 Login, 1 Disconnected, …; 0x7ff = all) and
+    /// optionally the size at which a new file starts, in KiB.
+    SetHistory {
+        kinds: String,
+        #[arg(long)]
+        max_kib: Option<u32>,
+    },
     /// Broadcast a message to every user.
     Broadcast {
         #[arg(trailing_var_arg = true, required = true)]
