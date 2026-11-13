@@ -91,7 +91,7 @@ pub async fn run(ctx: &mut Ctx, keep_going: bool) -> anyhow::Result<()> {
             continue;
         }
         ctx.out.note(format!("> {line}"));
-        let Some(words) = shlex::split(line) else {
+        let Some(words) = split_line(line) else {
             anyhow::bail!("unbalanced quotes: {line}");
         };
         let result = match words[0].as_str() {
@@ -121,4 +121,63 @@ pub async fn run(ctx: &mut Ctx, keep_going: bool) -> anyhow::Result<()> {
         anyhow::bail!("some commands failed");
     }
     Ok(())
+}
+
+/// Words of a `run` line: whitespace separates, single or double quotes
+/// group, and a backslash is an ordinary character (Windows paths pass
+/// through). `None` on an unclosed quote.
+pub fn split_line(line: &str) -> Option<Vec<String>> {
+    let mut words = Vec::new();
+    let mut word = String::new();
+    let mut in_word = false;
+    let mut quote: Option<char> = None;
+    for c in line.chars() {
+        match quote {
+            Some(q) if c == q => quote = None,
+            Some(_) => word.push(c),
+            None if c == '\'' || c == '"' => {
+                quote = Some(c);
+                in_word = true;
+            }
+            None if c.is_whitespace() => {
+                if in_word {
+                    words.push(std::mem::take(&mut word));
+                    in_word = false;
+                }
+            }
+            None => {
+                word.push(c);
+                in_word = true;
+            }
+        }
+    }
+    if quote.is_some() {
+        return None;
+    }
+    if in_word {
+        words.push(word);
+    }
+    Some(words)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_line;
+
+    #[test]
+    fn split_line_keeps_backslashes_and_groups_quotes() {
+        assert_eq!(
+            split_line(r#"files put C:\Temp\up.bin "Uploads [UL]" --name 'a b'"#).unwrap(),
+            vec![
+                "files",
+                "put",
+                r"C:\Temp\up.bin",
+                "Uploads [UL]",
+                "--name",
+                "a b"
+            ]
+        );
+        assert_eq!(split_line("  users  ").unwrap(), vec!["users"]);
+        assert!(split_line("say 1 \"unclosed").is_none());
+    }
 }
