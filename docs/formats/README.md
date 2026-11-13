@@ -20,7 +20,7 @@ samples of the client-side formats.
 | `History/` | server | tab-separated history logs | unknown | `history.md` |
 | `Downloads/` (client) | client | downloaded files, optionally auto-sorted | from docs | — |
 | catalog | server | file catalog for Search | unknown | `catalog.md` |
-| `Bases/` conventions | server | `[UL]`, `[DB]`, `[<item>]` suffixes; drop-box owner | from docs | `bases.md` |
+| `Bases/` conventions | server | `[UL]`, `[DB]`, `[<item>]` suffixes; drop-box owner | read | `bases.md` |
 | `KDX.stg` | client | identity, icon, address book, settings, window positions, registration | unknown | `client-stg.md` |
 | `Appearances/*.hap` | client | appearance (theme) files | unknown | `hap.md` |
 | `Sound Lists/*` | client | KDXSoundListEdit output | unknown | `soundlist.md` |

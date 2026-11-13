@@ -1,0 +1,128 @@
+//! The live store: an original KDX data directory, backed up once and
+//! rewritten atomically in the original formats (design spec §5.2).
+
+use std::fs;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+
+use crate::error::{LegacyError, Result};
+
+/// The files the original server and tracker keep in their directory.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ServerFile {
+    Accounts,
+    Settings,
+    News,
+    Tracker,
+}
+
+impl ServerFile {
+    pub const ALL: [ServerFile; 4] = [
+        ServerFile::Accounts,
+        ServerFile::Settings,
+        ServerFile::News,
+        ServerFile::Tracker,
+    ];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            ServerFile::Accounts => "Accounts.dat",
+            ServerFile::Settings => "KDXServer.stg",
+            ServerFile::News => "News.dat",
+            ServerFile::Tracker => "KDXTrackerServ.stg",
+        }
+    }
+}
+
+/// An original data directory. Opening it copies every known file that has
+/// no `<name>.orig` yet to that name, once; an existing `.orig` is never
+/// touched, so the operator can always roll back to what Haxial's program
+/// last wrote before OpenKDX took over.
+#[derive(Debug, Clone)]
+pub struct LegacyDir {
+    root: PathBuf,
+}
+
+impl LegacyDir {
+    pub fn open(root: impl Into<PathBuf>) -> Result<LegacyDir> {
+        let root = root.into();
+        let meta = fs::metadata(&root).map_err(|e| LegacyError::io(&root, e))?;
+        if !meta.is_dir() {
+            return Err(LegacyError::io(
+                &root,
+                std::io::Error::new(std::io::ErrorKind::NotADirectory, "not a directory"),
+            ));
+        }
+        let dir = LegacyDir { root };
+        for file in ServerFile::ALL {
+            let live = dir.path(file);
+            let orig = dir.orig_path(file);
+            if live.is_file() && !orig.exists() {
+                fs::copy(&live, &orig).map_err(|e| LegacyError::io(&orig, e))?;
+            }
+        }
+        Ok(dir)
+    }
+
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    pub fn path(&self, f: ServerFile) -> PathBuf {
+        self.root.join(f.name())
+    }
+
+    pub fn orig_path(&self, f: ServerFile) -> PathBuf {
+        self.root.join(format!("{}.orig", f.name()))
+    }
+
+    pub fn history_dir(&self) -> PathBuf {
+        self.root.join("History")
+    }
+
+    pub fn news_archives_dir(&self) -> PathBuf {
+        self.root.join("News Archives")
+    }
+
+    pub fn bases_dir(&self) -> PathBuf {
+        self.root.join("Bases")
+    }
+
+    /// The file's bytes, or `None` when it does not exist.
+    pub fn read(&self, f: ServerFile) -> Result<Option<Vec<u8>>> {
+        let path = self.path(f);
+        match fs::read(&path) {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(LegacyError::io(path, e)),
+        }
+    }
+
+    /// Writes `<name>.tmp` (replacing any stale one), then renames it over
+    /// the live file, so a crash leaves either the old file or the new one.
+    /// The live file's permissions are kept; a new file is created `0600`
+    /// on Unix, as the original programs do.
+    pub fn save(&self, f: ServerFile, bytes: &[u8]) -> Result<()> {
+        let live = self.path(f);
+        let tmp = self.root.join(format!("{}.tmp", f.name()));
+        let mut out = fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&tmp)
+            .map_err(|e| LegacyError::io(&tmp, e))?;
+        out.write_all(bytes).map_err(|e| LegacyError::io(&tmp, e))?;
+        out.sync_all().map_err(|e| LegacyError::io(&tmp, e))?;
+        drop(out);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = fs::metadata(&live)
+                .map(|m| m.permissions().mode() & 0o777)
+                .unwrap_or(0o600);
+            fs::set_permissions(&tmp, fs::Permissions::from_mode(mode))
+                .map_err(|e| LegacyError::io(&tmp, e))?;
+        }
+        fs::rename(&tmp, &live).map_err(|e| LegacyError::io(&live, e))
+    }
+}

@@ -946,6 +946,13 @@ dependencies = [
 [[package]]
 name = "openkdx-legacy"
 version = "0.0.1"
+dependencies = [
+ "hex",
+ "openkdx-proto",
+ "openkdx-table",
+ "tempfile",
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "openkdx-proto"
