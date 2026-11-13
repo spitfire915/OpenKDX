@@ -8,7 +8,7 @@
 
 A modern, memory-safe reimplementation of Haxial KDX — the early-2000s encrypted BBS-style chat, news, and file-sharing system — in Rust, wire-compatible with the original programs so old and new can share a network.
 
-**Status:** Phase 1 complete — the protocol core. `openkdx-proto` speaks the whole KDX 1.x wire format (handshake, Twofish framing, tracker registration, every message type), `openkdx-codec` frames it for async I/O, and `openkdx-dissect` decodes lab captures: all seven captures of the original programs decode and re-encode byte for byte. No client, server, or tracker is usable yet; Phase 2 (the client library and a CLI) is next. See the [phases](docs/superpowers/specs/2026-11-08-openkdx-design.md#8-phases).
+**Status:** Phase 2 complete — a working client. `openkdx-client` logs in to an original KDX server and does chat, private messages, news, files with resumable transfers, accounts, classes, folder access, administration, and tracker browse; the `openkdx` command line drives it. Sixteen differential tests run against KDX Server 1.620 and Tracker 1.110 in the lab on every push, and fifteen captures decode and re-encode byte for byte. No GUI, server, or tracker yet; Phase 3 (the on-disk formats) is next. See the [phases](docs/superpowers/specs/2026-11-08-openkdx-design.md#8-phases).
 
 | Program | Binary | What it is |
 |---|---|---|
@@ -30,12 +30,22 @@ The protocol reference OpenKDX builds on is [scottanderson/kdx](https://github.c
 | [`openkdx-codec`](crates/openkdx-codec) | done | `tokio_util::codec` framing for the handshake and the session, with streaming file-transfer data. |
 | [`openkdx-dissect`](crates/openkdx-dissect) | done | Decodes KDX connections in pcap/pcapng captures; `--audit` proves each payload re-encodes byte-exact. |
 | [`openkdx-table`](crates/openkdx-table) | done | Obtains the challenge tables at runtime ([how](docs/setup/challenge-tables.md)); they are never shipped. |
-| `openkdx-client`, `openkdx-server`, `openkdx-tracker`, `openkdx-legacy`, `openkdx-ui`, `openkdx-app`, `openkdxd` | planned | Phases 2–10. |
+| [`openkdx-client`](crates/openkdx-client) | done | The async client library: sessions, chat, PM, news, files and transfers with resume, accounts, administration, tracker browse. |
+| [`openkdx-cli`](crates/openkdx-cli) | done | `openkdx`: a thin command-line client over the library; drives the lab's differential tests and captures. |
+| `openkdx-server`, `openkdx-tracker`, `openkdx-legacy`, `openkdx-ui`, `openkdx-app`, `openkdxd` | planned | Phases 3–10. |
 
 The [lab](lab/README.md) runs the original programs in a sandbox and records the [captures](captures/README.md) that every protocol claim is checked against. Try the dissector on one:
 
 ```sh
 cargo run -p openkdx-dissect -- -p openkdx-lab --audit captures/chat-basic.pcapng
+```
+
+Or talk to a server (the challenge table must be [available](docs/setup/challenge-tables.md)):
+
+```sh
+cargo run -p openkdx-cli -- -s kdx.example.net -l guest login
+cargo run -p openkdx-cli -- -s kdx.example.net chat watch "Public Chat" --for 60
+cargo run -p openkdx-cli -- -s kdx.example.net files ls -L
 ```
 
 ## Documentation

@@ -56,3 +56,9 @@ Every claim we add carries its evidence, in the reference spec's style:
 | 1100 → Status 0x44c; a 402 with `access` naming the item makes `Pictures [Pictures]` | `[O folder-access]` |
 | 611 from a guest (no Post News) → error Status; the historian still sees the login/logout 183s | `[O server-history 63]` |
 | 143 lists a transfer with `transfer_id != 0`, `bytes_total`, and the path, beside the sessions | `[O connection-monitor 70]` |
+
+## Known inexact in our encoders
+
+| Where | What | Status |
+|---|---|---|
+| `openkdx_proto::msg::gconsole::Draw::encode` | clamps a record body to `MAX_BODY` (0x3fffff) instead of refusing a longer one | deferred to Phase 10 (GConsole); no capture exercises it |

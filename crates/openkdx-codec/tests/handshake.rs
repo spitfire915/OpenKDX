@@ -15,6 +15,8 @@ fn hello() -> Hello {
         name: b"admin".to_vec(),
         pad_len: 0,
         skipped_len: 0,
+        pad: Vec::new(),
+        skipped: Vec::new(),
         ignored: [0; 4],
         padding: vec![0; 3],
     }

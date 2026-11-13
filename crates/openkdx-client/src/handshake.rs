@@ -43,6 +43,8 @@ pub async fn client_handshake<S: AsyncRead + AsyncWrite + Unpin>(
         name: login.to_vec(),
         pad_len: 0,
         skipped_len: 0,
+        pad: Vec::new(),
+        skipped: Vec::new(),
         ignored: [0; 4],
         padding: Vec::new(),
     };

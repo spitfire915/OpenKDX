@@ -86,6 +86,8 @@ fn hello(sp: SubProtocol, sv: u8) -> Hello {
         name: vec![],
         pad_len: 0,
         skipped_len: 0,
+        pad: Vec::new(),
+        skipped: Vec::new(),
         ignored: [0; 4],
         padding: vec![],
     }
