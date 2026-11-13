@@ -161,7 +161,7 @@ cli_run() { cli "$@" run --keep-going; }
 # cli_bg NAME [cli options] ARGS... : in the background; wait with cli_wait NAME.
 cli_bg() {
   local name=$1; shift
-  cli "$@" > "$RUN/cli-$name.out" 2>&1 &
+  _cli "$@" > "$RUN/cli-$name.out" 2>&1 &
   echo $! > "$RUN/cli-$name.pid"
   sleep 1
 }
