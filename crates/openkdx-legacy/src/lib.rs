@@ -6,6 +6,7 @@
 
 pub mod accounts;
 pub mod bases;
+pub mod catalog;
 pub mod civil;
 pub mod error;
 pub mod history;

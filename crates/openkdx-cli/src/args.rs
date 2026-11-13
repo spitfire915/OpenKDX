@@ -292,6 +292,8 @@ pub enum FilesCmd {
     },
     /// Empty the trash.
     EmptyTrash,
+    /// Regenerate the file catalog (450) and wait until it is done.
+    Catalog,
     /// Search the catalog.
     Search { text: String },
     /// Download a file.

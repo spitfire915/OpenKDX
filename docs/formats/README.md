@@ -19,7 +19,7 @@ samples of the client-side formats.
 | `News Archives/` | server | archived news, text | read/write | `news-archives.md` |
 | `History/` | server | tab-separated history logs | read/write | `history.md` |
 | `Downloads/` (client) | client | downloaded files, optionally auto-sorted | from docs | — |
-| catalog | server | file catalog for Search | unknown | `catalog.md` |
+| `Catalog.dat` | server | file catalog for Search | read/write | `catalog.md` |
 | `Bases/` conventions | server | `[UL]`, `[DB]`, `[<item>]` suffixes; drop-box owner | read | `bases.md` |
 | `KDX.stg` | client | identity, icon, address book, settings, window positions, registration | unknown | `client-stg.md` |
 | `Appearances/*.hap` | client | appearance (theme) files | unknown | `hap.md` |

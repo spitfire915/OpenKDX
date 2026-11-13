@@ -128,6 +128,10 @@ pub async fn files(ctx: &mut Ctx, cmd: FilesCmd) -> anyhow::Result<()> {
         FilesCmd::EmptyTrash => {
             session.empty_trash().await?;
         }
+        FilesCmd::Catalog => {
+            let items = session.generate_catalog().await?;
+            out.record("catalog", &[("items", json!(items))]);
+        }
         FilesCmd::Search { text } => {
             let rows: Vec<Vec<serde_json::Value>> = session
                 .search(text.as_bytes())

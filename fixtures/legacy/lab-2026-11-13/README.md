@@ -72,3 +72,9 @@ not committed: it is Haxial's text):
 A separate run (`history-probe`): `server set-history 0x7ff --max-kib 64`,
 then logins, `accounts create hist1`, `files put small.txt`, `files ls`, a
 login as `hist1`, `server set-name`, `files trash`.
+
+## `server/catalog/` — `Catalog.dat`
+
+A separate run (`catalog-probe`): `files catalog` on a fresh server (50),
+after `files put alpha.txt "Uploads [UL]"` (51), after `files put beta.txt`
+and `files mkdir "" Docs` (52).
