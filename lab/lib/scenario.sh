@@ -215,10 +215,11 @@ scenario_end() {
       echo
       echo "## Messages"
       echo
-      echo "Decoded by \`openkdx-dissect --inventory -p openkdx-lab captures/$SCENARIO.pcapng\`; checked by \`crates/openkdx-dissect/tests/captures.rs\`."
+      echo "Decoded by \`openkdx-dissect --inventory -p openkdx-lab ${INVENTORY_EXTRA_ARGS:+$INVENTORY_EXTRA_ARGS }captures/$SCENARIO.pcapng\`; checked by \`crates/openkdx-dissect/tests/captures.rs\`."
       echo
+      # shellcheck disable=SC2086
       PATH="$HOME/.cargo/bin:$PATH" cargo run -q -p openkdx-dissect --manifest-path "$HERE/../Cargo.toml" -- \
-        --inventory -p "$KDX_ADMIN_PASSWORD" "$CAPTURES/$SCENARIO.pcapng" 2>/dev/null \
+        --inventory -p "$KDX_ADMIN_PASSWORD" ${INVENTORY_EXTRA_ARGS:-} "$CAPTURES/$SCENARIO.pcapng" 2>/dev/null \
         || echo "(openkdx-dissect failed; run it by hand and paste the inventory here)"
     } >> "$CAPTURES/$SCENARIO.md"
   fi

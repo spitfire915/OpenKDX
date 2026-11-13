@@ -1,8 +1,8 @@
 # Capture: disconnect-ban
 
 Recorded 2026-11-13 in the lab (`lab/scenarios/disconnect-ban.sh`).
-Programs: KDX Server 1.620 (Linux), OpenKDX client (openkdx CLI, 05965e2).
-Frames: 120.
+Programs: KDX Server 1.620 (Linux), OpenKDX client (openkdx CLI, 761c223).
+Frames: 90.
 
 ## Steps
 
@@ -11,68 +11,53 @@ Frames: 120.
 1. A login with a wrong password: the server answers the proof with status 1 and closes (log: 'Login failed').
 1. A guest session ('victim') logs in and stays.
 1. Admin: users (the victim is listed), then server disconnect victim --ban 10 --message bye (150).
-1. The victim prints the 151 Disconnect Message (banned, 'bye') and exits with status 3.
-1. After the ban (10 s) a guest login succeeds again.
+1. The victim prints the 151 Disconnect Message (banned, 'bye') and exits with status 3; the admin gets a success Status for the 150.
+1. A guest login right after: the server's own ban list does not apply to 127.0.0.1 (reference sequences.md), so from the lab's loopback it succeeds; the ban itself is only visible as flag 2 in the 151.
 
 ## Server log
 
 ```
-26/11/13 02:54:53 PM [] KDX Server started o
-26/11/13 02:54:54 PM [1 unnamed] Incoming connection from 127.0.0.1:37838
-26/11/13 02:54:54 PM [1 unnamed] Set Name: <victim> (guest)
-26/11/13 02:54:55 PM [1 victim] Disconnected
-26/11/13 02:54:55 PM [2 unnamed] Incoming connection from 127.0.0.1:37842
-26/11/13 02:54:55 PM [2 unnamed] Login failed
-26/11/13 02:54:55 PM [2 unnamed] Disconnected
-26/11/13 02:54:55 PM [3 unnamed] Incoming connection from 127.0.0.1:37852
-26/11/13 02:54:55 PM [3 unnamed] Set Name: <victim> (guest)
-26/11/13 02:54:56 PM [4 unnamed] Incoming connection from 127.0.0.1:37866
-26/11/13 02:54:56 PM [4 unnamed] Set Name: <openkdx> (admin)
-26/11/13 02:54:56 PM [4 openkdx] Disconnected
-26/11/13 02:54:56 PM [5 unnamed] Incoming connection from 127.0.0.1:37868
-26/11/13 02:54:56 PM [5 unnamed] Set Name: <openkdx> (admin)
-26/11/13 02:54:56 PM [3 victim] Disconnected
-26/11/13 02:54:56 PM [5 openkdx] Disconnected
-26/11/13 02:54:57 PM [6 unnamed] Incoming connection from 127.0.0.1:37878
-26/11/13 02:54:57 PM [6 unnamed] Set Name: <openkdx> (guest)
-26/11/13 02:54:57 PM [6 openkdx] Disconnected
-26/11/13 02:55:08 PM [7 unnamed] Incoming connection from 127.0.0.1:35610
-26/11/13 02:55:08 PM [7 unnamed] Set Name: <openkdx> (guest)
-26/11/13 02:55:08 PM [7 openkdx] Disconnected
+26/11/13 03:00:20 PM [] KDX Server started o
+26/11/13 03:00:21 PM [1 unnamed] Incoming connection from 127.0.0.1:54320
+26/11/13 03:00:21 PM [1 unnamed] Login failed
+26/11/13 03:00:21 PM [1 unnamed] Disconnected
+26/11/13 03:00:21 PM [2 unnamed] Incoming connection from 127.0.0.1:54332
+26/11/13 03:00:21 PM [2 unnamed] Set Name: <victim> (guest)
+26/11/13 03:00:22 PM [3 unnamed] Incoming connection from 127.0.0.1:54336
+26/11/13 03:00:22 PM [3 unnamed] Set Name: <openkdx> (admin)
+26/11/13 03:00:22 PM [3 openkdx] Disconnected
+26/11/13 03:00:22 PM [4 unnamed] Incoming connection from 127.0.0.1:54344
+26/11/13 03:00:22 PM [4 unnamed] Set Name: <openkdx> (admin)
+26/11/13 03:00:22 PM [2 victim] Disconnected
+26/11/13 03:00:22 PM [4 openkdx] Disconnected
+26/11/13 03:00:22 PM [5 unnamed] Incoming connection from 127.0.0.1:54350
+26/11/13 03:00:22 PM [5 unnamed] Set Name: <openkdx> (guest)
+26/11/13 03:00:22 PM [5 openkdx] Disconnected
 ```
 
 ## Client transcript
 
 ```
-$ openkdx -l '' --nick victim login --stay 1
-name: New Server
-description: 
-version: 1.620
-address: 
-user_id: 1
-users: 1
-transfer_port: 0
-can_modify_settings: 0
 $ openkdx -l 'admin' --nick openkdx login
 $ openkdx -l 'admin' --nick openkdx users
 user_id  nick     status  info
-3        victim   0
-4        openkdx  0
+2        victim   0
+3        openkdx  0
 $ openkdx -l 'admin' --nick openkdx server disconnect victim --ban 10 --message bye
 $ openkdx -l '' --nick victim login --stay 20
 name: New Server
 description: 
 version: 1.620
 address: 
-user_id: 3
+user_id: 2
 users: 1
 transfer_port: 0
 can_modify_settings: 0
-user_id: 4
+user_id: 3
 nick: openkdx
+user_id: 3
+nick: #3
 user_id: 4
-nick: #4
-user_id: 5
 nick: openkdx
 banned: true
 shutdown: false
@@ -85,16 +70,7 @@ name: New Server
 description: 
 version: 1.620
 address: 
-user_id: 6
-users: 1
-transfer_port: 0
-can_modify_settings: 0
-$ openkdx -l '' --nick openkdx login
-name: New Server
-description: 
-version: 1.620
-address: 
-user_id: 7
+user_id: 5
 users: 1
 transfer_port: 0
 can_modify_settings: 0
@@ -102,67 +78,50 @@ can_modify_settings: 0
 
 ## Messages
 
-Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/disconnect-ban.pcapng`; checked by `crates/openkdx-dissect/tests/captures.rs`.
+Decoded by `openkdx-dissect --inventory -p openkdx-lab -p wrong-password captures/disconnect-ban.pcapng`; checked by `crates/openkdx-dissect/tests/captures.rs`.
 
 ```
-4  C->S  127.0.0.1:37838 -> 127.0.0.1:10700  hello
-6  S->C  127.0.0.1:37838 -> 127.0.0.1:10700  hello
-8  C->S  127.0.0.1:37838 -> 127.0.0.1:10700  proof
-9  S->C  127.0.0.1:37838 -> 127.0.0.1:10700  proof
-10  C->S  127.0.0.1:37838 -> 127.0.0.1:10700  100 Set Identity
-11  S->C  127.0.0.1:37838 -> 127.0.0.1:10700  101 User List
-12  S->C  127.0.0.1:37838 -> 127.0.0.1:10700  105 Server Info
-13  C->S  127.0.0.1:37838 -> 127.0.0.1:10700  118 (unnamed; license report)
-21  C->S  127.0.0.1:37842 -> 127.0.0.1:10700  hello
-23  S->C  127.0.0.1:37842 -> 127.0.0.1:10700  hello
-25  C->S  127.0.0.1:37842 -> 127.0.0.1:10700  proof
-25  C->S  127.0.0.1:37842 -> 127.0.0.1:10700  stopped: no candidate key matches the client's proof; try --password
-26  S->C  127.0.0.1:37842 -> 127.0.0.1:10700  proof
-33  C->S  127.0.0.1:37852 -> 127.0.0.1:10700  hello
-35  S->C  127.0.0.1:37852 -> 127.0.0.1:10700  hello
-37  C->S  127.0.0.1:37852 -> 127.0.0.1:10700  proof
-38  S->C  127.0.0.1:37852 -> 127.0.0.1:10700  proof
-39  C->S  127.0.0.1:37852 -> 127.0.0.1:10700  100 Set Identity
-40  S->C  127.0.0.1:37852 -> 127.0.0.1:10700  101 User List
-41  S->C  127.0.0.1:37852 -> 127.0.0.1:10700  105 Server Info
-42  C->S  127.0.0.1:37852 -> 127.0.0.1:10700  118 (unnamed; license report)
-47  C->S  127.0.0.1:37866 -> 127.0.0.1:10700  hello
-49  S->C  127.0.0.1:37866 -> 127.0.0.1:10700  hello
-51  C->S  127.0.0.1:37866 -> 127.0.0.1:10700  proof
-52  S->C  127.0.0.1:37866 -> 127.0.0.1:10700  proof
-53  C->S  127.0.0.1:37866 -> 127.0.0.1:10700  100 Set Identity
-54  S->C  127.0.0.1:37866 -> 127.0.0.1:10700  101 User List
-55  S->C  127.0.0.1:37866 -> 127.0.0.1:10700  105 Server Info
-56  S->C  127.0.0.1:37852 -> 127.0.0.1:10700  103 User Joined
-58  C->S  127.0.0.1:37866 -> 127.0.0.1:10700  118 (unnamed; license report)
-62  S->C  127.0.0.1:37852 -> 127.0.0.1:10700  104 User Departed
-67  C->S  127.0.0.1:37868 -> 127.0.0.1:10700  hello
-69  S->C  127.0.0.1:37868 -> 127.0.0.1:10700  hello
-71  C->S  127.0.0.1:37868 -> 127.0.0.1:10700  proof
-72  S->C  127.0.0.1:37868 -> 127.0.0.1:10700  proof
-73  C->S  127.0.0.1:37868 -> 127.0.0.1:10700  100 Set Identity
-74  S->C  127.0.0.1:37868 -> 127.0.0.1:10700  101 User List
-75  S->C  127.0.0.1:37868 -> 127.0.0.1:10700  105 Server Info
-76  S->C  127.0.0.1:37852 -> 127.0.0.1:10700  103 User Joined
-77  C->S  127.0.0.1:37868 -> 127.0.0.1:10700  118 (unnamed; license report)
-78  C->S  127.0.0.1:37868 -> 127.0.0.1:10700  150 Disconnect User
-80  S->C  127.0.0.1:37852 -> 127.0.0.1:10700  151 Disconnect Message
-82  S->C  127.0.0.1:37868 -> 127.0.0.1:10700  1 Status (reply)
-83  S->C  127.0.0.1:37868 -> 127.0.0.1:10700  104 User Departed
-92  C->S  127.0.0.1:37878 -> 127.0.0.1:10700  hello
-94  S->C  127.0.0.1:37878 -> 127.0.0.1:10700  hello
-96  C->S  127.0.0.1:37878 -> 127.0.0.1:10700  proof
-97  S->C  127.0.0.1:37878 -> 127.0.0.1:10700  proof
-98  C->S  127.0.0.1:37878 -> 127.0.0.1:10700  100 Set Identity
-99  S->C  127.0.0.1:37878 -> 127.0.0.1:10700  101 User List
-100  S->C  127.0.0.1:37878 -> 127.0.0.1:10700  105 Server Info
-101  C->S  127.0.0.1:37878 -> 127.0.0.1:10700  118 (unnamed; license report)
-108  C->S  127.0.0.1:35610 -> 127.0.0.1:10700  hello
-110  S->C  127.0.0.1:35610 -> 127.0.0.1:10700  hello
-112  C->S  127.0.0.1:35610 -> 127.0.0.1:10700  proof
-113  S->C  127.0.0.1:35610 -> 127.0.0.1:10700  proof
-114  C->S  127.0.0.1:35610 -> 127.0.0.1:10700  100 Set Identity
-115  S->C  127.0.0.1:35610 -> 127.0.0.1:10700  101 User List
-116  S->C  127.0.0.1:35610 -> 127.0.0.1:10700  105 Server Info
-117  C->S  127.0.0.1:35610 -> 127.0.0.1:10700  118 (unnamed; license report)
+4  C->S  127.0.0.1:54320 -> 127.0.0.1:10700  hello
+6  S->C  127.0.0.1:54320 -> 127.0.0.1:10700  hello
+8  C->S  127.0.0.1:54320 -> 127.0.0.1:10700  proof
+9  S->C  127.0.0.1:54320 -> 127.0.0.1:10700  proof
+16  C->S  127.0.0.1:54332 -> 127.0.0.1:10700  hello
+18  S->C  127.0.0.1:54332 -> 127.0.0.1:10700  hello
+20  C->S  127.0.0.1:54332 -> 127.0.0.1:10700  proof
+21  S->C  127.0.0.1:54332 -> 127.0.0.1:10700  proof
+22  C->S  127.0.0.1:54332 -> 127.0.0.1:10700  100 Set Identity
+23  S->C  127.0.0.1:54332 -> 127.0.0.1:10700  101 User List
+24  S->C  127.0.0.1:54332 -> 127.0.0.1:10700  105 Server Info
+25  C->S  127.0.0.1:54332 -> 127.0.0.1:10700  118 (unnamed; license report)
+30  C->S  127.0.0.1:54336 -> 127.0.0.1:10700  hello
+32  S->C  127.0.0.1:54336 -> 127.0.0.1:10700  hello
+34  C->S  127.0.0.1:54336 -> 127.0.0.1:10700  proof
+35  S->C  127.0.0.1:54336 -> 127.0.0.1:10700  proof
+36  C->S  127.0.0.1:54336 -> 127.0.0.1:10700  100 Set Identity
+37  S->C  127.0.0.1:54336 -> 127.0.0.1:10700  101 User List
+38  S->C  127.0.0.1:54336 -> 127.0.0.1:10700  105 Server Info
+39  S->C  127.0.0.1:54332 -> 127.0.0.1:10700  103 User Joined
+40  C->S  127.0.0.1:54336 -> 127.0.0.1:10700  118 (unnamed; license report)
+44  S->C  127.0.0.1:54332 -> 127.0.0.1:10700  104 User Departed
+49  C->S  127.0.0.1:54344 -> 127.0.0.1:10700  hello
+51  S->C  127.0.0.1:54344 -> 127.0.0.1:10700  hello
+53  C->S  127.0.0.1:54344 -> 127.0.0.1:10700  proof
+54  S->C  127.0.0.1:54344 -> 127.0.0.1:10700  proof
+55  C->S  127.0.0.1:54344 -> 127.0.0.1:10700  100 Set Identity
+56  S->C  127.0.0.1:54344 -> 127.0.0.1:10700  101 User List
+57  S->C  127.0.0.1:54344 -> 127.0.0.1:10700  105 Server Info
+58  S->C  127.0.0.1:54332 -> 127.0.0.1:10700  103 User Joined
+59  C->S  127.0.0.1:54344 -> 127.0.0.1:10700  118 (unnamed; license report)
+62  C->S  127.0.0.1:54344 -> 127.0.0.1:10700  150 Disconnect User
+64  S->C  127.0.0.1:54332 -> 127.0.0.1:10700  151 Disconnect Message
+67  S->C  127.0.0.1:54344 -> 127.0.0.1:10700  1 Status (reply)
+68  S->C  127.0.0.1:54344 -> 127.0.0.1:10700  104 User Departed
+78  C->S  127.0.0.1:54350 -> 127.0.0.1:10700  hello
+80  S->C  127.0.0.1:54350 -> 127.0.0.1:10700  hello
+82  C->S  127.0.0.1:54350 -> 127.0.0.1:10700  proof
+83  S->C  127.0.0.1:54350 -> 127.0.0.1:10700  proof
+84  C->S  127.0.0.1:54350 -> 127.0.0.1:10700  100 Set Identity
+85  S->C  127.0.0.1:54350 -> 127.0.0.1:10700  101 User List
+86  S->C  127.0.0.1:54350 -> 127.0.0.1:10700  105 Server Info
+87  C->S  127.0.0.1:54350 -> 127.0.0.1:10700  118 (unnamed; license report)
 ```
