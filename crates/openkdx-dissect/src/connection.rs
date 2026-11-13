@@ -6,7 +6,7 @@ use std::path::Path;
 
 use openkdx_proto::account::AccountKey;
 use openkdx_proto::challenge::ChallengeTable;
-use openkdx_proto::handshake::{HandshakeError, Hello, Proof, Role, proof_auth};
+use openkdx_proto::handshake::{HandshakeError, Hello, Proof, ProofStatus, Role, proof_auth};
 use openkdx_proto::message_type::MessageType;
 use openkdx_proto::msg::Message;
 use openkdx_proto::registration::{Registration, RegistrationError};
@@ -368,6 +368,13 @@ pub fn dissect_flow(
             ..
         } = r
         {
+            // A failure proof carries no auth or response worth checking:
+            // its first word is `nonce[4..8] ^ 0x201f7790`, the rest zero.
+            if proof.status != ProofStatus::Ok {
+                *auth_ok = None;
+                *challenge_ok = None;
+                continue;
+            }
             *auth_ok = match dir {
                 Dir::ClientToServer => key.as_ref().map(|_| true),
                 Dir::ServerToClient => server_auth_ok,

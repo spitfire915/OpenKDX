@@ -383,6 +383,11 @@ async fn server_broadcast_and_disconnect_send_154_and_150() {
     let mut steps = login_steps();
     steps.push(Step::Expect(MessageType::SEND_BROADCAST_MESSAGE));
     steps.push(Step::Expect(MessageType::DISCONNECT_USER));
+    steps.push(Step::Reply(Message::Status(openkdx_proto::msg::Status {
+        code: 0,
+        request_type_or_value: 150,
+        detail: None,
+    })));
     let server = std::sync::Arc::new(MockServer::start(accounts(), vec![steps]).await);
     let s2 = server.clone();
     let (code, _stdout, stderr) = tokio::task::spawn_blocking(move || {

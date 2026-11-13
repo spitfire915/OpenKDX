@@ -150,6 +150,11 @@ async fn monitor_info_round_trip_and_disconnect_user() {
         })),
         Step::Expect(MessageType::CLOSE_CONNECTION_MONITOR),
         Step::Expect(MessageType::DISCONNECT_USER),
+        Step::Reply(Message::Status(Status {
+            code: 0,
+            request_type_or_value: 150,
+            detail: None,
+        })),
         Step::Expect(MessageType::SEND_BROADCAST_MESSAGE),
     ])
     .await;

@@ -15,6 +15,6 @@ cli --nick speaker server broadcast "hello all"
 step "The admin sends: server broadcast 'hello all' (154)."
 wait $ADMIN_PID || true
 cli_wait guest || true
-step "Both the guest and the other admin session print the 155 Broadcast; so does nobody else on the sending session, which closes at once."
+step "The guest and the other admin session print the 155 Broadcast; the sending session closes right after the 154."
 capture_end
 scenario_end

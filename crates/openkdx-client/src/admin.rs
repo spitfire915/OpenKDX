@@ -69,16 +69,18 @@ impl Session {
             .map(|_| ())
     }
 
-    /// 150; no reply. `ban_seconds` 0 = no ban; `quiet` hides the notice.
+    /// 150 → 1 Status (`[O disconnect-ban 82]`). `ban_seconds` 0 = no ban;
+    /// `quiet` hides the notice. The server's ban list does not apply to
+    /// 127.0.0.1 (reference sequences.md).
     pub async fn disconnect_user(
         &self,
         user_id: u32,
         ban_seconds: u32,
         message: &[u8],
         quiet: bool,
-    ) -> Result<()> {
+    ) -> Result<Message> {
         self.connection()
-            .send(&DisconnectUser {
+            .request_ok(&DisconnectUser {
                 user_id,
                 ignored_04: [0; 4],
                 ban_seconds,
@@ -89,7 +91,6 @@ impl Session {
                 message: message.to_vec(),
             })
             .await
-            .map(|_| ())
     }
 
     /// 180 → 181; 183 records follow as events until `history_leave`.
