@@ -1,10 +1,38 @@
 use openkdx_client::path::{join, parse_path, path_string};
+use openkdx_client::transfer::{Progress, Transfer};
 use openkdx_proto::msg::files::FileListEntry;
 use serde_json::json;
 
 use super::Ctx;
 use crate::args::FilesCmd;
 use crate::out::{lossy, time_string};
+
+/// One line at the end: `N bytes`; with `--json`, nothing until the record.
+struct ProgressLine {
+    out: crate::out::Out,
+    first: Option<Progress>,
+    last: Option<Progress>,
+}
+
+impl ProgressLine {
+    fn new(out: crate::out::Out) -> Self {
+        ProgressLine {
+            out,
+            first: None,
+            last: None,
+        }
+    }
+
+    fn update(&mut self, p: Progress) {
+        if self.first.is_none() {
+            self.first = Some(p);
+        }
+        self.last = Some(p);
+        if p.done == p.total {
+            self.out.note(format!("{} bytes", p.total));
+        }
+    }
+}
 
 fn access_tag(entry: &FileListEntry) -> &'static str {
     match entry.access_item {
@@ -115,8 +143,73 @@ pub async fn files(ctx: &mut Ctx, cmd: FilesCmd) -> anyhow::Result<()> {
                 .collect();
             out.table("search", &["name", "size", "path"], &rows);
         }
-        FilesCmd::Get { .. } | FilesCmd::Put { .. } => {
-            anyhow::bail!("transfers arrive in the next task");
+        FilesCmd::Get { path, to, resume } => {
+            let remote = parse_path(&path);
+            let mut t = Transfer::open(&session).await?;
+            let mut progress = ProgressLine::new(out);
+            let dest = match to {
+                Some(p) if p.is_dir() => {
+                    t.download_to_dir(&remote, &p, resume, |p| progress.update(p))
+                        .await?
+                }
+                Some(p) => {
+                    t.download(&remote, &p, resume, |p| progress.update(p))
+                        .await?;
+                    p
+                }
+                None => {
+                    t.download_to_dir(&remote, std::path::Path::new("."), resume, |p| {
+                        progress.update(p)
+                    })
+                    .await?
+                }
+            };
+            t.close().await;
+            out.record(
+                "downloaded",
+                &[
+                    ("path", json!(path_string(&remote))),
+                    ("to", json!(dest.to_string_lossy())),
+                    ("bytes", json!(progress.last.map(|p| p.total))),
+                ],
+            );
+        }
+        FilesCmd::Put {
+            local,
+            folder,
+            name,
+            resume,
+            stop_after,
+        } => {
+            let name = name.unwrap_or_else(|| {
+                local
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default()
+            });
+            let mut t = Transfer::open(&session).await?;
+            let mut progress = ProgressLine::new(out);
+            t.upload(
+                &local,
+                &parse_path(&folder),
+                name.as_bytes(),
+                resume,
+                |p| progress.update(p),
+                stop_after,
+            )
+            .await?;
+            t.close().await;
+            out.record(
+                "uploaded",
+                &[
+                    (
+                        "to",
+                        json!(path_string(&join(&parse_path(&folder), name.as_bytes()))),
+                    ),
+                    ("bytes", json!(progress.last.map(|p| p.total))),
+                    ("from", json!(progress.first.map(|p| p.done))),
+                ],
+            );
         }
     }
     Ok(())

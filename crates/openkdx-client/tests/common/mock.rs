@@ -45,6 +45,8 @@ pub type Script = Vec<Step>;
 pub struct Captured {
     pub messages: Vec<(MessageType, u32, Vec<u8>)>,
     pub data: Vec<(u64, Vec<u8>)>,
+    /// `(txid, reply flag)` of each data header the client sent.
+    pub data_headers: Vec<(u32, bool)>,
     /// Script expectations the client violated.
     pub failures: Vec<String>,
 }
@@ -280,7 +282,14 @@ async fn serve(
                 let mut declared = 0;
                 loop {
                     match session.next().await {
-                        Some(Ok(Event::DataStart(h))) => declared = h.len,
+                        Some(Ok(Event::DataStart(h))) => {
+                            declared = h.len;
+                            captured
+                                .lock()
+                                .unwrap()
+                                .data_headers
+                                .push((h.txid, h.reply));
+                        }
                         Some(Ok(Event::Data(b))) => got.extend_from_slice(&b),
                         Some(Ok(Event::DataEnd)) => break,
                         other => {

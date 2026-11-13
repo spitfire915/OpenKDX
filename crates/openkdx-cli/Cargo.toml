@@ -27,3 +27,4 @@ openkdx-codec.workspace = true
 tokio-util.workspace = true
 futures-util = { workspace = true, features = ["sink"] }
 bytes.workspace = true
+tempfile.workspace = true

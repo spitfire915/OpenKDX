@@ -261,3 +261,68 @@ async fn files_ls_prints_a_listing_with_non_utf8_names() {
     assert!(stdout.contains("Uploads/"), "{stdout}");
     assert!(stdout.contains("[UL]"), "{stdout}");
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn files_get_and_put_use_a_transfer_connection() {
+    use openkdx_proto::msg::files::{DownloadInfo, FileStrings, UploadFileComplete, UploadReply};
+    let mut transfer_login = vec![0u8];
+    transfer_login.extend_from_slice(&1u32.to_be_bytes());
+    let mut accounts = accounts();
+    accounts.push((transfer_login, openkdx_proto::AccountKey([0; 32])));
+    let get_script = vec![
+        Step::Expect(MessageType::DOWNLOAD_FILE),
+        Step::Reply(Message::DownloadInfo(DownloadInfo {
+            data_size: 3,
+            strings: FileStrings {
+                name: b"tiny.txt".to_vec(),
+                ..FileStrings::default()
+            },
+            ..DownloadInfo::default()
+        })),
+        Step::DataReply {
+            kind: MessageType::DOWNLOAD_FILE_DATA,
+            reply: true,
+            bytes: b"abc".to_vec(),
+        },
+        Step::DataReply {
+            kind: MessageType::DOWNLOAD_FILE_DATA,
+            reply: false,
+            bytes: Vec::new(),
+        },
+    ];
+    let put_script = vec![
+        Step::Expect(MessageType::UPLOAD_FILE),
+        Step::Reply(Message::UploadReply(UploadReply {
+            data_offset: 0,
+            rsrc_offset: u64::MAX,
+            ignored: [0; 8],
+        })),
+        Step::ExpectData,
+        Step::ExpectData,
+        Step::Send(Message::UploadFileComplete(UploadFileComplete)),
+    ];
+    let server = std::sync::Arc::new(
+        MockServer::start(accounts, vec![login_steps(), get_script, put_script]).await,
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let dest = dir.path().join("tiny.txt");
+    let up = dir.path().join("up.bin");
+    std::fs::write(&up, b"hello upload").unwrap();
+    let s2 = server.clone();
+    let dest_s = dest.to_string_lossy().into_owned();
+    let up_s = up.to_string_lossy().into_owned();
+    let (code, stdout, stderr) = tokio::task::spawn_blocking(move || {
+        openkdx(
+            &s2,
+            &["run"],
+            &format!("files get tiny.txt --to {dest_s}\nfiles put {up_s} Uploads\n"),
+        )
+    })
+    .await
+    .unwrap();
+    assert_eq!(code, 0, "{stdout}\n{stderr}");
+    server.check();
+    assert_eq!(std::fs::read(&dest).unwrap(), b"abc");
+    assert_eq!(server.captured.lock().unwrap().data[0].1, b"hello upload");
+    assert!(stdout.contains("3 bytes"), "{stdout}");
+}
