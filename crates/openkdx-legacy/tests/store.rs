@@ -88,3 +88,26 @@ fn file_names_and_dirs() {
     assert_eq!(store.bases_dir(), dir.path().join("Bases"));
     assert_eq!(store.root(), dir.path());
 }
+
+#[test]
+fn orig_backup_is_atomic_and_made_on_save_when_missing() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = LegacyDir::open(dir.path()).unwrap();
+    // The file appears after open: the first save still backs it up.
+    fs::write(dir.path().join("News.dat"), b"original").unwrap();
+    store.save(ServerFile::News, b"changed").unwrap();
+    assert_eq!(
+        fs::read(dir.path().join("News.dat.orig")).unwrap(),
+        b"original"
+    );
+    assert!(!dir.path().join("News.dat.orig.tmp").exists());
+    // A stale partial backup from a crash is replaced, never kept.
+    fs::write(dir.path().join("Accounts.dat"), b"acc").unwrap();
+    fs::write(dir.path().join("Accounts.dat.orig.tmp"), b"a").unwrap();
+    LegacyDir::open(dir.path()).unwrap();
+    assert_eq!(
+        fs::read(dir.path().join("Accounts.dat.orig")).unwrap(),
+        b"acc"
+    );
+    assert!(!dir.path().join("Accounts.dat.orig.tmp").exists());
+}

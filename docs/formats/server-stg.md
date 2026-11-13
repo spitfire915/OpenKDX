@@ -1,7 +1,7 @@
 # `KDXServer.stg`
 
-**Status:** read/write (byte-exact over 18 lab files; the original server
-accepts our rewrite — see `lab/legacy.sh`).
+**Status:** read/write (byte-exact over 18 lab files). Whether the original
+server accepts our rewrite is checked by `lab/legacy.sh` (Task 13).
 
 The server's settings. The file is the same `%KDXSSTG` blob the wire carries
 in 171 Server Settings Info and 172 Set Server Settings (reference
@@ -64,7 +64,7 @@ is `(offset, 0)` when the icon is left out — reference.) The encoder keeps a
 | 0x3c | 22 | ignored | zero |
 | 0x52 | 1 | name length | `[O 01]` |
 | 0x53 | 1 | description length | `[O 02]` |
-| 0x54 | 1 | ignored | 0; a description longer than 255 bytes is untested |
+| 0x54 | 1 | unpinned | 0 in every file; sits among the length bytes, so the decoder refuses a non-zero value rather than misread the strings |
 | 0x55 | 1 | address length | `[O 03]` |
 | 0x56 | 6 | ignored | zero |
 | 0x5c | … | name, description, address | then pad to 4 |
@@ -85,9 +85,10 @@ one) `[O 02, 03]`.
 | 0x15 | 1 | comments length |
 | 0x16 | 1 | address length |
 | 0x17 | 1 | login length |
-| 0x18 | 2 | ignored (zero) |
+| 0x18 | 2 | unpinned (zero; refused when set) — probably the password length and one more |
 | 0x1a | 1 | groups length |
-| 0x1b | 5 | ignored (zero) |
+| 0x1b | 1 | unpinned (zero; refused when set) |
+| 0x1c | 4 | ignored (zero) |
 | 0x20 | … | name, comments, address, login, groups |
 
 The password typed into Edit Tracker did not appear in the file written
@@ -107,12 +108,17 @@ elsewhere, hashed, or was not taken by the dialog is open.
 | 0x18 | 1 | address length |
 | 0x19 | 1 | name length |
 | 0x1a | 1 | comments length |
-| 0x1b | 1 | ignored (zero) |
+| 0x1b | 1 | unpinned (zero; refused when set) |
 | 0x1c | … | address, name, comments |
 
 An entry whose expiry has passed is dropped the next time the server writes
 the file: the allow entry of `11-allow-expiry` (expiry = the minute it was
 made) is gone from `12-tracker` `[O 11, 12]`.
+
+Strings are capped at 255 bytes by their length byte; `ServerSettings::
+validate` rejects longer ones before a save or a 172, and the encoder never
+writes more bytes than the length byte says. Bytes after the last section
+are kept in `trailing` and written back.
 
 ## Not yet seen
 

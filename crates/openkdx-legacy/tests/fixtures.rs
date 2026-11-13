@@ -238,3 +238,63 @@ fn legacy_dir_loads_and_saves_settings() {
     );
     let _ = ServerFile::Settings;
 }
+
+#[test]
+fn overlong_string_is_rejected_by_validate_and_never_corrupts_layout() {
+    let mut s = decode_server_stg(&fixture("03-address.stg")).unwrap();
+    s.main.description = vec![b'd'; 300];
+    assert!(matches!(s.validate(), Err(DecodeError::Invalid(_))));
+    // The encoder writes what the length byte says, so a decode still finds
+    // the address where it belongs.
+    let again = decode_server_stg(&encode_server_stg(&s)).unwrap();
+    assert_eq!(again.main.description.len(), 255);
+    assert_eq!(again.main.address, b"lab.example");
+    let dir = tempfile::tempdir().unwrap();
+    let store = LegacyDir::open(dir.path()).unwrap();
+    assert!(matches!(
+        store.save_settings(&s),
+        Err(LegacyError::Decode(_))
+    ));
+    assert!(!dir.path().join("KDXServer.stg").exists());
+}
+
+#[test]
+fn trailing_bytes_after_the_last_section_survive() {
+    let mut b = fixture("00-fresh.stg");
+    b.extend_from_slice(&[7, 7, 7, 7, 7]);
+    let s = decode_server_stg(&b).unwrap();
+    assert_eq!(s.trailing, [7, 7, 7, 7, 7]);
+    assert_eq!(encode_server_stg(&s), b);
+}
+
+#[test]
+fn unpinned_length_bytes_refuse_to_load() {
+    // main 0x54 sits between the description and address length bytes.
+    let mut b = fixture("00-fresh.stg");
+    b[0x70 + 0x54] = 3;
+    assert!(matches!(
+        decode_server_stg(&b),
+        Err(LegacyError::Decode(DecodeError::Invalid(_)))
+    ));
+    // tracker entry 0x18 likewise.
+    let mut b = fixture("12-tracker.stg");
+    b[0xf0 + 0x18] = 1;
+    assert!(matches!(
+        decode_server_stg(&b),
+        Err(LegacyError::Decode(DecodeError::Invalid(_)))
+    ));
+}
+
+#[test]
+fn high_bytes_and_cleared_strings_recompute_lengths() {
+    let mut s = decode_server_stg(&fixture("16-deny-comment.stg")).unwrap();
+    s.main.name = vec![0xa5, 0xff, b'x'];
+    s.main.description.clear();
+    s.main.address.clear();
+    let bytes = encode_server_stg(&s);
+    assert_eq!(bytes[0x70 + 0x52..0x70 + 0x56], [3, 0, 0, 0]);
+    assert_eq!(s.table()[0].1, 0x60);
+    let again = decode_server_stg(&bytes).unwrap();
+    assert_eq!(again.main.name, [0xa5, 0xff, b'x']);
+    assert_eq!(again.allow_deny, s.allow_deny);
+}

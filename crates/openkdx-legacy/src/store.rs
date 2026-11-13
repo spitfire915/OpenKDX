@@ -55,13 +55,24 @@ impl LegacyDir {
         }
         let dir = LegacyDir { root };
         for file in ServerFile::ALL {
-            let live = dir.path(file);
-            let orig = dir.orig_path(file);
-            if live.is_file() && !orig.exists() {
-                fs::copy(&live, &orig).map_err(|e| LegacyError::io(&orig, e))?;
-            }
+            dir.backup_once(file)?;
         }
         Ok(dir)
+    }
+
+    /// Copies the live file to `<name>.orig` if the backup does not exist
+    /// yet, through `<name>.orig.tmp` and a rename so a crash never leaves a
+    /// partial backup that would stop a later complete one.
+    fn backup_once(&self, f: ServerFile) -> Result<()> {
+        let live = self.path(f);
+        let orig = self.orig_path(f);
+        if !live.is_file() || orig.exists() {
+            return Ok(());
+        }
+        let tmp = self.root.join(format!("{}.orig.tmp", f.name()));
+        let bytes = fs::read(&live).map_err(|e| LegacyError::io(&live, e))?;
+        write_sync(&tmp, &bytes, unix_mode(&live))?;
+        fs::rename(&tmp, &orig).map_err(|e| LegacyError::io(&orig, e))
     }
 
     pub fn root(&self) -> &Path {
@@ -103,26 +114,50 @@ impl LegacyDir {
     /// The live file's permissions are kept; a new file is created `0600`
     /// on Unix, as the original programs do.
     pub fn save(&self, f: ServerFile, bytes: &[u8]) -> Result<()> {
+        self.backup_once(f)?;
         let live = self.path(f);
         let tmp = self.root.join(format!("{}.tmp", f.name()));
-        let mut out = fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&tmp)
-            .map_err(|e| LegacyError::io(&tmp, e))?;
-        out.write_all(bytes).map_err(|e| LegacyError::io(&tmp, e))?;
-        out.sync_all().map_err(|e| LegacyError::io(&tmp, e))?;
-        drop(out);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mode = fs::metadata(&live)
-                .map(|m| m.permissions().mode() & 0o777)
-                .unwrap_or(0o600);
-            fs::set_permissions(&tmp, fs::Permissions::from_mode(mode))
-                .map_err(|e| LegacyError::io(&tmp, e))?;
-        }
+        write_sync(&tmp, bytes, unix_mode(&live))?;
         fs::rename(&tmp, &live).map_err(|e| LegacyError::io(&live, e))
     }
+}
+
+/// The live file's mode, or `0600` for a new one (what the originals use).
+fn unix_mode(live: &Path) -> u32 {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::metadata(live)
+            .map(|m| m.permissions().mode() & 0o777)
+            .unwrap_or(0o600)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = live;
+        0o600
+    }
+}
+
+/// Creates or truncates `path` with `mode` from the start, writes, syncs.
+fn write_sync(path: &Path, bytes: &[u8], mode: u32) -> Result<()> {
+    let mut opts = fs::OpenOptions::new();
+    opts.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(mode);
+    }
+    #[cfg(not(unix))]
+    let _ = mode;
+    let mut out = opts.open(path).map_err(|e| LegacyError::io(path, e))?;
+    #[cfg(unix)]
+    {
+        // `mode` only applies to a newly created file; a stale one keeps its
+        // old mode until told otherwise.
+        use std::os::unix::fs::PermissionsExt;
+        out.set_permissions(fs::Permissions::from_mode(mode))
+            .map_err(|e| LegacyError::io(path, e))?;
+    }
+    out.write_all(bytes).map_err(|e| LegacyError::io(path, e))?;
+    out.sync_all().map_err(|e| LegacyError::io(path, e))
 }

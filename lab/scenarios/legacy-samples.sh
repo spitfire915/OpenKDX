@@ -3,7 +3,7 @@
 # data directory, so that each on-disk format can be worked out by diffing.
 # Not a capture scenario; output goes to $RUN/legacy/<NN-name>/ (the four
 # server files after each step) and is copied into fixtures/legacy/ by hand
-# once checked for Haxial prose (lab/legacy.sh does the checking).
+# once checked for Haxial prose.
 #
 # Steps marked (UI) go through the Windows client's Server Settings window;
 # the coordinates are relative to that window (432x378) and its dialogs.

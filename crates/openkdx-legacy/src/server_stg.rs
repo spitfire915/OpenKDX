@@ -54,7 +54,9 @@ impl LegacyDir {
             .transpose()
     }
 
+    /// Refuses settings whose strings do not fit their length bytes.
     pub fn save_settings(&self, settings: &ServerSettings) -> Result<()> {
+        settings.validate()?;
         self.save(ServerFile::Settings, &encode_server_stg(settings))
     }
 }

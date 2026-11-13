@@ -475,6 +475,8 @@ pub struct ServerSettings {
     /// Sections 4, 6, 8, 9, 10 (indexed by section number; the others stay
     /// empty here).
     pub other: [Vec<u8>; 11],
+    /// Bytes after the last section's padding; never seen non-empty.
+    pub trailing: Vec<u8>,
 }
 
 /// Section 3: four bytes, then the greeting text (the 107 layout).
@@ -496,13 +498,45 @@ impl ServerSettings {
         true, true, true, true, false, true, false, true, false, false, false,
     ];
 
-    /// Decodes a whole blob; trailing bytes after the last section are an
-    /// error.
+    /// Decodes a whole blob.
     pub fn decode(bytes: &[u8]) -> Result<Self, DecodeError> {
         let mut r = Reader::new(bytes);
-        let s = Self::decode_from(&mut r)?;
-        r.finish()?;
-        Ok(s)
+        Self::decode_from(&mut r)
+    }
+
+    /// Every string must fit its length byte. The encoder truncates to keep
+    /// the layout sound; callers that save or send check this first.
+    pub fn validate(&self) -> Result<(), DecodeError> {
+        let m = &self.main;
+        let long = |v: &Vec<u8>| v.len() > 0xff;
+        if long(&m.name) || long(&m.description) || long(&m.address) {
+            return Err(DecodeError::Invalid(
+                "server settings string longer than 255 bytes",
+            ));
+        }
+        for t in &self.trackers {
+            if long(&t.name)
+                || long(&t.comments)
+                || long(&t.address)
+                || long(&t.login)
+                || long(&t.groups)
+            {
+                return Err(DecodeError::Invalid(
+                    "tracker entry string longer than 255 bytes",
+                ));
+            }
+        }
+        for a in &self.allow_deny {
+            if long(&a.address) || long(&a.name) || long(&a.comments) {
+                return Err(DecodeError::Invalid(
+                    "allow/deny entry string longer than 255 bytes",
+                ));
+            }
+        }
+        if self.trackers.len() > 0xff {
+            return Err(DecodeError::Invalid("more than 255 trackers"));
+        }
+        Ok(())
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -603,6 +637,7 @@ impl ServerSettings {
                 return Err(DecodeError::Invalid("server settings tail padding"));
             }
         }
+        let trailing = r.rest();
         let [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10] = sections;
         let main = ServerSettingsMain::decode(&s0)?;
         let trackers = decode_list(&s1, TrackerEntry::decode)?;
@@ -638,6 +673,7 @@ impl ServerSettings {
             icon,
             chats: s7,
             other,
+            trailing,
         })
     }
 
@@ -662,6 +698,7 @@ impl ServerSettings {
             w.bytes(&bytes);
         }
         w.pad4(start, &[]);
+        w.bytes(&self.trailing);
     }
 }
 
@@ -680,6 +717,7 @@ impl Default for ServerSettings {
             icon: None,
             chats: Vec::new(),
             other: Default::default(),
+            trailing: Vec::new(),
         }
     }
 }
@@ -693,6 +731,24 @@ fn canonical_padding(padding: Vec<u8>, expected: usize) -> Vec<u8> {
     } else {
         padding
     }
+}
+
+/// A string capped to what its one-byte length can say, so the length byte
+/// and the data never disagree.
+fn str255(v: &[u8]) -> &[u8] {
+    &v[..v.len().min(255)]
+}
+
+/// Bytes between string-length bytes whose meaning is not pinned yet: a
+/// non-zero value would mean strings this decoder does not know how to
+/// skip, so it refuses rather than misread the rest.
+fn unpinned_zero(bytes: &[u8]) -> Result<(), DecodeError> {
+    if bytes.iter().any(|&b| b != 0) {
+        return Err(DecodeError::Invalid(
+            "server settings: unpinned length byte set",
+        ));
+    }
+    Ok(())
 }
 
 fn decode_list<T>(
@@ -777,6 +833,7 @@ impl ServerSettingsMain {
         let name_len = r.u8()? as usize;
         let description_len = r.u8()? as usize;
         let ignored_54 = r.u8()?;
+        unpinned_zero(&[ignored_54])?;
         let address_len = r.u8()? as usize;
         let ignored_56: [u8; 6] = r.array()?;
         let name = r.bytes(name_len)?;
@@ -826,14 +883,14 @@ impl ServerSettingsMain {
         w.bytes(&self.ignored_2c);
         w.u32(self.total_outgoing_speed_limit);
         w.bytes(&self.ignored_3c);
-        w.u8(self.name.len().min(255) as u8);
-        w.u8(self.description.len().min(255) as u8);
+        w.u8(str255(&self.name).len() as u8);
+        w.u8(str255(&self.description).len() as u8);
         w.u8(self.ignored_54);
-        w.u8(self.address.len().min(255) as u8);
+        w.u8(str255(&self.address).len() as u8);
         w.bytes(&self.ignored_56);
-        w.bytes(&self.name);
-        w.bytes(&self.description);
-        w.bytes(&self.address);
+        w.bytes(str255(&self.name));
+        w.bytes(str255(&self.description));
+        w.bytes(str255(&self.address));
         if self.padding.is_empty() {
             w.pad4(0, &[]);
         } else {
@@ -899,6 +956,7 @@ impl TrackerEntry {
         let ignored_18: [u8; 2] = r.array()?;
         let groups_len = r.u8()? as usize;
         let ignored_1b = r.u8()?;
+        unpinned_zero(&[ignored_18[0], ignored_18[1], ignored_1b])?;
         let ignored_1c: [u8; 4] = r.array()?;
         let name = r.bytes(name_len)?;
         let comments = r.bytes(comments_len)?;
@@ -924,19 +982,19 @@ impl TrackerEntry {
     pub fn encode(&self, w: &mut Writer) {
         let start = w.pos();
         w.bytes(&self.ignored_00);
-        w.u8(self.name.len().min(255) as u8);
-        w.u8(self.comments.len().min(255) as u8);
-        w.u8(self.address.len().min(255) as u8);
-        w.u8(self.login.len().min(255) as u8);
+        w.u8(str255(&self.name).len() as u8);
+        w.u8(str255(&self.comments).len() as u8);
+        w.u8(str255(&self.address).len() as u8);
+        w.u8(str255(&self.login).len() as u8);
         w.bytes(&self.ignored_18);
-        w.u8(self.groups.len().min(255) as u8);
+        w.u8(str255(&self.groups).len() as u8);
         w.u8(self.ignored_1b);
         w.bytes(&self.ignored_1c);
-        w.bytes(&self.name);
-        w.bytes(&self.comments);
-        w.bytes(&self.address);
-        w.bytes(&self.login);
-        w.bytes(&self.groups);
+        w.bytes(str255(&self.name));
+        w.bytes(str255(&self.comments));
+        w.bytes(str255(&self.address));
+        w.bytes(str255(&self.login));
+        w.bytes(str255(&self.groups));
         w.pad4(start, &self.padding);
     }
 }
@@ -974,6 +1032,7 @@ impl AddressRule {
         let name_len = r.u8()? as usize;
         let comments_len = r.u8()? as usize;
         let ignored_1b = r.u8()?;
+        unpinned_zero(&[ignored_1b])?;
         let address = r.bytes(address_len)?;
         let name = r.bytes(name_len)?;
         let comments = r.bytes(comments_len)?;
@@ -998,13 +1057,13 @@ impl AddressRule {
         w.bytes(&self.ignored_08);
         w.u16(self.allow as u16);
         w.bytes(&self.ignored_12);
-        w.u8(self.address.len().min(255) as u8);
-        w.u8(self.name.len().min(255) as u8);
-        w.u8(self.comments.len().min(255) as u8);
+        w.u8(str255(&self.address).len() as u8);
+        w.u8(str255(&self.name).len() as u8);
+        w.u8(str255(&self.comments).len() as u8);
         w.u8(self.ignored_1b);
-        w.bytes(&self.address);
-        w.bytes(&self.name);
-        w.bytes(&self.comments);
+        w.bytes(str255(&self.address));
+        w.bytes(str255(&self.name));
+        w.bytes(str255(&self.comments));
         w.pad4(start, &self.padding);
     }
 }
