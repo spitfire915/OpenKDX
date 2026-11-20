@@ -1,9 +1,8 @@
-use openkdx_client::path::{join, parse_path, path_string};
-use openkdx_client::transfer::{Progress, Transfer};
-use openkdx_proto::msg::files::FileListEntry;
+use kdx_client::Progress;
+use kdx_proto::msg::file::FileListEntry;
 use serde_json::json;
 
-use super::Ctx;
+use super::{Ctx, join_path, parse_path, path_string, within};
 use crate::args::FilesCmd;
 use crate::out::{lossy, time_string};
 
@@ -45,10 +44,11 @@ fn access_tag(entry: &FileListEntry) -> &'static str {
 
 pub async fn files(ctx: &mut Ctx, cmd: FilesCmd) -> anyhow::Result<()> {
     let out = ctx.out;
-    let session = ctx.session().await?.clone();
+    let timeout = ctx.timeout();
+    let client = ctx.client().await?;
     match cmd {
         FilesCmd::Ls { path, long } => {
-            let entries = session.list_files(&parse_path(&path)).await?;
+            let entries = within(timeout, client.file_list(&parse_path(&path))).await?;
             let rows: Vec<Vec<serde_json::Value>> = entries
                 .iter()
                 .map(|e| {
@@ -85,7 +85,7 @@ pub async fn files(ctx: &mut Ctx, cmd: FilesCmd) -> anyhow::Result<()> {
             }
         }
         FilesCmd::Info { path } => {
-            let info = session.file_info(&parse_path(&path)).await?;
+            let info = within(timeout, client.file_info(&parse_path(&path))).await?;
             out.record(
                 "file-info",
                 &[
@@ -103,39 +103,41 @@ pub async fn files(ctx: &mut Ctx, cmd: FilesCmd) -> anyhow::Result<()> {
             access,
             owner,
         } => {
-            session
-                .create_folder(
-                    &parse_path(&parent),
+            let parent = parse_path(&parent);
+            within(
+                timeout,
+                client.create_folder(
+                    &parent,
                     name.as_bytes(),
                     access.as_bytes(),
                     owner.as_bytes(),
-                )
-                .await?;
+                ),
+            )
+            .await?;
             out.note(format!(
                 "created {}",
-                path_string(&join(&parse_path(&parent), name.as_bytes()))
+                path_string(&join_path(&parent, name.as_bytes()))
             ));
         }
         FilesCmd::Trash { paths } => {
             for p in paths {
                 let mut path = parse_path(&p);
-                let Some(last) = path.names.pop() else {
+                let Some(last) = path.0.pop() else {
                     anyhow::bail!("cannot trash the base folder");
                 };
-                session.move_to_trash(&path, &[&last.name]).await?;
+                within(timeout, client.move_to_trash(&path, &[&last])).await?;
             }
         }
         FilesCmd::EmptyTrash => {
-            session.empty_trash().await?;
+            within(timeout, client.empty_trash()).await?;
         }
         FilesCmd::Catalog => {
-            let items = session.generate_catalog().await?;
+            let items = within(timeout, client.generate_catalog()).await?;
             out.record("catalog", &[("items", json!(items))]);
         }
         FilesCmd::Search { text } => {
-            let rows: Vec<Vec<serde_json::Value>> = session
-                .search(text.as_bytes())
-                .await?
+            let found = within(timeout, client.search(text.as_bytes())).await?;
+            let rows: Vec<Vec<serde_json::Value>> = found
                 .iter()
                 .map(|e| {
                     vec![
@@ -149,26 +151,27 @@ pub async fn files(ctx: &mut Ctx, cmd: FilesCmd) -> anyhow::Result<()> {
         }
         FilesCmd::Get { path, to, resume } => {
             let remote = parse_path(&path);
-            let mut t = Transfer::open(&session).await?;
             let mut progress = ProgressLine::new(out);
             let dest = match to {
                 Some(p) if p.is_dir() => {
-                    t.download_to_dir(&remote, &p, resume, |p| progress.update(p))
+                    client
+                        .download_to_dir(&remote, &p, resume, |p| progress.update(p))
                         .await?
                 }
                 Some(p) => {
-                    t.download(&remote, &p, resume, |p| progress.update(p))
+                    client
+                        .download_to(&remote, &p, resume, |p| progress.update(p))
                         .await?;
                     p
                 }
                 None => {
-                    t.download_to_dir(&remote, std::path::Path::new("."), resume, |p| {
-                        progress.update(p)
-                    })
-                    .await?
+                    client
+                        .download_to_dir(&remote, std::path::Path::new("."), resume, |p| {
+                            progress.update(p)
+                        })
+                        .await?
                 }
             };
-            t.close().await;
             out.record(
                 "downloaded",
                 &[
@@ -182,7 +185,7 @@ pub async fn files(ctx: &mut Ctx, cmd: FilesCmd) -> anyhow::Result<()> {
             local,
             folder,
             name,
-            resume,
+            resume: _,
             stop_after,
         } => {
             let name = name.unwrap_or_else(|| {
@@ -191,24 +194,23 @@ pub async fn files(ctx: &mut Ctx, cmd: FilesCmd) -> anyhow::Result<()> {
                     .map(|n| n.to_string_lossy().into_owned())
                     .unwrap_or_default()
             });
-            let mut t = Transfer::open(&session).await?;
+            let folder = parse_path(&folder);
             let mut progress = ProgressLine::new(out);
-            t.upload(
-                &local,
-                &parse_path(&folder),
-                name.as_bytes(),
-                resume,
-                |p| progress.update(p),
-                stop_after,
-            )
-            .await?;
-            t.close().await;
+            client
+                .upload_from(
+                    &local,
+                    &folder,
+                    name.as_bytes(),
+                    |p| progress.update(p),
+                    stop_after,
+                )
+                .await?;
             out.record(
                 "uploaded",
                 &[
                     (
                         "to",
-                        json!(path_string(&join(&parse_path(&folder), name.as_bytes()))),
+                        json!(path_string(&join_path(&folder, name.as_bytes()))),
                     ),
                     ("bytes", json!(progress.last.map(|p| p.total))),
                     ("from", json!(progress.first.map(|p| p.done))),

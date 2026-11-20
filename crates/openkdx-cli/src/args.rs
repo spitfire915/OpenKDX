@@ -50,6 +50,9 @@ pub struct Globals {
     /// Test only: use the built-in placeholder challenge table.
     #[arg(long, hide = true, global = true)]
     pub insecure_default_table: bool,
+    /// Test only: read the challenge table cache from this directory.
+    #[arg(long, hide = true, env = "OPENKDX_TABLE_CACHE", global = true)]
+    pub table_cache: Option<String>,
 }
 
 impl Globals {
@@ -315,7 +318,8 @@ pub enum FilesCmd {
         /// The name on the server (the local name by default).
         #[arg(long)]
         name: Option<String>,
-        /// Continue a partial upload.
+        /// Accepted for compatibility: a partial upload on the server is
+        /// always resumed.
         #[arg(long)]
         resume: bool,
         /// Test only: drop the connection after this many data bytes.

@@ -1,26 +1,31 @@
 #![forbid(unsafe_code)]
-//! `openkdx`: a thin command-line client over `openkdx-client`.
+//! `openkdx`: a thin command-line client over `kdx-client`.
 
 mod args;
 mod cmd;
 mod out;
 
 use clap::Parser;
-use openkdx_client::ClientError;
+use kdx_client::ServerError;
+use kdx_proto::handshake::HandshakeError;
 
 use crate::args::Cli;
-use crate::cmd::Ctx;
+use crate::cmd::{Ctx, Disconnected, NoTable};
 
-/// Exit codes: 1 usage or local error, 2 login failed or server error,
-/// 3 disconnected by the server, 4 timeout.
+/// Exit codes: 1 usage or local error, 2 login failed, no table or server
+/// error, 3 disconnected by the server, 4 timeout.
 fn exit_code(err: &anyhow::Error) -> i32 {
-    match err.downcast_ref::<ClientError>() {
-        Some(ClientError::LoginFailed(_))
-        | Some(ClientError::ProofMismatch)
-        | Some(ClientError::Server { .. }) => 2,
-        Some(ClientError::Disconnected) | Some(ClientError::DisconnectedBy(_)) => 3,
-        Some(ClientError::Timeout) => 4,
-        _ => 1,
+    if err.downcast_ref::<HandshakeError>().is_some()
+        || err.downcast_ref::<ServerError>().is_some()
+        || err.downcast_ref::<NoTable>().is_some()
+    {
+        2
+    } else if err.downcast_ref::<Disconnected>().is_some() {
+        3
+    } else if err.downcast_ref::<tokio::time::error::Elapsed>().is_some() {
+        4
+    } else {
+        1
     }
 }
 

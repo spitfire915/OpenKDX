@@ -415,6 +415,7 @@ checksum = "626d4928326b646e70f65ed36fc7cf9f206bdb68a0019ee7c6b4709da4e084c4"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
+ "zlib-rs",
 ]
 
 [[package]]
@@ -812,6 +813,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "kdx-client"
+version = "0.1.0"
+source = "git+https://github.com/spitfire915/kdx?rev=68c9876ec3152fd4d6acd9645c793dc1c4b72df1#68c9876ec3152fd4d6acd9645c793dc1c4b72df1"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "flate2",
+ "futures-util",
+ "getrandom 0.3.4",
+ "kdx-codec",
+ "kdx-proto",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-util",
+ "ureq",
+]
+
+[[package]]
+name = "kdx-codec"
+version = "0.1.0"
+source = "git+https://github.com/spitfire915/kdx?rev=68c9876ec3152fd4d6acd9645c793dc1c4b72df1#68c9876ec3152fd4d6acd9645c793dc1c4b72df1"
+dependencies = [
+ "bytes",
+ "kdx-proto",
+ "thiserror 2.0.21",
+ "tokio-util",
+]
+
+[[package]]
 name = "kdx-proto"
 version = "0.1.0"
 source = "git+https://github.com/spitfire915/kdx?rev=68c9876ec3152fd4d6acd9645c793dc1c4b72df1#68c9876ec3152fd4d6acd9645c793dc1c4b72df1"
@@ -922,18 +953,16 @@ name = "openkdx-cli"
 version = "0.0.1"
 dependencies = [
  "anyhow",
- "bytes",
  "clap",
- "futures-util",
  "hex",
- "openkdx-client",
- "openkdx-codec",
- "openkdx-proto",
+ "kdx-client",
+ "kdx-proto",
+ "openkdx-table",
  "serde",
  "serde_json",
  "tempfile",
+ "thiserror 2.0.21",
  "tokio",
- "tokio-util",
 ]
 
 [[package]]
@@ -1363,6 +1392,7 @@ version = "0.23.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
 dependencies = [
+ "log",
  "once_cell",
  "ring",
  "rustls-pki-types",
@@ -1843,6 +1873,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 
 [[package]]
+name = "ureq"
+version = "3.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ac5cecf619ca81f66a96482db09687c9f7465af65f4300a8c30cca05bd5a59d"
+dependencies = [
+ "base64 0.23.1",
+ "flate2",
+ "log",
+ "percent-encoding",
+ "rustls",
+ "rustls-pki-types",
+ "ureq-proto",
+ "utf8-zero",
+ "webpki-roots",
+]
+
+[[package]]
+name = "ureq-proto"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "622dce33c252115466d83f63e9744a18f12b4406aae51a01c15ad8fcf1185eb3"
+dependencies = [
+ "base64 0.23.1",
+ "http",
+ "httparse",
+ "log",
+]
+
+[[package]]
 name = "url"
 version = "2.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1853,6 +1912,12 @@ dependencies = [
  "percent-encoding",
  "serde",
 ]
+
+[[package]]
+name = "utf8-zero"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8c0a043c9540bae7c578c88f91dda8bd82e59ae27c21baca69c8b191aaf5a6e"
 
 [[package]]
 name = "utf8_iter"
@@ -2206,6 +2271,12 @@ dependencies = [
  "memchr",
  "zopfli",
 ]
+
+[[package]]
+name = "zlib-rs"
+version = "0.6.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b268e58e7c693d7c271f93ffc4ba3b380412554231c85bf61ca7af91042a4112"
 
 [[package]]
 name = "zmij"

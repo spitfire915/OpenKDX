@@ -1,17 +1,17 @@
 use anyhow::anyhow;
-use openkdx_client::session::Session;
-use openkdx_proto::msg::news::NewsgroupInfo;
+use kdx_client::Client;
+use kdx_proto::msg::news::NewsgroupInfo;
 use serde_json::json;
 
-use super::Ctx;
+use super::{Ctx, within};
 use crate::args::NewsCmd;
 use crate::out::{lossy, time_string};
 
-async fn find_group(session: &Session, spec: &str) -> anyhow::Result<u32> {
+async fn find_group(client: &mut Client, spec: &str) -> anyhow::Result<u32> {
     if let Ok(id) = spec.parse::<u32>() {
         return Ok(id);
     }
-    session
+    client
         .newsgroups()
         .await?
         .iter()
@@ -22,12 +22,12 @@ async fn find_group(session: &Session, spec: &str) -> anyhow::Result<u32> {
 
 pub async fn news(ctx: &mut Ctx, cmd: NewsCmd) -> anyhow::Result<()> {
     let out = ctx.out;
-    let session = ctx.session().await?.clone();
+    let timeout = ctx.timeout();
+    let client = ctx.client().await?;
     match cmd {
         NewsCmd::Groups => {
-            let rows: Vec<Vec<serde_json::Value>> = session
-                .newsgroups()
-                .await?
+            let groups = within(timeout, client.newsgroups()).await?;
+            let rows: Vec<Vec<serde_json::Value>> = groups
                 .iter()
                 .map(|g| {
                     vec![
@@ -46,8 +46,8 @@ pub async fn news(ctx: &mut Ctx, cmd: NewsCmd) -> anyhow::Result<()> {
             );
         }
         NewsCmd::List { group } => {
-            let id = find_group(&session, &group).await?;
-            let list = session.news_messages(id).await?;
+            let id = find_group(client, &group).await?;
+            let list = within(timeout, client.news(id)).await?;
             let rows: Vec<Vec<serde_json::Value>> = list
                 .messages
                 .iter()
@@ -63,8 +63,8 @@ pub async fn news(ctx: &mut Ctx, cmd: NewsCmd) -> anyhow::Result<()> {
             out.table("news", &["message_id", "time", "poster", "subject"], &rows);
         }
         NewsCmd::Read { group, message } => {
-            let id = find_group(&session, &group).await?;
-            let m = session.news_message(id, message).await?;
+            let id = find_group(client, &group).await?;
+            let m = within(timeout, client.news_message(id, message)).await?;
             out.record(
                 "news-message",
                 &[
@@ -84,27 +84,28 @@ pub async fn news(ctx: &mut Ctx, cmd: NewsCmd) -> anyhow::Result<()> {
             body,
             body_file,
         } => {
-            let id = find_group(&session, &group).await?;
+            let id = find_group(client, &group).await?;
             let body = match (body, body_file) {
                 (Some(b), _) => b.into_bytes(),
                 (None, Some(f)) => std::fs::read(f)?,
                 (None, None) => Vec::new(),
             };
-            let message_id = session.post_news(id, subject.as_bytes(), &body).await?;
+            let message_id =
+                within(timeout, client.post_news_id(id, subject.as_bytes(), &body)).await?;
             out.record(
                 "news-posted",
                 &[("group_id", json!(id)), ("message_id", json!(message_id))],
             );
         }
         NewsCmd::Delete { group, message } => {
-            let id = find_group(&session, &group).await?;
-            session.delete_news(id, message).await?;
+            let id = find_group(client, &group).await?;
+            within(timeout, client.delete_news(id, message)).await?;
         }
         NewsCmd::SetGroupSize { group, size_kib } => {
-            let id = find_group(&session, &group).await?;
-            let mut info = session.newsgroup(id).await?;
+            let id = find_group(client, &group).await?;
+            let mut info = within(timeout, client.newsgroup(id)).await?;
             info.size_limit_kib = size_kib;
-            let changed = session.set_newsgroup(info).await?;
+            let changed = within(timeout, client.set_newsgroup(&info)).await?;
             let size = changed.map_or(size_kib, |g| g.size_limit_kib);
             out.record(
                 "newsgroup",
@@ -116,19 +117,18 @@ pub async fn news(ctx: &mut Ctx, cmd: NewsCmd) -> anyhow::Result<()> {
             description,
             size_kib,
         } => {
-            let created = session
-                .create_newsgroup(NewsgroupInfo {
-                    read_classes: u32::MAX,
-                    post_classes: u32::MAX,
-                    size_limit_kib: size_kib,
-                    name: name.clone().into_bytes(),
-                    description: description.into_bytes(),
-                    ..NewsgroupInfo::default()
-                })
-                .await?;
+            let group = NewsgroupInfo {
+                read_classes: u32::MAX,
+                post_classes: u32::MAX,
+                size_limit_kib: size_kib,
+                name: name.clone().into_bytes(),
+                description: description.into_bytes(),
+                ..NewsgroupInfo::default()
+            };
+            let created = within(timeout, client.create_newsgroup(&group)).await?;
             let group_id = match created {
                 Some(g) => g.group_id,
-                None => find_group(&session, &name).await?,
+                None => find_group(client, &name).await?,
             };
             out.record(
                 "newsgroup",
@@ -136,9 +136,9 @@ pub async fn news(ctx: &mut Ctx, cmd: NewsCmd) -> anyhow::Result<()> {
             );
         }
         NewsCmd::DeleteGroup { group } => {
-            let id = find_group(&session, &group).await?;
-            let reply = session.delete_newsgroup(id).await?;
-            out.note(format!("server answered {}", reply.kind()));
+            let id = find_group(client, &group).await?;
+            within(timeout, client.delete_newsgroup(id)).await?;
+            out.note(format!("deleted newsgroup {id}"));
         }
     }
     Ok(())

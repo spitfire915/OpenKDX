@@ -1,31 +1,28 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
-use openkdx_client::chat::PUBLIC_CHAT;
-use openkdx_client::connection::Event;
-use openkdx_client::session::Session;
-use openkdx_proto::Message;
+use kdx_client::{Client, Notice, PUBLIC_CHAT};
 use serde_json::json;
 
-use super::{Ctx, find_user};
+use super::{Ctx, find_user, within};
 use crate::args::{ChatCmd, PmCmd};
 use crate::cmd::session::watch;
 use crate::out::lossy;
 
 /// A chat named by ID or name; `(chat_id, key)`.
-async fn find_chat(session: &Session, spec: &str) -> anyhow::Result<(u32, u32)> {
+async fn find_chat(client: &mut Client, spec: &str) -> anyhow::Result<(u32, u32)> {
     if let Ok(id) = spec.parse::<u32>() {
         if id == PUBLIC_CHAT {
             return Ok((id, 0));
         }
-        let list = session.chat_list().await?;
+        let list = client.chat_list().await?;
         return Ok(list
             .iter()
             .find(|c| c.chat_id == id)
             .map(|c| (c.chat_id, c.key))
             .unwrap_or((id, 0)));
     }
-    let list = session.chat_list().await?;
+    let list = client.chat_list().await?;
     list.iter()
         .find(|c| c.name.eq_ignore_ascii_case(spec.as_bytes()))
         .map(|c| (c.chat_id, c.key))
@@ -36,14 +33,23 @@ fn joined(words: &[String]) -> Vec<u8> {
     words.join(" ").into_bytes()
 }
 
+fn nick_of(client: &Client, id: u32) -> String {
+    client
+        .users
+        .iter()
+        .find(|u| u.user_id == id)
+        .map(|u| lossy(&u.nick))
+        .unwrap_or_else(|| format!("#{id}"))
+}
+
 pub async fn chat(ctx: &mut Ctx, cmd: ChatCmd) -> anyhow::Result<()> {
     let out = ctx.out;
-    let session = ctx.session().await?.clone();
+    let timeout = ctx.timeout();
+    let client = ctx.client().await?;
     match cmd {
         ChatCmd::List => {
-            let rows: Vec<Vec<serde_json::Value>> = session
-                .chat_list()
-                .await?
+            let list = within(timeout, client.chat_list()).await?;
+            let rows: Vec<Vec<serde_json::Value>> = list
                 .iter()
                 .map(|c| {
                     vec![
@@ -62,20 +68,9 @@ pub async fn chat(ctx: &mut Ctx, cmd: ChatCmd) -> anyhow::Result<()> {
             );
         }
         ChatCmd::Join { chat } => {
-            let (id, key) = find_chat(&session, &chat).await?;
-            let info = session.join_chat(id, key).await?;
-            let users = session.users();
-            let members: Vec<String> = info
-                .members
-                .iter()
-                .map(|m| {
-                    users
-                        .iter()
-                        .find(|u| u.user_id == *m)
-                        .map(|u| lossy(&u.nick))
-                        .unwrap_or_else(|| format!("#{m}"))
-                })
-                .collect();
+            let (id, key) = find_chat(client, &chat).await?;
+            let info = within(timeout, client.join_chat(id, key)).await?;
+            let members: Vec<String> = info.members.iter().map(|m| nick_of(client, *m)).collect();
             out.record(
                 "chat-window",
                 &[
@@ -88,31 +83,31 @@ pub async fn chat(ctx: &mut Ctx, cmd: ChatCmd) -> anyhow::Result<()> {
             );
         }
         ChatCmd::Say { chat, text } => {
-            let (id, _) = find_chat(&session, &chat).await?;
-            session.say(id, &joined(&text), false).await?;
+            let (id, _) = find_chat(client, &chat).await?;
+            client.say(id, &joined(&text), false).await?;
         }
         ChatCmd::Me { chat, text } => {
-            let (id, _) = find_chat(&session, &chat).await?;
-            session.say(id, &joined(&text), true).await?;
+            let (id, _) = find_chat(client, &chat).await?;
+            client.say(id, &joined(&text), true).await?;
         }
         ChatCmd::Topic { chat, text } => {
-            let (id, _) = find_chat(&session, &chat).await?;
-            session.set_topic(id, &joined(&text)).await?;
+            let (id, _) = find_chat(client, &chat).await?;
+            within(timeout, client.set_topic(id, &joined(&text))).await?;
         }
         ChatCmd::Leave { chat } => {
-            let (id, _) = find_chat(&session, &chat).await?;
-            session.leave_chat(id).await?;
+            let (id, _) = find_chat(client, &chat).await?;
+            client.leave_chat(id).await?;
         }
         ChatCmd::Watch { chat, r#for } => {
-            let (id, key) = find_chat(&session, &chat).await?;
-            let info = session.join_chat(id, key).await?;
+            let (id, key) = find_chat(client, &chat).await?;
+            let info = within(timeout, client.join_chat(id, key)).await?;
             out.note(format!(
                 "joined {} ({} members), topic: {}",
                 lossy(&info.name),
                 info.members.len(),
                 lossy(&info.topic)
             ));
-            watch(&session, out, Duration::from_secs(r#for), |_| false).await?;
+            watch(client, out, Duration::from_secs(r#for), |_| false).await?;
         }
     }
     Ok(())
@@ -120,15 +115,15 @@ pub async fn chat(ctx: &mut Ctx, cmd: ChatCmd) -> anyhow::Result<()> {
 
 pub async fn pm(ctx: &mut Ctx, cmd: PmCmd) -> anyhow::Result<()> {
     let out = ctx.out;
-    let session = ctx.session().await?.clone();
+    let client = ctx.client().await?;
     match cmd {
         PmCmd::Send { user, text } => {
-            let id = find_user(&session, &user)?;
-            session.send_pm(id, &joined(&text)).await?;
+            let id = find_user(client, &user)?;
+            client.send_private_message(id, &joined(&text)).await?;
         }
         PmCmd::Wait { r#for } => {
-            watch(&session, out, Duration::from_secs(r#for), |e| {
-                matches!(e, Event::Message(m) if matches!(**m, Message::IncomingPrivateMessage(_)))
+            watch(client, out, Duration::from_secs(r#for), |n| {
+                matches!(n, Notice::PrivateMessage(_))
             })
             .await?;
         }
