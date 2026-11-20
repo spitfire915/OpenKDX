@@ -476,3 +476,18 @@ async fn tracker_servers_prints_addresses() {
     assert!(stdout.contains("127.0.0.1:10700"), "{stdout}");
     assert!(stdout.contains("New Server"), "{stdout}");
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn connection_lost_during_a_wait_exits_3_and_names_the_cause() {
+    let mut steps = login_steps();
+    steps.push(Step::Sleep(std::time::Duration::from_millis(300)));
+    steps.push(Step::Close);
+    let server = MockServer::start(accounts(), vec![steps]).await;
+    let (code, _stdout, stderr) =
+        tokio::task::spawn_blocking(move || openkdx(&server, &["pm", "wait", "--for", "10"], ""))
+            .await
+            .unwrap();
+    assert_eq!(code, 3, "{stderr}");
+    assert!(stderr.contains("disconnected"), "{stderr}");
+    assert!(stderr.contains("connection closed"), "{stderr}");
+}

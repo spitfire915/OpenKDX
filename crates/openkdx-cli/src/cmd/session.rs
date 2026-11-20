@@ -53,7 +53,9 @@ pub async fn watch(
             () = tokio::time::sleep_until(deadline) => return Ok(()),
             notice = client.next_notice() => match notice {
                 Ok(notice) => notice,
-                Err(_) => return Err(Disconnected::Gone.into()),
+                // The cause (a closed socket, a frame that did not decode)
+                // stays in the chain under the typed error.
+                Err(e) => return Err(e.context(Disconnected::Gone)),
             },
         };
         apply(client, &notice);
