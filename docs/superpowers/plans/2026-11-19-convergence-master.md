@@ -434,3 +434,4 @@ _(appended by each session; newest last)_
 
 | Phase | Date | Tasks | OpenKDX commits | Fork PRs (feat → #, merged SHA) | Upstream PRs (up → #, state) | Pinned fork SHA | Rulings / carried |
 |---|---|---|---|---|---|---|---|
+| 3B | 2026-11-20 | 1–3 | `9fabeb0` lab/gh-secret/blocklist, `b7fd5ad` deps+MSRV, `d11fd76` table::load, `73e97de` ci guard, `9a61b39` worksheet; draft PR #6 | `feat/lab-workflow` → kdx#1, `5b176ca` | none yet (lab.yml goes up with Task 11) | `5b176ca` | Token was OpenKDX-only: fork made in the UI, token extended; fork-PR approval setting requested in the UI, unverified. Runner needed the proxy `.env`. `openkdx-table` keeps its own `Story` (+ `From` into `kdx_proto::Story`). Workspace `openkdx-table` is `default-features = false` (cargo 1.96). Worksheet: 3 already upstream, 6 doc PRs, 3 code+doc PRs. |
