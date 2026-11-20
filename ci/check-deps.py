@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Check the workspace against the design's dependency rules (spec §7.1).
 
-- openkdx-proto must not depend, directly or transitively, on any async
-  runtime, network, or UI crate.
-- openkdx-legacy must not depend, directly or transitively, on any network or
-  UI crate.
+- openkdx-proto and openkdx-legacy must not depend, directly or transitively,
+  on any async runtime, network, or UI crate (while they are still members;
+  the protocol crates move to the kdx fork in Phase 3B–3E).
+- no workspace member depends on a retired crate (RETIRED) once it is no
+  longer a member.
+- Cargo.lock names the kdx fork by git revision for every kdx-* package: a
+  lockfile written under the local [patch] to a sibling checkout is refused.
 - every crate declares license = "MIT OR Apache-2.0" and edition = "2024"
   (directly or via workspace inheritance).
 
@@ -24,7 +27,37 @@ UI = {"egui", "eframe", "egui-winit", "winit", "wgpu", "openkdx-ui", "openkdx-ap
 FORBIDDEN = {
     "openkdx-proto": NETWORK_OR_RUNTIME | UI,
     "openkdx-legacy": NETWORK_OR_RUNTIME | UI,
+    "openkdx-table": UI,
 }
+# Crates that moved to the kdx fork; a member may not depend on one that is gone.
+RETIRED = {"openkdx-proto", "openkdx-codec", "openkdx-client", "openkdx-dissect", "openkdx-tracker", "openkdx-server", "openkdx-legacy"}
+FORK_SOURCE = "git+https://github.com/spitfire915/kdx?rev="
+
+
+def patched_kdx_packages(lock_text: str) -> list[str]:
+    """kdx-* packages in a Cargo.lock whose source is not the pinned fork revision."""
+    bad = []
+    for block in lock_text.split("[[package]]")[1:]:
+        fields = dict(line.split(" = ", 1) for line in block.strip().splitlines() if " = " in line)
+        name = fields.get("name", "").strip('"')
+        if name.startswith("kdx-") and not fields.get("source", "").strip('"').startswith(FORK_SOURCE):
+            bad.append(name)
+    return bad
+
+
+def check_retired(metadata: dict) -> list[str]:
+    name_of = {p["id"]: p["name"] for p in metadata["packages"]}
+    members = {name_of[i] for i in metadata["workspace_members"]}
+    gone = RETIRED - members
+    problems = []
+    for node in metadata["resolve"]["nodes"]:
+        if name_of[node["id"]] not in members:
+            continue
+        for d in node.get("deps", []):
+            kinds = d.get("dep_kinds") or [{"kind": None}]
+            if name_of.get(d["pkg"]) in gone and any(k.get("kind") in (None, "build") for k in kinds):
+                problems.append(f"{name_of[node['id']]}: depends on retired crate {name_of[d['pkg']]}")
+    return sorted(problems)
 
 
 def crate_manifests():
@@ -118,7 +151,12 @@ def main() -> int:
         return 1
     problems = [p for m in manifests for p in check_manifest(m)]
     meta = cargo_metadata()
+    members = {p["name"] for p in meta["packages"] if p["id"] in set(meta["workspace_members"])}
+    problems += [f"Cargo.lock: {n} is not pinned to the fork (written under [patch]?)" for n in patched_kdx_packages((ROOT / "Cargo.lock").read_text())]
+    problems += check_retired(meta)
     for crate, forbidden in FORBIDDEN.items():
+        if crate not in members:
+            continue
         for bad in forbidden_transitive(meta, crate, forbidden):
             problems.append(f"{crate}: must not depend (even transitively) on {bad}")
     for crate, gated in FEATURE_GATED.items():

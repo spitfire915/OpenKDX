@@ -47,5 +47,30 @@ class FeatureGateTest(unittest.TestCase):
         self.assertEqual([], check_deps.check_feature_gate("openkdx-table", "reqwest", tree))
 
 
+class LockfileTest(unittest.TestCase):
+    GIT = 'git+https://github.com/spitfire915/kdx?rev=abc#abc'
+
+    def test_lock_with_fork_rev_passes(self):
+        lock = f'[[package]]\nname = "kdx-proto"\nversion = "0.1.0"\nsource = "{self.GIT}"\n'
+        self.assertEqual([], check_deps.patched_kdx_packages(lock))
+
+    def test_check_deps_rejects_patched_lock(self):
+        lock = ('[[package]]\nname = "kdx-proto"\nversion = "0.1.0"\n\n'
+                f'[[package]]\nname = "kdx-codec"\nversion = "0.1.0"\nsource = "{self.GIT}"\n')
+        self.assertEqual(["kdx-proto"], check_deps.patched_kdx_packages(lock))
+
+    def test_retired_member_dependency_is_a_problem(self):
+        meta = {"packages": [{"id": "a", "name": "openkdx-cli"}, {"id": "b", "name": "openkdx-client"}],
+                "workspace_members": ["a"],
+                "resolve": {"nodes": [{"id": "a", "deps": [{"pkg": "b", "dep_kinds": [{"kind": None}]}]}, {"id": "b", "deps": []}]}}
+        self.assertEqual(["openkdx-cli: depends on retired crate openkdx-client"], check_deps.check_retired(meta))
+
+    def test_retired_crate_still_a_member_is_allowed(self):
+        meta = {"packages": [{"id": "a", "name": "openkdx-cli"}, {"id": "b", "name": "openkdx-client"}],
+                "workspace_members": ["a", "b"],
+                "resolve": {"nodes": [{"id": "a", "deps": [{"pkg": "b", "dep_kinds": [{"kind": None}]}]}, {"id": "b", "deps": []}]}}
+        self.assertEqual([], check_deps.check_retired(meta))
+
+
 if __name__ == "__main__":
     unittest.main()

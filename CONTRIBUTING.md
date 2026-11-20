@@ -13,13 +13,40 @@ python3 ci/check-blocklist.py
 for t in ci/*_test.py; do python3 -m unittest "$t"; done
 ```
 
-CI runs the same on Linux, macOS, and Windows, checks the MSRV (Rust 1.88),
+CI runs the same on Linux, macOS, and Windows, checks the MSRV (Rust 1.96)
+and that `Cargo.lock` is current (`cargo metadata --locked`),
 and on the self-hosted lab runner runs the smoke test, the protocol tests
 with the real KDX challenge table, and `lab/differential.sh`: the client
 library against KDX Server 1.620 and Tracker 1.110
 (`crates/openkdx-client/tests/lab.rs`). Locally the table tests skip unless
 the table is in the `openkdx-table` cache or `OPENKDX_KDX_TABLE`, and the
 differential tests skip unless `OPENKDX_LAB_SERVER` is set.
+
+## Working on kdx-* and OpenKDX together
+
+The protocol, codec, client and (from Phase 3E) legacy-format crates are the
+`kdx-*` crates of the fork https://github.com/spitfire915/kdx (spec §6.1),
+developed there and upstreamed to scottanderson/kdx by pull request. OpenKDX
+depends on them by a pinned git revision in `Cargo.toml`. For local work,
+clone the fork beside this repository as `../kdx` and create the untracked
+`.cargo/config.toml`:
+
+```toml
+[patch."https://github.com/spitfire915/kdx"]
+kdx-proto = { path = "../kdx/crates/kdx-proto" }
+kdx-codec = { path = "../kdx/crates/kdx-codec" }
+kdx-client = { path = "../kdx/crates/kdx-client" }
+kdx-legacy = { path = "../kdx/crates/kdx-legacy" }
+```
+
+Cargo then rewrites `Cargo.lock` to the path sources. **Never commit that
+lockfile**: `git diff Cargo.lock` must be empty before any commit except a
+pin bump (`build: pin kdx-* at <sha>`), which is made with the patch file
+removed. CI refuses a patched lock (`cargo metadata --locked`,
+`ci/check-deps.py`). Fork branches follow the fork's `AGENTS.md`: an
+imperative subject with no area prefix, reasons in the body, the same
+`Co-Authored-By` trailer as here; run `python3 ci/check-blocklist.py --root
+../kdx` before pushing there.
 
 ## Protocol code
 

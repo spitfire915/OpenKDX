@@ -23,6 +23,8 @@ jobs:
         with:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@stable
+      # A Cargo.lock written under the local [patch] to a kdx checkout fails here.
+      - run: cargo metadata --locked --format-version 1 > /dev/null
       - run: python3 ci/check-deps.py
       - name: Haxial blocklist (tree and every blob in the change)
         run: |
@@ -51,11 +53,11 @@ jobs:
       - run: cargo test --workspace
 
   msrv:
-    name: MSRV (1.88)
+    name: MSRV (1.96)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.88
+      - uses: dtolnay/rust-toolchain@1.96
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace --all-targets
 

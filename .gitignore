@@ -19,6 +19,9 @@ Thumbs.db
 kdx.bin
 hgc.bin
 
+# Local [patch] of the kdx-* crates to a sibling checkout (CONTRIBUTING)
+/.cargo/config.toml
+
 # Plan workspaces
 /.superpowers/
 
