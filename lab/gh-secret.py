@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Set a GitHub Actions repository secret from stdin.
 
-    base64 -w0 ~/haxial/tables/kdx.bin | python3 -I lab/gh-secret.py spitfire915/kdx KDX_CHALLENGE_TABLE
+    base64 -w0 ~/haxial/tables/kdx.bin | python3 lab/gh-secret.py spitfire915/kdx KDX_CHALLENGE_TABLE
 
 Runs on the lab machine so the value never leaves it. The token is `GITHUB_TOKEN` or, failing
 that, `git credential fill` (the maintainer's fine-grained PAT). Needs `pynacl`.
