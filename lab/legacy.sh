@@ -9,8 +9,9 @@
 #      the new account and sees the new name.
 #
 #   lab/legacy.sh [KDX_SRC]    KDX_SRC defaults to ~/kdx-src. Its kdx-legacy
-#                              crate's tests run when the checkout has one
-#                              (Phase 3E); openkdx-legacy's run while it exists.
+#                              crate's tests run and its legacytool writes the
+#                              files when the checkout has the crate;
+#                              openkdx-legacy's tests run while that crate exists.
 #   lab/legacy.sh --supports-kdx-src   exits 0: the fork's lab job probes this
 #
 # The lock: with LAB_WAIT=1 (both workflows set it) a busy lab is waited for,
@@ -41,7 +42,9 @@ else
   echo "legacy: no kdx-legacy in $KDX_SRC yet (Phase 3E); running openkdx-legacy only"
   KDX_LEGACY_MANIFEST=""
 fi
-[[ -d "$HERE/../crates/openkdx-legacy" ]] || { echo "legacy: openkdx-legacy is gone and kdx-legacy is not wired here yet" >&2; exit 1; }
+HAVE_OPENKDX_LEGACY=0
+[[ -d "$HERE/../crates/openkdx-legacy" ]] && HAVE_OPENKDX_LEGACY=1
+[[ -n "$KDX_LEGACY_MANIFEST" || "$HAVE_OPENKDX_LEGACY" == 1 ]] || { echo "legacy: neither kdx-legacy in $KDX_SRC nor openkdx-legacy here" >&2; exit 1; }
 
 FORCE=1 "$HERE/scenarios/legacy-samples.sh"
 
@@ -51,15 +54,24 @@ SNAP="$RUN/legacy"
 if grep -rlqa "Haxial Software" "$SNAP" --exclude-dir=30-news-stock; then echo "legacy: Haxial text in snapshots" >&2; exit 1; fi
 
 cd "$HERE/.."
-OPENKDX_LAB_LEGACY_DIR="$SNAP" cargo test -q -p openkdx-legacy --test lab -- --test-threads=1 --skip lab_client
+if [[ "$HAVE_OPENKDX_LEGACY" == 1 ]]; then
+  OPENKDX_LAB_LEGACY_DIR="$SNAP" cargo test -q -p openkdx-legacy --test lab -- --test-threads=1 --skip lab_client
+fi
 if [[ -n "$KDX_LEGACY_MANIFEST" ]]; then
   KDX_LAB_LEGACY_DIR="$SNAP" cargo test -q --manifest-path "$KDX_LEGACY_MANIFEST" -p kdx-legacy --test lab -- --test-threads=1 --skip lab_client
 fi
 
 # --- Write with ours, read with theirs ---------------------------------------
-cargo build -q -p openkdx-legacy --example legacytool -p openkdx-cli
-TOOL="$PWD/target/debug/examples/legacytool"
+# The files are written by kdx-legacy's legacytool when the checkout has it.
+cargo build -q -p openkdx-cli
 CLI="$PWD/target/debug/openkdx"
+if [[ -n "$KDX_LEGACY_MANIFEST" ]]; then
+  cargo build -q --manifest-path "$KDX_LEGACY_MANIFEST" -p kdx-legacy --example legacytool
+  TOOL="$KDX_SRC/target/debug/examples/legacytool"
+else
+  cargo build -q -p openkdx-legacy --example legacytool
+  TOOL="$PWD/target/debug/examples/legacytool"
+fi
 "$LAB" server stop >/dev/null 2>&1 || true
 sleep 1
 "$TOOL" add-account "$RUN/server" legacyuser secret 1
@@ -88,7 +100,9 @@ if grep -qi "licen\|damaged\|corrupt" "$RUN/server.log"; then echo "legacy: serv
 
 # --- .hap: every file of the appearance pack round-trips (lab-only data) ----
 if [[ -d "$HOME/haxial/legacy/appearances" ]]; then
-  OPENKDX_LAB_HAP_DIR="$HOME/haxial/legacy/appearances" cargo test -q -p openkdx-legacy --test hap -- --test-threads=1
+  if [[ "$HAVE_OPENKDX_LEGACY" == 1 ]]; then
+    OPENKDX_LAB_HAP_DIR="$HOME/haxial/legacy/appearances" cargo test -q -p openkdx-legacy --test hap -- --test-threads=1
+  fi
   if [[ -n "$KDX_LEGACY_MANIFEST" ]]; then
     KDX_LAB_HAP_DIR="$HOME/haxial/legacy/appearances" cargo test -q --manifest-path "$KDX_LEGACY_MANIFEST" -p kdx-legacy --test hap -- --test-threads=1
   fi
@@ -98,7 +112,9 @@ fi
 
 # --- The client's file: samples, round trips, write-back --------------------
 FORCE=1 "$HERE/scenarios/client-samples.sh"
-OPENKDX_LAB_LEGACY_DIR="$SNAP" cargo test -q -p openkdx-legacy --test lab -- --test-threads=1 lab_client
+if [[ "$HAVE_OPENKDX_LEGACY" == 1 ]]; then
+  OPENKDX_LAB_LEGACY_DIR="$SNAP" cargo test -q -p openkdx-legacy --test lab -- --test-threads=1 lab_client
+fi
 if [[ -n "$KDX_LEGACY_MANIFEST" ]]; then
   KDX_LAB_LEGACY_DIR="$SNAP" cargo test -q --manifest-path "$KDX_LEGACY_MANIFEST" -p kdx-legacy --test lab -- --test-threads=1 lab_client
 fi
