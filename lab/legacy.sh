@@ -13,9 +13,12 @@
 #                              files when the checkout has the crate;
 #                              openkdx-legacy's tests run while that crate exists.
 #   lab/legacy.sh --supports-kdx-src   exits 0: the fork's lab job probes this
+#   lab/legacy.sh --lock-only  takes the lab lock, holds it 5 s, exits (lab/lock-test.sh)
 #
 # The lock: with LAB_WAIT=1 (both workflows set it) a busy lab is waited for,
-# up to 40 minutes; the scenarios take the lock themselves and honour LAB_WAIT.
+# up to 40 minutes. It is held for the whole run (fd 9 stays open; the
+# scenarios see OPENKDX_LAB_LOCK_HELD and reuse it), so another job cannot
+# reset the server between the samples and the write-back below.
 set -euo pipefail
 
 [[ "${1:-}" == --supports-kdx-src ]] && exit 0
@@ -26,14 +29,18 @@ KDX_SRC="${1:-${OPENKDX_KDX_SRC:-$HOME/kdx-src}}"
 export PATH="$HOME/.cargo/bin:$PATH"
 source "${OPENKDX_LAB_ENV:-$HOME/haxial/lab.env}"
 
-# legacy-samples.sh takes the lock itself; wait for (or check) a free lab first.
 exec 9>"$RUN/lab.lock"
 if [[ "${LAB_WAIT:-0}" == 1 ]]; then
   flock -w 2400 9 || { echo "legacy: the lab stayed busy for 40 min" >&2; exit 1; }
 else
   flock -n 9 || { echo "legacy: lab busy"; exit 1; }
 fi
-exec 9>&-
+export OPENKDX_LAB_LOCK_HELD=1
+if [[ "${1:-}" == --lock-only ]]; then
+  echo "lock-only: holding $RUN/lab.lock for 5 s"
+  sleep 5
+  exit 0
+fi
 
 if [[ -f "$KDX_SRC/crates/kdx-legacy/Cargo.toml" ]]; then
   echo "legacy: kdx-legacy at $(git -C "$KDX_SRC" rev-parse --short HEAD)"

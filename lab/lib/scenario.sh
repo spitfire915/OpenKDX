@@ -27,12 +27,16 @@ step() {
 scenario_begin() {
   SCENARIO=$1; STEP_N=0
   echo "scenario $SCENARIO:"
-  # One lab session at a time: refuse if another holds the lock or a namespace is up.
-  exec 9>"$RUN/lab.lock"
-  if [[ "${LAB_WAIT:-0}" == 1 ]]; then
-    flock -w 2400 9 || { echo "scenario: the lab stayed busy for 40 min (lock $RUN/lab.lock)" >&2; exit 1; }
-  else
-    flock -n 9 || { echo "scenario: the lab is in use (lock $RUN/lab.lock)" >&2; exit 1; }
+  # One lab session at a time: refuse if another holds the lock or a namespace
+  # is up. A caller that already holds the lock on fd 9 (lab/legacy.sh) says
+  # so with OPENKDX_LAB_LOCK_HELD=1, and the scenario runs under its lock.
+  if [[ "${OPENKDX_LAB_LOCK_HELD:-0}" != 1 ]]; then
+    exec 9>"$RUN/lab.lock"
+    if [[ "${LAB_WAIT:-0}" == 1 ]]; then
+      flock -w 2400 9 || { echo "scenario: the lab stayed busy for 40 min (lock $RUN/lab.lock)" >&2; exit 1; }
+    else
+      flock -n 9 || { echo "scenario: the lab is in use (lock $RUN/lab.lock)" >&2; exit 1; }
+    fi
   fi
   if "$LAB" ns status | grep -q running && [[ "${FORCE:-0}" != 1 ]]; then
     echo "scenario: a lab session is running; stop it (kdx-lab ns stop) or set FORCE=1" >&2; exit 1
