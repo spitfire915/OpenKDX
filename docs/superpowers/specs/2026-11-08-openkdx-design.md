@@ -126,23 +126,31 @@ Rule (our call): the original files **are the live store**. The server reads the
 
 ### 7.1 Workspace
 
+Since Phase 3b (§6.1 amendment) the libraries live in the fork `spitfire915/kdx`
+(upstreamed to scottanderson/kdx by PR) and OpenKDX pins them by git revision; the
+applications stay here.
+
 ```
+spitfire915/kdx/crates/   (in spitfire915/kdx; OpenKDX pins rev = <fork main SHA>)
+    kdx-proto          wire format: handshake, XOR stream, Twofish framing, header,
+                       typed payloads for every message, encodings, privileges. No I/O.
+    kdx-codec          tokio-util codecs for handshake and session framing.
+    kdx-legacy         Haxial on-disk formats: Accounts.dat, .stg (server and client),
+                       .hap, sound lists, news store, history, catalog. Read and write.
+    kdx-client         async client library: Client, transfers, tracker browse; mock server.
+    kdx-server         server library (Phase 4): sessions, accounts, files, news, chat,
+                       admin, trackers, IRC gateway.
+    kdx-tracker        tracker library (Phase 5).
+    kdx-dissect        pcap/pcapng decoder for captures (lab tool).
+
 openkdx/
   crates/
-    openkdx-proto      wire format: handshake, XOR stream, Twofish framing, header,
-                       typed payloads for every message, encodings, privileges. No I/O.
-    openkdx-codec      tokio-util codecs for handshake and session framing.
-    openkdx-legacy     Haxial on-disk formats: Accounts.dat, .stg (server and client),
-                       .hap, sound lists, news store, history, catalog. Read and write.
     openkdx-table      challenge tables: fetch, import, cache, verify by SHA-256.
-    openkdx-client     async client library: Connection, Session, transfers, DCC, tracker browse.
-    openkdx-server     server library: sessions, accounts, files, news, chat, admin, trackers, IRC gateway.
-    openkdx-tracker    tracker library and binary.
+    openkdx-cli        the `openkdx` command-line client over kdx-client.
     openkdx-ui         the Haxial-look widget set on egui: window chrome, bevels, panes,
                        lists, user bars, WonderLight, scrollbars, theme engine (.hap).
     openkdx-app        the GUI client binary: Classic and Modern hosts over openkdx-ui.
     openkdxd           the server binary (CLI, config, logging, service integration).
-    openkdx-dissect    pcap/pcapng decoder for captures (lab tool).
   lab/                 sandboxed runner for the original binaries + capture scripts
   re/                  Ghidra headless scripts, address landmarks (no decompiled output)
   docs/
@@ -206,6 +214,8 @@ Each phase is planned in detail (superpowers:writing-plans) when it starts. Late
 **Phase 2 complete:** 2026-11-13, branch `phase2/client-cli` (PR #3). `openkdx-client` (sessions, chat, PM, news, files and transfers with resume, accounts/classes/folder access, administration, tracker browse) and the `openkdx` CLI; sixteen differential tests against Server 1.620 and Tracker 1.110 in the lab CI; eight new captures (upload with resume, accounts and classes, folder access, server settings, broadcast, disconnect/ban, server history, connection monitor), all byte-exact; nine more deltas and confirmations in `docs/protocol/README.md`.
 
 **Phase 3 complete:** 2026-11-13, branch `phase3/legacy-formats` (PR #4). `openkdx-legacy` reads and writes `Accounts.dat`, `KDXServer.stg`, `News.dat`, `History/`, `News Archives/`, `Catalog.dat`, `KDXTrackerServ.stg` and `KDX.stg` byte for byte (56 lab-written fixtures), with the §5.2 live store (`.orig` once, atomic rewrites); the scrambling of the three obfuscated files is an LCG XOR stream per program; `lab/legacy.sh` restarts Server 1.620 and Client 1.600 on files OpenKDX wrote on every push. Documented in `docs/formats/`. `.hap` followed in PR #5 (byte-exact over the 111 files of Haxial's appearance pack, lab-only). Still open: sound lists (no source file; the editor's save dialog lists no volumes under Wine) and round trips over the maintainer's real early-2000s directories, hence the formats' status "verified (lab)".
+
+**Phase 3b complete:** 2026-11-20, branch `phase3b/convergence` (PR #6). One implementation, two repositories: the fork [spitfire915/kdx](https://github.com/spitfire915/kdx) (integration branch; fork PRs kdx#1–#10) holds `kdx-proto`, `kdx-codec`, `kdx-client`, `kdx-dissect` and the new `kdx-legacy`, carrying our fifteen captures (all byte-exact under `kdx-dissect --audit`), the protocol facts, typed `ServerSettings`, `--inventory`, a scripted mock server with typed `Notice` events, the client features of `openkdx-client`, the sixteen-test differential suite and the legacy formats on `kdx-proto`'s wire structs (fixtures byte-exact). `openkdx-proto`, `-codec`, `-dissect`, `-client`, `-legacy` and `-tracker` are deleted; `openkdx-cli` runs on `kdx-client`; OpenKDX pins the fork by revision (`6fb82b4`) with a `cargo metadata --locked` guard; MSRV 1.96. The lab gates both repositories: one lock, two runners, `lab/differential.sh` and `lab/legacy.sh` take the kdx checkout as an argument. Upstream: eight `up/*` PRs against scottanderson/kdx (#89–#95 open, `up/kdx-legacy` stacked on them); nothing in OpenKDX waits on them.
 
 ## 9. Decisions already taken (by the user unless marked "our call")
 
