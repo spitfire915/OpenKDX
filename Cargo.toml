@@ -12,9 +12,9 @@ rust-version = "1.96"
 [workspace.dependencies]
 # The kdx-* crates live in the fork spitfire915/kdx (spec §6.1); pinned by revision,
 # patched to a sibling checkout for local work (CONTRIBUTING "Working on kdx-* and OpenKDX together").
-kdx-proto = { git = "https://github.com/spitfire915/kdx", rev = "5b176ca3e2acd6ab4e21fae5edba3f5b5f1730b4" }
-kdx-codec = { git = "https://github.com/spitfire915/kdx", rev = "5b176ca3e2acd6ab4e21fae5edba3f5b5f1730b4" }
-kdx-client = { git = "https://github.com/spitfire915/kdx", rev = "5b176ca3e2acd6ab4e21fae5edba3f5b5f1730b4" }
+kdx-proto = { git = "https://github.com/spitfire915/kdx", rev = "a6b3a411d279118c57f7a70e896d6d327101e01f" }
+kdx-codec = { git = "https://github.com/spitfire915/kdx", rev = "a6b3a411d279118c57f7a70e896d6d327101e01f" }
+kdx-client = { git = "https://github.com/spitfire915/kdx", rev = "a6b3a411d279118c57f7a70e896d6d327101e01f" }
 
 openkdx-proto = { path = "crates/openkdx-proto" }
 openkdx-codec = { path = "crates/openkdx-codec" }

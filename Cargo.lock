@@ -814,7 +814,7 @@ dependencies = [
 [[package]]
 name = "kdx-proto"
 version = "0.1.0"
-source = "git+https://github.com/spitfire915/kdx?rev=5b176ca3e2acd6ab4e21fae5edba3f5b5f1730b4#5b176ca3e2acd6ab4e21fae5edba3f5b5f1730b4"
+source = "git+https://github.com/spitfire915/kdx?rev=a6b3a411d279118c57f7a70e896d6d327101e01f#a6b3a411d279118c57f7a70e896d6d327101e01f"
 dependencies = [
  "sha1 0.11.0",
  "sha2 0.11.1",
