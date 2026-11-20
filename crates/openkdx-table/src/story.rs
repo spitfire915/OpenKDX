@@ -72,6 +72,15 @@ impl Story {
     }
 }
 
+impl From<Story> for kdx_proto::Story {
+    fn from(story: Story) -> Self {
+        match story {
+            Story::Kdx => kdx_proto::Story::Kdx,
+            Story::Gconsole => kdx_proto::Story::Hgc,
+        }
+    }
+}
+
 /// Finds `story` inside `haystack`, returning its exact bytes once verified.
 pub fn extract(story: Story, haystack: &[u8]) -> Result<Vec<u8>, TableError> {
     let anchor = story.anchor();
