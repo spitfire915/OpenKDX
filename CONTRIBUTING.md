@@ -62,6 +62,12 @@ differential tests skip unless `OPENKDX_LAB_SERVER` is set.
 `type(scope): summary` — types `feat`, `fix`, `docs`, `test`, `build`, `ci`,
 `lab`, `captures`, `refactor`. One logical change per commit.
 
+Every commit carries the trailer `Co-Authored-By: Claude <noreply@anthropic.com>`:
+the code is written with Claude (Anthropic) as a co-author, and the squash-merge
+message of a pull request carries it too. Commits before 2026-11-19 lack the
+trailer; `NOTICE.md` states the co-authorship for them, and history is not
+rewritten.
+
 ## Format code
 
 `crates/openkdx-legacy` reads and writes the originals' files. The rule is

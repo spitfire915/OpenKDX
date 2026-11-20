@@ -91,7 +91,10 @@ Rule (our call): the original files **are the live store**. The server reads the
 | Option | Trade-off | Decision |
 |---|---|---|
 | Build on scottanderson/kdx | Fastest; inherits a CLI/dissector-centred design and a solo maintainer's pace; no server, no GUI | Not chosen |
-| **Own project, their spec as reference** | Our architecture and scope; still avoids re-deriving the protocol; same licence so cross-pollination is easy | **Chosen** |
+| Own project, their spec as reference | Our architecture and scope; still avoids re-deriving the protocol; same licence so cross-pollination is easy | Chosen for Phases 0–3; **superseded 2026-11-19**, see below |
+| **Fork scottanderson/kdx for the libraries; OpenKDX holds the applications** | One implementation of the protocol, codec, client, server, tracker and dissector, in his repository, developed in our fork and upstreamed by PR; OpenKDX depends on the `kdx-*` crates by pinned revision (crates.io at release) and keeps `openkdx-table`, the CLI, the GUI, `openkdxd` and the lab | **Chosen 2026-11-19** |
+
+**Amendment 2026-11-19 (Phase 3b, convergence).** By the time Phase 3 was complete, `openkdx-proto`, `-codec`, `-dissect` and `-client` duplicated the upstream `kdx-*` crates (his `kdx-proto` is 12k lines with the same module layout as ours; his `kdx-tracker` works; his `kdx-server` is empty). The upstream maintainer asked that we not recreate the libraries but fork his repository, modify the crates there, upstream every change worth sharing, and depend on them from OpenKDX through Cargo (`--path`/`[patch]` to a sibling checkout for local work; a pinned git revision in CI; crates.io for releases, which he publishes before we ship). We accepted. Consequences: a convergence phase (3b) before the server — upstream our thirteen protocol deltas and fifteen captures, port `openkdx-client`'s features into `kdx-client`, move `openkdx-legacy` to a new `kdx-legacy`, delete the duplicates; Phase 4 builds `kdx-server` in the fork and `openkdxd` here; Phase 5 shrinks to packaging over `kdx-tracker`. `kdx-test-tables` is CI-only upstream, so `openkdx-table` stays as the applications' runtime table provider. Goals, non-goals and the lab are unchanged; §5.3's legal boundary applies to both repositories.
 | Reverse-engineer from scratch | Only justified by distrust of the existing work, which is well evidenced | Not chosen |
 
 ### 6.2 GUI toolkit
@@ -186,7 +189,8 @@ Each phase is planned in detail (superpowers:writing-plans) when it starts. Late
 1. **Protocol core.** `openkdx-proto`, `openkdx-codec`, `openkdx-table`, `openkdx-dissect`. Decode every capture byte-exact; re-encode byte-exact.
 2. **Client library + CLI.** `openkdx-client` and a thin `openkdx` CLI for login, chat, PM, news, files, accounts, tracker. Passes differential tests against the original server.
 3. **Legacy formats.** `openkdx-legacy`: `Accounts.dat`, `KDXServer.stg`, news store, history, catalog, `KDX.stg`, `.hap`, sound lists. Documented in `docs/formats/`. Round-trip tests on the user's data.
-4. **Server.** `openkdx-server` + `openkdxd` serving an old data directory. Original client passes differential tests against it. Docker image, systemd/launchd units.
+3b. **Convergence.** Fork scottanderson/kdx; upstream our protocol deltas and captures; port the client features and the legacy formats into `kdx-client` and a new `kdx-legacy`; delete `openkdx-proto`, `-codec`, `-dissect`, `-client`, `-tracker`; OpenKDX depends on the fork by pinned revision. Added 2026-11-19 (§6.1 amendment).
+4. **Server.** `kdx-server` (in the fork) + `openkdxd` serving an old data directory. Original client passes differential tests against it. Docker image, systemd/launchd units.
 5. **Tracker.** `openkdx-tracker`. Original server registers; original client browses.
 6. **UI toolkit.** `openkdx-ui`: Haxial chrome and widgets on egui; theme engine; default theme; `.hap` loading.
 7. **Client, Classic mode.** `openkdx-app` with every window, KDX Dock, Window Switcher, Small Button Bar, sounds, address book, transfers, multi-server.
@@ -205,7 +209,7 @@ Each phase is planned in detail (superpowers:writing-plans) when it starts. Late
 
 ## 9. Decisions already taken (by the user unless marked "our call")
 
-- New project; scottanderson/kdx spec is the reference.
+- New project; scottanderson/kdx spec is the reference. **Amended 2026-11-19:** the `kdx-*` libraries are shared with scottanderson/kdx through a fork (§6.1); OpenKDX holds the applications.
 - Rust throughout; egui for the GUI.
 - Both client and server (and tracker — our call) in scope; "complete" means feature parity.
 - Classic mode uses real OS windows and a KDX Dock; fidelity matters.
