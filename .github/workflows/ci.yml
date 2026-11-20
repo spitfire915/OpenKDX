@@ -69,6 +69,9 @@ jobs:
     # all outside collaborators' workflows (see lab/README.md).
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, lab]
+    env:
+      # Both repositories' lab jobs share the runner's lock; the loser waits.
+      LAB_WAIT: "1"
     steps:
       - uses: actions/checkout@v4
       - name: Smoke test the original KDX Server in the sandbox
@@ -86,7 +89,6 @@ jobs:
       - name: Check out the pinned kdx revision
         run: lab/kdx-rev.sh sync
       - name: Differential tests against KDX Server 1.620 and Tracker 1.110
-        # Both repositories' lab jobs share the runner's lock; the loser waits.
-        run: LAB_WAIT=1 lab/differential.sh "$HOME/kdx-src"
+        run: lab/differential.sh "$HOME/kdx-src"
       - name: Legacy formats against the original programs
-        run: LAB_WAIT=1 lab/legacy.sh "$HOME/kdx-src"
+        run: lab/legacy.sh "$HOME/kdx-src"

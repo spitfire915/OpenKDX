@@ -12,7 +12,11 @@ cleanup() { "$LAB" ns stop >/dev/null 2>&1 || true; }
 
 # Refuse to trample a human's lab session (Review Focus 5).
 exec 9>"$RUN/lab.lock"
-flock -n 9 || { echo "smoke: the lab is in use (lock $RUN/lab.lock); not running" >&2; exit 1; }
+if [[ "${LAB_WAIT:-0}" == 1 ]]; then
+  flock -w 2400 9 || { echo "smoke: the lab stayed busy for 40 min (lock $RUN/lab.lock)" >&2; exit 1; }
+else
+  flock -n 9 || { echo "smoke: the lab is in use (lock $RUN/lab.lock); not running" >&2; exit 1; }
+fi
 "$LAB" ns status | grep -q running && { echo "smoke: a lab session is running; not running" >&2; exit 1; }
 # Only after the lock: a refused run must not tear down someone else's namespace.
 trap cleanup EXIT

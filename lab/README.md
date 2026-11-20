@@ -79,7 +79,8 @@ variables of `~/actions-runner/.env`.
 ## Lock
 
 One lab session at a time. `scenario_begin`, `kdx-lab selftest`,
-`lab/ci-smoke.sh`, and `lab/differential.sh` take `~/lab/run/lab.lock` and
+`lab/ci-smoke.sh`, `lab/differential.sh` and `lab/legacy.sh` take
+`~/lab/run/lab.lock` (waiting for it under `LAB_WAIT=1`, as the CI jobs run) and
 refuse if a namespace is already up, so a CI job cannot trample a human
 session or record its traffic. `FORCE=1` (scenarios) or `--force` (selftest)
 overrides the namespace check. The CI job runs on every push, so the lab is
