@@ -33,9 +33,11 @@ Layout under `/home/openkdx`:
 | `lab/fetch-binaries.sh` | openkdx | downloads and verifies every archive in `MANIFEST.txt`, unpacks it, extracts the challenge tables |
 | `lab/kdx-lab` | openkdx | starts, stops, and captures the original programs in a private network namespace |
 | `lab/ci-smoke.sh` | the runner | the `lab` CI job: proves the sandbox and the original server work |
-| `lab/differential.sh` | the runner | the `lab` CI job: `crates/openkdx-client/tests/lab.rs` against Server 1.620 and Tracker 1.110 (16 tests, serial, under 25 connections: the server bans an address after 30 in 300 s) |
+| `lab/kdx-rev.sh` | the runner | prints the kdx revision `Cargo.lock` pins; `sync [REF]` puts `~/kdx-src` at it (or at a branch under test) |
+| `lab/differential.sh [KDX_SRC]` | the runner | the `lab` CI job: `crates/kdx-client/tests/lab.rs` of the kdx checkout (default `~/kdx-src`) against Server 1.620 and Tracker 1.110, then, while it exists, `crates/openkdx-client/tests/lab.rs`; each suite on a fresh server start (16 tests, serial, under 25 connections: the server bans an address after 30 in 300 s). `--lock-only` takes the lock for 5 s |
+| `lab/lock-test.sh` | openkdx | two `differential.sh --lock-only` at once under `LAB_WAIT=1`: both succeed, the second waits |
 | `lab/scenarios/*.sh` | openkdx | the scripted capture scenarios; from Phase 2 most drive the OpenKDX `openkdx` CLI (`use_cli`, `cli`, `cli_run`, `cli_bg` in `lab/lib/scenario.sh`). `legacy-samples.sh` and `client-samples.sh` (Phase 3) snapshot the originals' files after one change each, driving the Windows client's windows with `lab/lib/ui.sh` |
-| `lab/legacy.sh` | the runner | the `lab` CI job, after `differential.sh`: `legacy-samples.sh` and `client-samples.sh` snapshot the originals' files after one change each (about 10 min), `crates/openkdx-legacy/tests/lab.rs` round-trips them, the appearance pack round-trips, then Server 1.620 and Client 1.600 are restarted on files `openkdx-legacy` wrote |
+| `lab/legacy.sh [KDX_SRC]` | the runner | the `lab` CI job, after `differential.sh`: `legacy-samples.sh` and `client-samples.sh` snapshot the originals' files after one change each (about 10 min), the legacy crate's `tests/lab.rs` round-trips them (`kdx-legacy` from the kdx checkout once it exists, `openkdx-legacy` while it does), the appearance pack round-trips, then Server 1.620 and Client 1.600 are restarted on files `openkdx-legacy` wrote |
 
 ## Admin login
 
@@ -66,8 +68,10 @@ runner registration; GitHub registers runners per repository). It checks out
 this repository beside the crates and calls `lab/differential.sh` and
 `lab/legacy.sh` with the fork checkout as the argument, so the same scripts
 gate both repositories. Both runners take `~/lab/run/lab.lock`; with
-`LAB_WAIT=1` (set by both workflows) a job waits for the lock instead of
-failing. Secrets for the fork's hosted CI (`KDX_CHALLENGE_TABLE`,
+`LAB_WAIT=1` (set by both workflows) a job waits for the lock, up to 40
+minutes, instead of failing; `lab/lock-test.sh` shows it. OpenKDX's job
+first runs `lab/kdx-rev.sh sync`, so `~/kdx-src` is the revision `Cargo.lock`
+pins; the fork's job passes its own checkout. Secrets for the fork's hosted CI (`KDX_CHALLENGE_TABLE`,
 `HGC_CHALLENGE_TABLE`) are set from here with `lab/gh-secret.py`, so the
 tables never leave the machine. The runner's `.env` must carry the proxy
 variables of `~/actions-runner/.env`.

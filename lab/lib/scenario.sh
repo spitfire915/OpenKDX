@@ -29,7 +29,11 @@ scenario_begin() {
   echo "scenario $SCENARIO:"
   # One lab session at a time: refuse if another holds the lock or a namespace is up.
   exec 9>"$RUN/lab.lock"
-  flock -n 9 || { echo "scenario: the lab is in use (lock $RUN/lab.lock)" >&2; exit 1; }
+  if [[ "${LAB_WAIT:-0}" == 1 ]]; then
+    flock -w 2400 9 || { echo "scenario: the lab stayed busy for 40 min (lock $RUN/lab.lock)" >&2; exit 1; }
+  else
+    flock -n 9 || { echo "scenario: the lab is in use (lock $RUN/lab.lock)" >&2; exit 1; }
+  fi
   if "$LAB" ns status | grep -q running && [[ "${FORCE:-0}" != 1 ]]; then
     echo "scenario: a lab session is running; stop it (kdx-lab ns stop) or set FORCE=1" >&2; exit 1
   fi

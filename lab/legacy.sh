@@ -3,25 +3,45 @@
 # job after lab/differential.sh:
 #   1. lab/scenarios/legacy-samples.sh writes one snapshot of the server's
 #      files per controlled change (Server 1.620 + Client 1.600 under Wine);
-#   2. crates/openkdx-legacy/tests/lab.rs round-trips every snapshot;
+#   2. the legacy crate's tests/lab.rs round-trips every snapshot;
 #   3. our writer adds an account and renames the server; the original
 #      server is restarted on the rewritten files and the CLI logs in with
 #      the new account and sees the new name.
+#
+#   lab/legacy.sh [KDX_SRC]    KDX_SRC defaults to ~/kdx-src. Its kdx-legacy
+#                              crate's tests run when the checkout has one
+#                              (Phase 3E); openkdx-legacy's run while it exists.
+#   lab/legacy.sh --supports-kdx-src   exits 0: the fork's lab job probes this
+#
+# The lock: with LAB_WAIT=1 (both workflows set it) a busy lab is waited for,
+# up to 40 minutes; the scenarios take the lock themselves and honour LAB_WAIT.
 set -euo pipefail
 
-# The kdx fork's lab job probes whether this script takes a kdx checkout
-# (Phase 3D); until then it answers no and the job prints "not wired".
-[[ "${1:-}" == --supports-kdx-src ]] && exit 1
+[[ "${1:-}" == --supports-kdx-src ]] && exit 0
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAB="$HERE/kdx-lab"
 RUN="${OPENKDX_LAB_RUN:-$HOME/lab/run}"
+KDX_SRC="${1:-${OPENKDX_KDX_SRC:-$HOME/kdx-src}}"
 export PATH="$HOME/.cargo/bin:$PATH"
 source "${OPENKDX_LAB_ENV:-$HOME/haxial/lab.env}"
 
-# legacy-samples.sh takes the lock itself; make sure nothing holds it first.
+# legacy-samples.sh takes the lock itself; wait for (or check) a free lab first.
 exec 9>"$RUN/lab.lock"
-flock -n 9 || { echo "legacy: lab busy"; exit 1; }
+if [[ "${LAB_WAIT:-0}" == 1 ]]; then
+  flock -w 2400 9 || { echo "legacy: the lab stayed busy for 40 min" >&2; exit 1; }
+else
+  flock -n 9 || { echo "legacy: lab busy"; exit 1; }
+fi
 exec 9>&-
+
+if [[ -f "$KDX_SRC/crates/kdx-legacy/Cargo.toml" ]]; then
+  echo "legacy: kdx-legacy at $(git -C "$KDX_SRC" rev-parse --short HEAD)"
+  KDX_LEGACY_MANIFEST="$KDX_SRC/Cargo.toml"
+else
+  echo "legacy: no kdx-legacy in $KDX_SRC yet (Phase 3E); running openkdx-legacy only"
+  KDX_LEGACY_MANIFEST=""
+fi
+[[ -d "$HERE/../crates/openkdx-legacy" ]] || { echo "legacy: openkdx-legacy is gone and kdx-legacy is not wired here yet" >&2; exit 1; }
 
 FORCE=1 "$HERE/scenarios/legacy-samples.sh"
 
@@ -32,6 +52,9 @@ if grep -rlqa "Haxial Software" "$SNAP" --exclude-dir=30-news-stock; then echo "
 
 cd "$HERE/.."
 OPENKDX_LAB_LEGACY_DIR="$SNAP" cargo test -q -p openkdx-legacy --test lab -- --test-threads=1 --skip lab_client
+if [[ -n "$KDX_LEGACY_MANIFEST" ]]; then
+  KDX_LAB_LEGACY_DIR="$SNAP" cargo test -q --manifest-path "$KDX_LEGACY_MANIFEST" -p kdx-legacy --test lab -- --test-threads=1 --skip lab_client
+fi
 
 # --- Write with ours, read with theirs ---------------------------------------
 cargo build -q -p openkdx-legacy --example legacytool -p openkdx-cli
@@ -66,6 +89,9 @@ if grep -qi "licen\|damaged\|corrupt" "$RUN/server.log"; then echo "legacy: serv
 # --- .hap: every file of the appearance pack round-trips (lab-only data) ----
 if [[ -d "$HOME/haxial/legacy/appearances" ]]; then
   OPENKDX_LAB_HAP_DIR="$HOME/haxial/legacy/appearances" cargo test -q -p openkdx-legacy --test hap -- --test-threads=1
+  if [[ -n "$KDX_LEGACY_MANIFEST" ]]; then
+    KDX_LAB_HAP_DIR="$HOME/haxial/legacy/appearances" cargo test -q --manifest-path "$KDX_LEGACY_MANIFEST" -p kdx-legacy --test hap -- --test-threads=1
+  fi
 else
   echo "legacy: appearance pack missing under ~/haxial/legacy/appearances; .hap pack test skipped" >&2
 fi
@@ -73,5 +99,8 @@ fi
 # --- The client's file: samples, round trips, write-back --------------------
 FORCE=1 "$HERE/scenarios/client-samples.sh"
 OPENKDX_LAB_LEGACY_DIR="$SNAP" cargo test -q -p openkdx-legacy --test lab -- --test-threads=1 lab_client
+if [[ -n "$KDX_LEGACY_MANIFEST" ]]; then
+  KDX_LAB_LEGACY_DIR="$SNAP" cargo test -q --manifest-path "$KDX_LEGACY_MANIFEST" -p kdx-legacy --test lab -- --test-threads=1 lab_client
+fi
 "$LAB" ns stop >/dev/null 2>&1 || true
 echo "legacy: ok"
