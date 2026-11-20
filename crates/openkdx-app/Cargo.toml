@@ -8,5 +8,5 @@ rust-version.workspace = true
 description = "The OpenKDX desktop client."
 
 [dependencies]
-openkdx-client.workspace = true
+kdx-client.workspace = true
 openkdx-ui.workspace = true

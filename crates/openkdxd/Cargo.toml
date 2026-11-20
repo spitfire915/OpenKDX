@@ -8,4 +8,4 @@ rust-version.workspace = true
 description = "The OpenKDX server daemon."
 
 [dependencies]
-openkdx-server.workspace = true
+kdx-legacy.workspace = true

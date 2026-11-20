@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Inventory the legacy data directories under ~/haxial/legacy for docs/formats/inventory.md.
+# Inventory the legacy data directories under ~/haxial/legacy for the kdx fork's docs/formats/inventory.md.
 # Prints: relative path, size, sha256, first 8 bytes (hex). Files inside Bases/ are
 # the user's shared files: listed by name and size only, no hash or bytes.
 set -euo pipefail

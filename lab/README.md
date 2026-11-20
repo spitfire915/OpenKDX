@@ -34,10 +34,10 @@ Layout under `/home/openkdx`:
 | `lab/kdx-lab` | openkdx | starts, stops, and captures the original programs in a private network namespace |
 | `lab/ci-smoke.sh` | the runner | the `lab` CI job: proves the sandbox and the original server work |
 | `lab/kdx-rev.sh` | the runner | prints the kdx revision `Cargo.lock` pins; `sync [REF]` puts `~/kdx-src` at it (or at a branch under test) |
-| `lab/differential.sh [KDX_SRC]` | the runner | the `lab` CI job: `crates/kdx-client/tests/lab.rs` of the kdx checkout (default `~/kdx-src`) against Server 1.620 and Tracker 1.110, then, while it exists, `crates/openkdx-client/tests/lab.rs`; each suite on a fresh server start (16 tests, serial, under 25 connections: the server bans an address after 30 in 300 s). `--lock-only` takes the lock for 5 s |
-| `lab/lock-test.sh` | openkdx | two `differential.sh --lock-only` at once under `LAB_WAIT=1`: both succeed, the second waits |
+| `lab/differential.sh [KDX_SRC]` | the runner | the `lab` CI job: `crates/kdx-client/tests/lab.rs` of the kdx checkout (default `~/kdx-src`) against Server 1.620 and Tracker 1.110 on a fresh server start (16 tests, serial, under 25 connections: the server bans an address after 30 in 300 s). `--lock-only` takes the lock for 5 s. Holds the lab lock for its whole run |
+| `lab/lock-test.sh` | openkdx | two `differential.sh --lock-only` at once under `LAB_WAIT=1`: both succeed, the second waits; then `legacy.sh --lock-only` is shown to hold the lock while it runs |
 | `lab/scenarios/*.sh` | openkdx | the scripted capture scenarios; from Phase 2 most drive the OpenKDX `openkdx` CLI (`use_cli`, `cli`, `cli_run`, `cli_bg` in `lab/lib/scenario.sh`). `legacy-samples.sh` and `client-samples.sh` (Phase 3) snapshot the originals' files after one change each, driving the Windows client's windows with `lab/lib/ui.sh` |
-| `lab/legacy.sh [KDX_SRC]` | the runner | the `lab` CI job, after `differential.sh`: `legacy-samples.sh` and `client-samples.sh` snapshot the originals' files after one change each (about 10 min), the legacy crate's `tests/lab.rs` round-trips them (`kdx-legacy` from the kdx checkout once it exists, `openkdx-legacy` while it does), the appearance pack round-trips, then Server 1.620 and Client 1.600 are restarted on files `openkdx-legacy` wrote |
+| `lab/legacy.sh [KDX_SRC]` | the runner | the `lab` CI job, after `differential.sh`: `legacy-samples.sh` and `client-samples.sh` snapshot the originals' files after one change each (about 10 min), the kdx checkout's `kdx-legacy` round-trips them (`tests/lab.rs`, `KDX_LAB_LEGACY_DIR`) and the appearance pack (`tests/hap.rs`, `KDX_LAB_HAP_DIR`), then Server 1.620 and Client 1.600 are restarted on files its `legacytool` wrote. Holds the lab lock for its whole run; the scenarios it calls reuse it (`OPENKDX_LAB_LOCK_HELD=1`) |
 
 ## Admin login
 
@@ -80,12 +80,14 @@ variables of `~/actions-runner/.env`.
 
 One lab session at a time. `scenario_begin`, `kdx-lab selftest`,
 `lab/ci-smoke.sh`, `lab/differential.sh` and `lab/legacy.sh` take
-`~/lab/run/lab.lock` (waiting for it under `LAB_WAIT=1`, as the CI jobs run) and
-refuse if a namespace is already up, so a CI job cannot trample a human
-session or record its traffic. `FORCE=1` (scenarios) or `--force` (selftest)
-overrides the namespace check. The CI job runs on every push, so the lab is
-busy for a minute or two after one; a refused run leaves the running session
-alone (its cleanup trap is armed only after the lock).
+`~/lab/run/lab.lock` (waiting for it under `LAB_WAIT=1`, as the CI jobs run)
+and hold it for their whole run; `legacy.sh` lends its lock to the scenarios
+it calls (`OPENKDX_LAB_LOCK_HELD=1`), so nothing else runs between the
+snapshots and the write-back. A human session takes the lock the same way, so
+a CI job waits for it rather than trampling it. A namespace that is still up
+once a job holds the lock was left by a run that died; the job stops it and
+goes on. The CI jobs run on every push to either repository, so the lab is
+busy for up to half an hour after one.
 
 ## Captures with the OpenKDX client
 

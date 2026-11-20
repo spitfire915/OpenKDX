@@ -17,15 +17,8 @@ kdx-codec = { git = "https://github.com/spitfire915/kdx", rev = "6fb82b40362dfef
 kdx-client = { git = "https://github.com/spitfire915/kdx", rev = "6fb82b40362dfef537411aabd691e296e4f7e264" }
 kdx-legacy = { git = "https://github.com/spitfire915/kdx", rev = "6fb82b40362dfef537411aabd691e296e4f7e264" }
 
-openkdx-proto = { path = "crates/openkdx-proto" }
-openkdx-codec = { path = "crates/openkdx-codec" }
-openkdx-legacy = { path = "crates/openkdx-legacy" }
 openkdx-table = { path = "crates/openkdx-table", default-features = false }
-openkdx-client = { path = "crates/openkdx-client" }
-openkdx-server = { path = "crates/openkdx-server" }
 openkdx-ui = { path = "crates/openkdx-ui" }
-openkdx-tracker = { path = "crates/openkdx-tracker" }
-openkdx-dissect = { path = "crates/openkdx-dissect" }
 
 tokio = { version = "1", features = ["full"] }
 thiserror = "2"

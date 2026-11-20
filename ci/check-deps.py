@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Check the workspace against the design's dependency rules (spec §7.1).
 
-- openkdx-proto and openkdx-legacy must not depend, directly or transitively,
-  on any async runtime, network, or UI crate (while they are still members;
-  the protocol crates move to the kdx fork in Phase 3B–3E).
-- no workspace member depends on a retired crate (RETIRED) once it is no
-  longer a member.
+- openkdx-table must not depend, directly or transitively, on a UI crate.
+- no workspace member depends on a retired crate (RETIRED): the protocol,
+  codec, client, dissector, tracker and legacy-format crates moved to the kdx
+  fork (spec §6.1) and are used as kdx-* by pinned git revision.
 - Cargo.lock names the kdx fork by git revision for every kdx-* package: a
   lockfile written under the local [patch] to a sibling checkout is refused.
 - every crate declares license = "MIT OR Apache-2.0" and edition = "2024"
@@ -22,14 +21,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-NETWORK_OR_RUNTIME = {"tokio", "reqwest", "hyper", "async-std", "smol", "mio", "openkdx-codec", "openkdx-table", "openkdx-client", "openkdx-server", "openkdx-tracker"}
 UI = {"egui", "eframe", "egui-winit", "winit", "wgpu", "openkdx-ui", "openkdx-app"}
 FORBIDDEN = {
-    "openkdx-proto": NETWORK_OR_RUNTIME | UI,
-    "openkdx-legacy": NETWORK_OR_RUNTIME | UI,
     "openkdx-table": UI,
 }
-# Crates that moved to the kdx fork; a member may not depend on one that is gone.
+# Crates that moved to the kdx fork; no member may depend on them.
 RETIRED = {"openkdx-proto", "openkdx-codec", "openkdx-client", "openkdx-dissect", "openkdx-tracker", "openkdx-server", "openkdx-legacy"}
 FORK_SOURCE = "git+https://github.com/spitfire915/kdx?rev="
 

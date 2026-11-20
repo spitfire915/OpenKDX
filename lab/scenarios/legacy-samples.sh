@@ -2,7 +2,7 @@
 # Legacy-format samples: one controlled change per snapshot of the server's
 # data directory, so that each on-disk format can be worked out by diffing.
 # Not a capture scenario; output goes to $RUN/legacy/<NN-name>/ (the four
-# server files after each step) and is copied into fixtures/legacy/ by hand
+# server files after each step) and is copied into the kdx fork's crates/kdx-legacy/tests/fixtures/ by hand
 # once checked for Haxial prose.
 #
 # Steps marked (UI) go through the Windows client's Server Settings window;

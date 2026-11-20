@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Differential tests against the original KDX Server 1.620 and Tracker 1.110
 # in the sandbox: the kdx-client suite (crates/kdx-client/tests/lab.rs of the
-# kdx checkout) and, until Phase 3E deletes it, the openkdx-client suite
-# (crates/openkdx-client/tests/lab.rs). Runs on the lab machine, as the
-# openkdx user. Exit non-zero on any failure.
+# kdx checkout). Runs on the lab machine, as the openkdx user. Exit non-zero
+# on any failure.
 #
 #   lab/differential.sh [KDX_SRC]    KDX_SRC defaults to ~/kdx-src; lab/kdx-rev.sh
 #                                    puts it at the pinned revision
@@ -80,11 +79,6 @@ else
   # A revision from before the suite landed (the pin lags the fork by one bump).
   echo "differential: no crates/kdx-client/tests/lab.rs in $KDX_SRC; kdx-client suite skipped"
 fi
-OPENKDX_BIN=""
-if [[ -d "$REPO/crates/openkdx-client" ]]; then
-  OPENKDX_BIN=$(test_binary "$REPO/Cargo.toml" openkdx-client)
-  [[ -x "$OPENKDX_BIN" ]] || { echo "differential: openkdx-client lab test binary not found" >&2; exit 1; }
-fi
 
 # Fresh server and tracker; the server registers with the tracker on startup.
 # Each suite gets its own server start: the server bans an address after 30
@@ -132,19 +126,6 @@ if [[ -n "$KDX_BIN" ]]; then
     KDX_LAB_PASSWORD="${KDX_ADMIN_PASSWORD:-openkdx-lab}" \
     KDX_CHALLENGE_TABLE="$KDX_CHALLENGE_TABLE" \
     "$KDX_BIN" --test-threads=1 || status=$?
-  check_log || status=1
-  stop_lab
-fi
-
-if [[ -n "$OPENKDX_BIN" ]]; then
-  echo "differential: openkdx-client suite"
-  start_lab
-  "$LAB" exec env \
-    OPENKDX_LAB_SERVER=127.0.0.1:10700 \
-    OPENKDX_LAB_TRACKER=127.0.0.1:10800 \
-    OPENKDX_LAB_PASSWORD="${KDX_ADMIN_PASSWORD:-openkdx-lab}" \
-    OPENKDX_KDX_TABLE="$OPENKDX_KDX_TABLE" \
-    "$OPENKDX_BIN" --test-threads=1 || status=$?
   check_log || status=1
   stop_lab
 fi
