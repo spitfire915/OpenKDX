@@ -38,8 +38,10 @@ scenario_begin() {
       flock -n 9 || { echo "scenario: the lab is in use (lock $RUN/lab.lock)" >&2; exit 1; }
     fi
   fi
-  if "$LAB" ns status | grep -q running && [[ "${FORCE:-0}" != 1 ]]; then
-    echo "scenario: a lab session is running; stop it (kdx-lab ns stop) or set FORCE=1" >&2; exit 1
+  # Holding the lock, a namespace that is still up was left by a run that
+  # died (or by the caller that lent us its lock); it goes.
+  if "$LAB" ns status | grep -q running && [[ "${FORCE:-0}" != 1 && "${OPENKDX_LAB_LOCK_HELD:-0}" != 1 ]]; then
+    echo "scenario: a namespace was left running; stopping it" >&2
   fi
   "$LAB" ns stop >/dev/null 2>&1 || true
   "$LAB" reset all >/dev/null 2>&1 || true

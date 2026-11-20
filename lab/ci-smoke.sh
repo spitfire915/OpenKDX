@@ -17,8 +17,10 @@ if [[ "${LAB_WAIT:-0}" == 1 ]]; then
 else
   flock -n 9 || { echo "smoke: the lab is in use (lock $RUN/lab.lock); not running" >&2; exit 1; }
 fi
-"$LAB" ns status | grep -q running && { echo "smoke: a lab session is running; not running" >&2; exit 1; }
-# Only after the lock: a refused run must not tear down someone else's namespace.
+# Every lab job and scenario holds the lock for its whole run, so a namespace
+# that is up while we hold it was left behind by a run that died; say so and
+# take the lab over. (A human's session holds the lock too, and we waited.)
+"$LAB" ns status | grep -q running && echo "smoke: a namespace was left running; stopping it" >&2
 trap cleanup EXIT
 
 [[ -x "$HOME/haxial/bin/KDXServer1620-Lnx/KDXServer1620-Lnx/KDXServer.lexe" ]] \

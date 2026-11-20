@@ -45,8 +45,8 @@ KDX_SRC="${1:-${OPENKDX_KDX_SRC:-$HOME/kdx-src}}"
 cleanup() { "$LAB" ns stop >/dev/null 2>&1 || true; }
 
 take_lock
-"$LAB" ns status | grep -q running && { echo "differential: a lab session is running; not running" >&2; exit 1; }
-# Only after the lock: a refused run must not tear down someone else's namespace.
+# Holding the lock, a namespace that is still up was left by a run that died.
+"$LAB" ns status | grep -q running && echo "differential: a namespace was left running; stopping it" >&2
 trap cleanup EXIT
 
 # The challenge table, from the cache or the server binary (as ci.yml does).
