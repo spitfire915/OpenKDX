@@ -8,6 +8,10 @@
 #      server is restarted on the rewritten files and the CLI logs in with
 #      the new account and sees the new name.
 set -euo pipefail
+
+# The kdx fork's lab job probes whether this script takes a kdx checkout
+# (Phase 3D); until then it answers no and the job prints "not wired".
+[[ "${1:-}" == --supports-kdx-src ]] && exit 1
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LAB="$HERE/kdx-lab"
 RUN="${OPENKDX_LAB_RUN:-$HOME/lab/run}"

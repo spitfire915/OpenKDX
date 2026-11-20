@@ -5,6 +5,10 @@
 # lab/ci-smoke.sh does. Exit non-zero on any failure.
 set -euo pipefail
 
+# The kdx fork's lab job probes whether this script takes a kdx checkout
+# (Phase 3D); until then it answers no and the job prints "not wired".
+[[ "${1:-}" == --supports-kdx-src ]] && exit 1
+
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/.." && pwd)
 LAB="$HERE/kdx-lab"

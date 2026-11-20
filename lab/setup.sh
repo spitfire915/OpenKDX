@@ -52,6 +52,7 @@ echo "==> sandbox, capture, and namespace tools"
 echo "wireshark-common wireshark-common/install-setuid boolean true" | debconf-set-selections
 apt-get install -y \
   bubblewrap \
+  python3-nacl \
   wireshark-common \
   tshark \
   iproute2 \
@@ -94,6 +95,7 @@ install -d -o "$LAB_USER" -g "$LAB_USER" -m 0750 \
   "$LAB_HOME/haxial/legacy"   \
   "$LAB_HOME/captures"        \
   "$LAB_HOME/actions-runner"
+  "$LAB_HOME/actions-runner-kdx"
 # haxial/bin     original binaries and archives (never committed)
 # haxial/tables  extracted challenge tables, kdx.bin and hgc.bin
 # haxial/legacy  the user's old server/client data directories, .hap, sound lists
@@ -118,6 +120,8 @@ Setup complete. Remaining steps, done as $LAB_USER (no sudo):
      https://github.com/spitfire915/OpenKDX/settings/actions/runners/new
      and give it the label:  lab
      Then, as root once:  sudo ~/actions-runner/svc.sh install $LAB_USER && sudo ~/actions-runner/svc.sh start
+     Repeat into ~/actions-runner-kdx for https://github.com/spitfire915/kdx (label lab),
+     copy ~/actions-runner/.env (proxy) beside it, then install and start that service too.
   5. Put the Haxial archives into ~/haxial/bin and the old data into ~/haxial/legacy.
      lab/fetch-binaries.sh (Phase 0) will download and verify them for you.
 
