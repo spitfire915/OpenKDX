@@ -76,7 +76,7 @@ detail:
 
 ## Messages
 
-Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/server-history.pcapng`; checked by `crates/openkdx-dissect/tests/captures.rs`.
+Decoded by `kdx-dissect captures/openkdx-server-history.pcapng --inventory --password openkdx-lab`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
 
 ```
 4  C->S  127.0.0.1:37426 -> 127.0.0.1:10700  hello
@@ -86,7 +86,7 @@ Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/server-history.p
 10  C->S  127.0.0.1:37426 -> 127.0.0.1:10700  100 Set Identity
 11  S->C  127.0.0.1:37426 -> 127.0.0.1:10700  101 User List
 12  S->C  127.0.0.1:37426 -> 127.0.0.1:10700  105 Server Info
-13  C->S  127.0.0.1:37426 -> 127.0.0.1:10700  118 (unnamed; license report)
+13  C->S  127.0.0.1:37426 -> 127.0.0.1:10700  118
 15  C->S  127.0.0.1:37426 -> 127.0.0.1:10700  180 Server History Join
 17  S->C  127.0.0.1:37426 -> 127.0.0.1:10700  181 Server History Join (R) (reply)
 22  C->S  127.0.0.1:37436 -> 127.0.0.1:10700  hello
@@ -98,7 +98,7 @@ Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/server-history.p
 30  S->C  127.0.0.1:37436 -> 127.0.0.1:10700  105 Server Info
 31  S->C  127.0.0.1:37426 -> 127.0.0.1:10700  103 User Joined
 33  S->C  127.0.0.1:37426 -> 127.0.0.1:10700  183 Server History Added
-35  C->S  127.0.0.1:37436 -> 127.0.0.1:10700  118 (unnamed; license report)
+35  C->S  127.0.0.1:37436 -> 127.0.0.1:10700  118
 37  S->C  127.0.0.1:37426 -> 127.0.0.1:10700  183 Server History Added
 41  S->C  127.0.0.1:37426 -> 127.0.0.1:10700  104 User Departed
 46  C->S  127.0.0.1:37440 -> 127.0.0.1:10700  hello
@@ -110,7 +110,7 @@ Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/server-history.p
 54  S->C  127.0.0.1:37440 -> 127.0.0.1:10700  105 Server Info
 55  S->C  127.0.0.1:37426 -> 127.0.0.1:10700  103 User Joined
 57  S->C  127.0.0.1:37426 -> 127.0.0.1:10700  183 Server History Added
-59  C->S  127.0.0.1:37440 -> 127.0.0.1:10700  118 (unnamed; license report)
+59  C->S  127.0.0.1:37440 -> 127.0.0.1:10700  118
 61  C->S  127.0.0.1:37440 -> 127.0.0.1:10700  611 Post News Message
 63  S->C  127.0.0.1:37440 -> 127.0.0.1:10700  1 Status (reply)
 64  S->C  127.0.0.1:37426 -> 127.0.0.1:10700  183 Server History Added

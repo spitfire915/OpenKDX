@@ -26,7 +26,7 @@ Frames: 29.
 
 ## Messages
 
-Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/chat-basic.pcapng`; checked by `crates/openkdx-dissect/tests/captures.rs`.
+Decoded by `kdx-dissect captures/openkdx-chat-basic.pcapng --inventory --password openkdx-lab`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
 
 ```
 4  C->S  127.0.0.1:37182 -> 127.0.0.1:10700  hello
