@@ -1,6 +1,6 @@
-# Phase 3b: Convergence Implementation Plan
+# Phases 3B–3F: Convergence — master plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. This plan runs in **fresh-context sessions of 3–5 tasks each**; every session starts by reading this file and `## Ledger` at its end, and ends by appending a ledger entry (see "How a session runs").
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. The convergence is five phases, **3B–3F**, each one fresh-context session of 1–4 tasks with its own short plan file (`2026-11-19-phase3c-…` etc.) that points back here for the Global Constraints, the type mapping and the ledger. Every session starts by reading this file, its phase file and `## Ledger`, and ends by appending a ledger entry (see "How a session runs").
 
 **Goal:** OpenKDX stops carrying its own copies of the protocol, codec, client, dissector and tracker: the `kdx-*` crates of a fork `spitfire915/kdx` (integration branch, upstreamed by PR to `scottanderson/kdx`) hold one implementation, with our 13 protocol deltas, 15 captures, the client features of `openkdx-client`, and `openkdx-legacy` as a new `kdx-legacy`; OpenKDX depends on them by pinned git revision, keeps `openkdx-table`, `openkdx-cli`, `openkdx-ui`, `openkdx-app`, `openkdxd`, `lab/`, `re/`, `ci/`, and the lab's differential suite gates both repositories.
 
@@ -125,9 +125,11 @@ OpenKDX
 3. Local `[patch]` in OpenKDX's untracked `.cargo/config.toml` is on while porting; before any OpenKDX commit run `git diff --quiet Cargo.lock || echo "lockfile changed: only a pin commit may do that"`.
 4. End of session: run both repositories' checks; push; append a ledger entry: date, tasks done, OpenKDX commits, fork PRs (`feat/*` → number, merged SHA), upstream PRs (`up/*` → number, state), the fork SHA OpenKDX now pins, rulings (anything decided that this plan left open or got wrong), carried items. Commit the ledger as `docs(plan): phase 3b ledger — session N`.
 
-Sessions: **A** Tasks 1–3 · **B** Tasks 4–7 · **C** Tasks 8–11 · **D** Tasks 12–14 · **E** Task 15.
+Phases: **3B** Tasks 1–3 (fork and plumbing) · **3C** Tasks 4–7 (upstream the evidence) · **3D** Tasks 8–11 (client port, lab gating) · **3E** Tasks 12–14 (legacy, CLI, deletion) · **3F** Task 15 (close). Review gates (Tasks 14 and any phase-end review) use **Opus 5.5** (`github-copilot/claude-opus-5.5`) in a fresh context.
 
 ---
+
+## Phase 3B — fork and plumbing (Tasks 1–3)
 
 ### Task 1: Fork `scottanderson/kdx` to `spitfire915/kdx`; secrets, runner, blocklist over the fork
 
@@ -190,6 +192,8 @@ Sessions: **A** Tasks 1–3 · **B** Tasks 4–7 · **C** Tasks 8–11 · **D** 
 - [ ] **Step 3:** Commit `docs(protocol): convergence worksheet — deltas and captures against upstream <sha>`. Ledger: the `Action` counts.
 
 ---
+
+## Phase 3C — upstream the evidence (Tasks 4–7)
 
 ### Task 4: Our 15 captures dissect byte-exact under `kdx-dissect`
 
@@ -259,6 +263,8 @@ Sessions: **A** Tasks 1–3 · **B** Tasks 4–7 · **C** Tasks 8–11 · **D** 
 - [ ] **Step 5:** Fork commit "Add --inventory to kdx-dissect" on `feat/dissect-inventory`; PR; merge; upstream PR. OpenKDX commit `lab: scenario inventories from kdx-dissect`. Ledger.
 
 ---
+
+## Phase 3D — client port and lab gating (Tasks 8–11)
 
 ### Task 8: `kdx_client::mock` (feature `mock`) and typed `Notice` events
 
@@ -332,6 +338,8 @@ Sessions: **A** Tasks 1–3 · **B** Tasks 4–7 · **C** Tasks 8–11 · **D** 
 
 ---
 
+## Phase 3E — legacy, CLI, deletion (Tasks 12–14)
+
 ### Task 12: `kdx-legacy` in the fork, on `kdx-proto` wire structs; fixtures byte-exact
 
 **Files (fork):**
@@ -372,10 +380,12 @@ Sessions: **A** Tasks 1–3 · **B** Tasks 4–7 · **C** Tasks 8–11 · **D** 
 
 - [ ] **Step 1:** Delete; fix the stubs' deps; `cargo build --workspace`, `cargo test --workspace`, `python3 ci/check-deps.py` (the `RETIRED` rule passes), `ci/check-blocklist.py`, `ci/*_test.py` → PASS. `cargo metadata --locked` passes with the patch off.
 - [ ] **Step 2:** Docs as listed. **Step 3:** Pin bump to the fork `main` SHA that contains Tasks 4–12. Push; all hosted jobs and the lab job green (~25 min).
-- [ ] **Step 4:** Review gate: fresh-context reviewer (most capable model) on `main..phase3b/convergence` and on the fork's `main` since the fork point, with this plan, the spec §6.1/§8/§9 and both CONTRIBUTING files in the prompt. Fix; commit.
+- [ ] **Step 4:** Review gate: fresh-context reviewer (Opus 5.5, `github-copilot/claude-opus-5.5`) on `main..phase3b/convergence` and on the fork's `main` since the fork point, with this plan, the spec §6.1/§8/§9 and both CONTRIBUTING files in the prompt. Fix; commit.
 - [ ] **Step 5:** Open the OpenKDX PR (`POST /repos/spitfire915/OpenKDX/pulls`, base `main`, head `phase3b/convergence`, title `Phase 3b: convergence on the kdx fork`, body: what moved where, PR numbers upstream, what the lab gates now, deferred items); link it with `session.link`. Squash-merge as #4/#5 did; delete the branch; `git fetch --prune` here and on the lab; lab clone on `main`; fork `lab.yml` `ref: main` PR merged.
 
 ---
+
+## Phase 3F — close (Task 15)
 
 ### Task 15: Spec note, open upstream PRs, hand-off
 
@@ -384,7 +394,7 @@ Sessions: **A** Tasks 1–3 · **B** Tasks 4–7 · **C** Tasks 8–11 · **D** 
 
 - [ ] **Step 1:** `GET /repos/scottanderson/kdx/pulls?state=all&head=spitfire915:` → list; for each open one, note what review asked for; nothing is blocked on them (OpenKDX pins the fork).
 - [ ] **Step 2:** Commit `docs: README and spec reflect Phase 3b` on `main`; push; lab `git pull`.
-- [ ] **Step 3:** Ledger final entry. **Phase 3b ends here.** Phase 4 begins with its own session that retargets `docs/superpowers/plans/2026-11-13-phase4-server.md` (branch `phase4/server`) to `kdx-server` in the fork + `openkdxd` here, using the mapping table above; see "Phase 4: what comes next" below.
+- [ ] **Step 3:** Ledger final entry. **Phase 3F ends the convergence.** Phase 4 begins with its own session that retargets `docs/superpowers/plans/2026-11-13-phase4-server.md` (branch `phase4/server`) to `kdx-server` in the fork + `openkdxd` here, using the mapping table above; see "Phase 4: what comes next" below.
 
 ---
 
@@ -422,5 +432,5 @@ Phase 4 is the existing plan on branch `phase4/server` (`docs/superpowers/plans/
 
 _(appended by each session; newest last)_
 
-| Session | Date | Tasks | OpenKDX commits | Fork PRs (feat → #, merged SHA) | Upstream PRs (up → #, state) | Pinned fork SHA | Rulings / carried |
+| Phase | Date | Tasks | OpenKDX commits | Fork PRs (feat → #, merged SHA) | Upstream PRs (up → #, state) | Pinned fork SHA | Rulings / carried |
 |---|---|---|---|---|---|---|---|
