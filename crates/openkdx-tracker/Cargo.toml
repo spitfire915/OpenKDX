@@ -10,5 +10,5 @@ description = "KDX tracker: servers register over UDP, clients browse over TCP."
 [dependencies]
 openkdx-proto.workspace = true
 openkdx-codec.workspace = true
-openkdx-table.workspace = true
+openkdx-table = { workspace = true, features = ["fetch"] }
 tokio.workspace = true

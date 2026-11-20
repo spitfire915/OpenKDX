@@ -11,5 +11,5 @@ description = "KDX server library: sessions, accounts, files, news, chat, admini
 openkdx-proto.workspace = true
 openkdx-codec.workspace = true
 openkdx-legacy.workspace = true
-openkdx-table.workspace = true
+openkdx-table = { workspace = true, features = ["fetch"] }
 tokio.workspace = true

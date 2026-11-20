@@ -10,7 +10,7 @@ description = "Async client library for writing KDX clients."
 [dependencies]
 openkdx-proto.workspace = true
 openkdx-codec.workspace = true
-openkdx-table = { workspace = true, default-features = false }
+openkdx-table.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 futures-util = { workspace = true, features = ["sink"] }
