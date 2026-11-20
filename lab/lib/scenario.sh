@@ -209,19 +209,23 @@ scenario_end() {
       echo '```'
     fi
   } > "$CAPTURES/$SCENARIO.md"
-  # The decoded message inventory; crates/openkdx-dissect/tests/captures.rs checks it.
-  if command -v cargo >/dev/null 2>&1 || [[ -x "$HOME/.cargo/bin/cargo" ]]; then
+  # The decoded message inventory, from kdx-dissect in the kdx checkout
+  # (spec §6.1); crates/kdx-dissect/tests/inventory.rs checks the fork's copy.
+  local kdx_src="${OPENKDX_KDX_SRC:-$HOME/kdx-src}"
+  if [[ -f "$kdx_src/Cargo.toml" ]] && { command -v cargo >/dev/null 2>&1 || [[ -x "$HOME/.cargo/bin/cargo" ]]; }; then
     {
       echo
       echo "## Messages"
       echo
-      echo "Decoded by \`openkdx-dissect --inventory -p openkdx-lab ${INVENTORY_EXTRA_ARGS:+$INVENTORY_EXTRA_ARGS }captures/$SCENARIO.pcapng\`; checked by \`crates/openkdx-dissect/tests/captures.rs\`."
+      echo "Decoded by \`kdx-dissect captures/openkdx-$SCENARIO.pcapng --inventory --password openkdx-lab${INVENTORY_EXTRA_ARGS:+ $INVENTORY_EXTRA_ARGS}\`; checked by \`crates/kdx-dissect/tests/inventory.rs\` in the kdx fork."
       echo
       # shellcheck disable=SC2086
-      PATH="$HOME/.cargo/bin:$PATH" cargo run -q -p openkdx-dissect --manifest-path "$HERE/../Cargo.toml" -- \
-        --inventory -p "$KDX_ADMIN_PASSWORD" ${INVENTORY_EXTRA_ARGS:-} "$CAPTURES/$SCENARIO.pcapng" 2>/dev/null \
-        || echo "(openkdx-dissect failed; run it by hand and paste the inventory here)"
+      PATH="$HOME/.cargo/bin:$PATH" cargo run -q -p kdx-dissect --manifest-path "$kdx_src/Cargo.toml" -- \
+        "$CAPTURES/$SCENARIO.pcapng" --inventory --password "$KDX_ADMIN_PASSWORD" ${INVENTORY_EXTRA_ARGS:-} 2>/dev/null \
+        || echo "(kdx-dissect failed; run it by hand and paste the inventory here)"
     } >> "$CAPTURES/$SCENARIO.md"
+  else
+    echo "scenario $SCENARIO: no kdx checkout at $kdx_src; inventory not written" >&2
   fi
   "$LAB" ns stop >/dev/null
   echo "scenario $SCENARIO: done ($frames frames)"

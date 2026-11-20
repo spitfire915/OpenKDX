@@ -40,13 +40,20 @@ Every capture starts before the client connects, so each holds the full
 handshake; a transfer connection (`files-basic`) is keyed by the session key
 its parent received in 105 Server Info.
 
+The same bytes are `captures/openkdx-<name>.pcapng` in the kdx fork
+(https://github.com/spitfire915/kdx), where `kdx-dissect` audits them and
+`kdx-proto` fact tests read fixtures exported from them.
+
 Decoding: `cargo run -p openkdx-dissect -- -p openkdx-lab --audit captures/<name>.pcapng`
 prints every hello, proof, and message, and `--audit` confirms each payload
 re-encodes byte for byte. With the KDX challenge table available (the
 `openkdx-table` cache or `OPENKDX_KDX_TABLE`), the proofs' challenge bytes are
 checked too. Each `.md` ends with a `## Messages` inventory that
 `crates/openkdx-dissect/tests/captures.rs` checks against the bytes; the
-scenario framework regenerates it, or run `openkdx-dissect --inventory`.
+scenario framework regenerates it with `kdx-dissect --inventory` from the kdx
+checkout (`OPENKDX_KDX_SRC`, default `~/kdx-src`); notes written before
+2026-11-20 carry the `openkdx-dissect` form, which lists transfer data as a
+header line and a data line, until Phase 3E regenerates them.
 
 ## Rules
 
