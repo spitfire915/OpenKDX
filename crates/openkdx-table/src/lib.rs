@@ -18,6 +18,28 @@ pub use fetch::{Source, fetch, fetch_from, sources};
 pub use import::{import, scan_blob};
 pub use story::{Story, extract};
 
+/// A ready `ChallengeTable` from the environment or the default cache.
+///
+/// Order: the story's environment variable (`OPENKDX_KDX_TABLE`,
+/// `OPENKDX_HGC_TABLE`; base64, or the literal `default` for the built-in
+/// 31-byte line that mocks use — test rigs only), then the cache. Nothing is
+/// fetched here; see the `openkdx-table` binary.
+pub fn load(story: Story) -> Result<kdx_proto::ChallengeTable, TableError> {
+    load_from(story, &Cache::new(Cache::default_dir()))
+}
+
+/// [`load`] with an explicit cache.
+pub fn load_from(story: Story, cache: &Cache) -> Result<kdx_proto::ChallengeTable, TableError> {
+    if std::env::var(story.env_var()).is_ok_and(|v| v.trim() == "default") {
+        return Ok(kdx_proto::ChallengeTable::default());
+    }
+    let bytes = match from_env(story)? {
+        Some(bytes) => bytes,
+        None => cache.get(story)?.ok_or(TableError::NoSource(story))?,
+    };
+    kdx_proto::ChallengeTable::from_bytes(story.into(), &bytes).map_err(TableError::Checksum)
+}
+
 use base64::Engine;
 
 #[derive(Debug, thiserror::Error)]
@@ -45,6 +67,8 @@ pub enum TableError {
     Io(#[from] std::io::Error),
     #[error("invalid base64 in environment variable: {0}")]
     Base64(#[from] base64::DecodeError),
+    #[error("kdx-proto rejected the table: {0}")]
+    Checksum(kdx_proto::challenge::ChallengeError),
 }
 
 /// Reads a story from its environment variable (`OPENKDX_KDX_TABLE` or

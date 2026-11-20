@@ -1,21 +1,26 @@
 use anyhow::anyhow;
-use openkdx_client::accounts::{format_privileges, new_account, parse_privileges};
-use openkdx_proto::msg::accounts::AccountClassInfo;
-use openkdx_proto::msg::misc::{FolderAccess, FolderAccessRule};
+use kdx_client::{format_privileges, new_account, parse_privileges};
+use kdx_proto::msg::admin::FolderAccess;
 use serde_json::json;
 
-use super::Ctx;
+use super::{Ctx, within};
 use crate::args::{AccountsCmd, ClassesCmd, FaCmd};
 use crate::out::{lossy, time_string};
 
+/// Flood protection in commands per two minutes, as the client's three
+/// settings send it.
+const FLOOD_RELAXED: u8 = 0x50;
+const FLOOD_AVERAGE: u8 = 0x3c;
+const FLOOD_STRICT: u8 = 0x28;
+
 pub async fn accounts(ctx: &mut Ctx, cmd: AccountsCmd) -> anyhow::Result<()> {
     let out = ctx.out;
-    let session = ctx.session().await?.clone();
+    let timeout = ctx.timeout();
+    let client = ctx.client().await?;
     match cmd {
         AccountsCmd::List => {
-            let rows: Vec<Vec<serde_json::Value>> = session
-                .accounts()
-                .await?
+            let list = within(timeout, client.accounts()).await?;
+            let rows: Vec<Vec<serde_json::Value>> = list
                 .iter()
                 .map(|a| {
                     vec![
@@ -34,7 +39,7 @@ pub async fn accounts(ctx: &mut Ctx, cmd: AccountsCmd) -> anyhow::Result<()> {
             );
         }
         AccountsCmd::Show { account: login } => {
-            let a = session.account(login.as_bytes()).await?;
+            let a = within(timeout, client.account(login.as_bytes())).await?;
             out.record(
                 "account",
                 &[
@@ -70,7 +75,7 @@ pub async fn accounts(ctx: &mut Ctx, cmd: AccountsCmd) -> anyhow::Result<()> {
                 privs,
                 privs,
             );
-            session.create_account(account).await?;
+            within(timeout, client.create_account(&account)).await?;
             out.note(format!("created {login}"));
         }
         AccountsCmd::Set {
@@ -80,9 +85,9 @@ pub async fn accounts(ctx: &mut Ctx, cmd: AccountsCmd) -> anyhow::Result<()> {
             class,
             privileges,
         } => {
-            let mut a = session.account(login.as_bytes()).await?;
+            let mut a = within(timeout, client.account(login.as_bytes())).await?;
             a.key = match new_password {
-                Some(p) => openkdx_proto::AccountKey::from_password(p.as_bytes()).0,
+                Some(p) => kdx_proto::AccountKey::from_password(p.as_bytes()).0,
                 None => [0; 32],
             };
             if let Some(n) = name {
@@ -96,13 +101,13 @@ pub async fn accounts(ctx: &mut Ctx, cmd: AccountsCmd) -> anyhow::Result<()> {
                 a.privileges = privs;
                 a.privilege_mask = privs;
             }
-            session.set_account(a).await?;
+            within(timeout, client.set_account(&a)).await?;
         }
         AccountsCmd::Delete { account: login } => {
-            session.delete_account(login.as_bytes()).await?;
+            within(timeout, client.delete_account(login.as_bytes())).await?;
         }
         AccountsCmd::Passwd { new_password } => {
-            session.change_own_password(new_password.as_bytes()).await?;
+            within(timeout, client.change_password(new_password.as_bytes())).await?;
         }
     }
     Ok(())
@@ -110,16 +115,16 @@ pub async fn accounts(ctx: &mut Ctx, cmd: AccountsCmd) -> anyhow::Result<()> {
 
 pub async fn classes(ctx: &mut Ctx, cmd: ClassesCmd) -> anyhow::Result<()> {
     let out = ctx.out;
-    let session = ctx.session().await?.clone();
+    let timeout = ctx.timeout();
+    let client = ctx.client().await?;
     match cmd {
         ClassesCmd::List => {
-            let rows: Vec<Vec<serde_json::Value>> = session
-                .classes()
-                .await?
+            let list = within(timeout, client.account_classes()).await?;
+            let rows: Vec<Vec<serde_json::Value>> = list
                 .iter()
                 .map(|c| {
                     vec![
-                        json!(c.class_index),
+                        json!(c.index),
                         json!(lossy(&c.name)),
                         json!(c.speed_limit),
                         json!(format!(
@@ -137,16 +142,16 @@ pub async fn classes(ctx: &mut Ctx, cmd: ClassesCmd) -> anyhow::Result<()> {
             );
         }
         ClassesCmd::Show { index } => {
-            let c = session.class(index).await?;
+            let c = within(timeout, client.class(index)).await?;
             out.record(
                 "class",
                 &[
-                    ("index", json!(c.class_index)),
+                    ("index", json!(c.index)),
                     ("name", json!(lossy(&c.name))),
                     ("speed_limit", json!(c.speed_limit)),
                     ("flood_protection", json!(c.flood_protection)),
                     ("privileges", json!(format_privileges(&c.privileges))),
-                    ("editor", json!(lossy(&c.editor_login))),
+                    ("editor", json!(lossy(&c.editor))),
                 ],
             );
         }
@@ -157,7 +162,7 @@ pub async fn classes(ctx: &mut Ctx, cmd: ClassesCmd) -> anyhow::Result<()> {
             speed_limit,
             flood,
         } => {
-            let mut c = session.class(index).await?;
+            let mut c = within(timeout, client.class(index)).await?;
             if let Some(n) = name {
                 c.name = n.into_bytes();
             }
@@ -169,13 +174,13 @@ pub async fn classes(ctx: &mut Ctx, cmd: ClassesCmd) -> anyhow::Result<()> {
             }
             if let Some(f) = flood {
                 c.flood_protection = match f.as_str() {
-                    "relaxed" => AccountClassInfo::FLOOD_RELAXED,
-                    "average" => AccountClassInfo::FLOOD_AVERAGE,
-                    "strict" => AccountClassInfo::FLOOD_STRICT,
+                    "relaxed" => FLOOD_RELAXED,
+                    "average" => FLOOD_AVERAGE,
+                    "strict" => FLOOD_STRICT,
                     _ => return Err(anyhow!("flood: relaxed, average, or strict")),
                 };
             }
-            session.set_class(c).await?;
+            within(timeout, client.set_class(&c)).await?;
         }
     }
     Ok(())
@@ -207,14 +212,19 @@ fn icon_name(code: u32) -> String {
     }
 }
 
+/// The permission bits of a rule: the top 16 bits of the word.
+fn permission_bits(rule: u32) -> u16 {
+    (rule >> 16) as u16
+}
+
 pub async fn folder_access(ctx: &mut Ctx, cmd: FaCmd) -> anyhow::Result<()> {
     let out = ctx.out;
-    let session = ctx.session().await?.clone();
+    let timeout = ctx.timeout();
+    let client = ctx.client().await?;
     match cmd {
         FaCmd::List => {
-            let rows: Vec<Vec<serde_json::Value>> = session
-                .folder_access_list()
-                .await?
+            let list = within(timeout, client.folder_access_list()).await?;
+            let rows: Vec<Vec<serde_json::Value>> = list
                 .iter()
                 .map(|i| {
                     vec![
@@ -232,13 +242,13 @@ pub async fn folder_access(ctx: &mut Ctx, cmd: FaCmd) -> anyhow::Result<()> {
             );
         }
         FaCmd::Show { name } => {
-            let i = session.folder_access(name.as_bytes()).await?;
+            let i = within(timeout, client.folder_access(name.as_bytes())).await?;
             let rules: Vec<String> = i
                 .class_rules
                 .iter()
                 .enumerate()
-                .filter(|(_, r)| r.permission_bits != 0)
-                .map(|(n, r)| format!("{n}:{:#x}", r.permission_bits))
+                .filter(|(_, r)| permission_bits(**r) != 0)
+                .map(|(n, r)| format!("{n}:{:#x}", permission_bits(*r)))
                 .collect();
             out.record(
                 "folder-access",
@@ -248,7 +258,7 @@ pub async fn folder_access(ctx: &mut Ctx, cmd: FaCmd) -> anyhow::Result<()> {
                     ("flags", json!(format!("{:#x}", i.flags))),
                     ("owner", json!(lossy(&i.owner))),
                     ("description", json!(lossy(&i.description))),
-                    ("rule", json!(format!("{:#x}", i.rule.permission_bits))),
+                    ("rule", json!(format!("{:#x}", permission_bits(i.rule)))),
                     ("class_rules", json!(rules)),
                 ],
             );
@@ -259,26 +269,17 @@ pub async fn folder_access(ctx: &mut Ctx, cmd: FaCmd) -> anyhow::Result<()> {
             owner,
             description,
         } => {
-            session
-                .create_folder_access(FolderAccess {
-                    ignored_00: [0; 4],
-                    flags: 0,
-                    icon: icon_code(&icon)?,
-                    class_rules: [FolderAccessRule::default(); 32],
-                    rule: FolderAccessRule::default(),
-                    ignored_90: [0; 29],
-                    ignored_b0: 0,
-                    ignored_b2: [0; 6],
-                    name: name.into_bytes(),
-                    owner: owner.into_bytes(),
-                    description: description.into_bytes(),
-                    current_name: Vec::new(),
-                    padding: Vec::new(),
-                })
-                .await?;
+            let item = FolderAccess {
+                icon: icon_code(&icon)?,
+                name: name.into_bytes(),
+                owner: owner.into_bytes(),
+                description: description.into_bytes(),
+                ..FolderAccess::default()
+            };
+            within(timeout, client.create_folder_access(&item)).await?;
         }
         FaCmd::Delete { name } => {
-            session.delete_folder_access(name.as_bytes()).await?;
+            within(timeout, client.delete_folder_access(name.as_bytes())).await?;
         }
     }
     Ok(())

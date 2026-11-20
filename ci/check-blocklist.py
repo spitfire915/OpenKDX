@@ -151,11 +151,24 @@ def check_range(repo_root: Path, base: str, head: str, blocklist: Path = DEFAULT
     return hits
 
 
+def parse_args(args: list[str]) -> tuple[Path, tuple[str, str] | None]:
+    """`--root DIR` scans another checkout (the kdx fork); `--range A B` adds the blobs of a commit range."""
+    root, rng = ROOT, None
+    while args:
+        if args[0] == "--root" and len(args) >= 2:
+            root, args = Path(args[1]).resolve(), args[2:]
+        elif args[0] == "--range" and len(args) >= 3:
+            rng, args = (args[1], args[2]), args[3:]
+        else:
+            raise SystemExit(f"check-blocklist: unknown argument {args[0]}")
+    return root, rng
+
+
 def main() -> int:
-    args = sys.argv[1:]
-    hits = [(str(p), l) for p, l in check_blocklist(ROOT)]
-    if len(args) == 3 and args[0] == "--range":
-        hits += [(f"blob {sha} in {args[1]}..{args[2]}", l) for sha, l in check_range(ROOT, args[1], args[2])]
+    root, rng = parse_args(sys.argv[1:])
+    hits = [(str(p), l) for p, l in check_blocklist(root)]
+    if rng:
+        hits += [(f"blob {sha} in {rng[0]}..{rng[1]}", l) for sha, l in check_range(root, *rng)]
     for what, label in hits:
         print(f"check-blocklist: {what}: matches blocklisted {label}", file=sys.stderr)
     if hits:

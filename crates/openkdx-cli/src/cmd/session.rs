@@ -2,85 +2,88 @@ use std::io::BufRead;
 use std::time::Duration;
 
 use clap::Parser;
-use openkdx_client::connection::Event;
+use kdx_client::{Client, Notice};
 use serde_json::json;
 
-use super::{Ctx, dispatch};
+use super::{Ctx, Disconnected, dispatch};
 use crate::args::RunLine;
 use crate::out::{Out, lossy, version_string};
 
 pub async fn login(ctx: &mut Ctx, stay: Option<u64>) -> anyhow::Result<()> {
-    let session = ctx.session().await?.clone();
     let out = ctx.out;
+    let client = ctx.client().await?;
+    let info = &client.info;
     out.record(
         "server",
         &[
-            ("name", json!(lossy(&session.server.name))),
-            ("description", json!(lossy(&session.server.description))),
-            ("version", json!(version_string(session.server.version))),
-            ("address", json!(lossy(&session.server.address))),
-            ("user_id", json!(session.user_id())),
-            ("users", json!(session.users().len())),
-            ("transfer_port", json!(session.server.file_transfer_port)),
-            (
-                "can_modify_settings",
-                json!(session.server.can_modify_settings),
-            ),
+            ("name", json!(lossy(&info.name))),
+            ("description", json!(lossy(&info.description))),
+            ("version", json!(version_string(info.version))),
+            ("address", json!(lossy(&info.address))),
+            ("user_id", json!(info.user_id)),
+            ("users", json!(client.users.len())),
+            ("transfer_port", json!(info.file_transfer_port)),
+            ("can_modify_settings", json!(info.can_modify_settings)),
         ],
     );
-    if let Some(stay) = stay {
-        // The greeting usually lands just after 105; give it a moment.
-        tokio::time::sleep(Duration::from_millis(200)).await;
-        if let Some(g) = session.greeting() {
-            out.record("greeting", &[("text", json!(lossy(&g)))]);
-        }
-        watch(&session, out, Duration::from_secs(stay), |_| false).await?;
-    } else if let Some(g) = session.greeting() {
-        out.record("greeting", &[("text", json!(lossy(&g)))]);
-    }
-    Ok(())
+    // The greeting usually lands just after 105; give it a moment either way.
+    let wait = stay.map_or(Duration::from_millis(200), Duration::from_secs);
+    watch(client, out, wait, |_| false).await
 }
 
 pub async fn users(ctx: &mut Ctx) -> anyhow::Result<()> {
-    let session = ctx.session().await?;
-    let rows: Vec<_> = session.users().iter().map(Out::user_row).collect();
-    ctx.out
-        .table("user", &["user_id", "nick", "status", "info"], &rows);
+    let out = ctx.out;
+    let client = ctx.client().await?;
+    let rows: Vec<_> = client.users.iter().map(Out::user_row).collect();
+    out.table("user", &["user_id", "nick", "status", "info"], &rows);
     Ok(())
 }
 
-/// Print events for `duration`, or until `done` says so. A disconnect ends
-/// it with the server's message as the error.
+/// Prints notices for `duration`, or until `done` says so. A 151
+/// Disconnect Message, or the connection closing, ends it with exit code 3.
 pub async fn watch(
-    session: &openkdx_client::session::Session,
+    client: &mut Client,
     out: Out,
     duration: Duration,
-    mut done: impl FnMut(&Event) -> bool,
+    mut done: impl FnMut(&Notice) -> bool,
 ) -> anyhow::Result<()> {
-    let mut events = session.events();
     let deadline = tokio::time::Instant::now() + duration;
     loop {
-        let event = match tokio::time::timeout_at(deadline, events.recv()).await {
-            Err(_) => return Ok(()),
-            Ok(Err(tokio::sync::broadcast::error::RecvError::Lagged(_))) => continue,
-            Ok(Err(_)) => return Err(openkdx_client::ClientError::Disconnected.into()),
-            Ok(Ok(e)) => e,
+        let notice = tokio::select! {
+            () = tokio::time::sleep_until(deadline) => return Ok(()),
+            notice = client.next_notice() => match notice {
+                Ok(notice) => notice,
+                // The cause (a closed socket, a frame that did not decode)
+                // stays in the chain under the typed error.
+                Err(e) => return Err(e.context(Disconnected::Gone)),
+            },
         };
-        out.event(&event, &session.users());
-        if let Event::Disconnected(d) = &event {
-            return Err(match &d.message {
-                Some(m) => openkdx_client::ClientError::DisconnectedBy(Box::new(m.clone())),
-                None => openkdx_client::ClientError::Disconnected,
-            }
-            .into());
+        apply(client, &notice);
+        out.event(&notice, &client.users);
+        if let Notice::Disconnect(d) = &notice {
+            return Err(Disconnected::By(lossy(&d.message)).into());
         }
-        if done(&event) {
+        if done(&notice) {
             return Ok(());
         }
     }
 }
 
-/// Commands from stdin, one per line, on this context's session.
+/// Keeps the user list current, so later nick lookups see who joined.
+fn apply(client: &mut Client, notice: &Notice) {
+    match notice {
+        Notice::UserJoined(u) | Notice::UserChanged(u) => {
+            match client.users.iter_mut().find(|x| x.user_id == u.user_id) {
+                Some(slot) => *slot = u.clone(),
+                None => client.users.push(u.clone()),
+            }
+        }
+        Notice::UserDeparted(d) => client.users.retain(|x| x.user_id != d.user_id),
+        _ => {}
+    }
+}
+
+/// Commands from stdin, one per line, on this context's client.
 pub async fn run(ctx: &mut Ctx, keep_going: bool) -> anyhow::Result<()> {
     let stdin = std::io::stdin();
     let lines: Vec<String> = stdin.lock().lines().collect::<Result<_, _>>()?;

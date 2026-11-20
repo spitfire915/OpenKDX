@@ -59,8 +59,9 @@ echo "client snapshots done"
 # and show the name in the Settings window (checked by a screenshot and by
 # the server's log line "Set Name: <…>").
 export PATH="$HOME/.cargo/bin:$PATH"
-cargo build -q -p openkdx-legacy --example legacytool --manifest-path "$HERE/../Cargo.toml"
-"$HERE/../target/debug/examples/legacytool" set-nick "$W/KDX.stg" openkdxwrote
+KDX_SRC="${OPENKDX_KDX_SRC:-$HOME/kdx-src}"
+cargo build -q -p kdx-legacy --example legacytool --manifest-path "$KDX_SRC/Cargo.toml"
+"$KDX_SRC/target/debug/examples/legacytool" set-nick "$W/KDX.stg" openkdxwrote
 start_server
 restart_client
 connect_to 127.0.0.1 "$KDX_ADMIN_LOGIN" "$KDX_ADMIN_PASSWORD"; sleep 3

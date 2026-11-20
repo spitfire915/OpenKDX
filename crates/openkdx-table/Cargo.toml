@@ -8,6 +8,7 @@ rust-version.workspace = true
 description = "Challenge tables: fetch, import, cache, and verify the Haxial stories."
 
 [dependencies]
+kdx-proto.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
 directories.workspace = true
@@ -32,3 +33,4 @@ required-features = ["fetch"]
 
 [dev-dependencies]
 sha2.workspace = true
+tempfile.workspace = true

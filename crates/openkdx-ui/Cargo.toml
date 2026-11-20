@@ -8,4 +8,4 @@ rust-version.workspace = true
 description = "Haxial-look widget set on egui, with the .hap theme engine."
 
 [dependencies]
-openkdx-legacy.workspace = true
+kdx-legacy.workspace = true

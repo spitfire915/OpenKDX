@@ -3,7 +3,7 @@
 # failed login (Proof status 1) for good measure.
 source "$(dirname "$0")/../lib/scenario.sh"
 # The inventory needs the wrong password too, to key that connection.
-INVENTORY_EXTRA_ARGS="-p wrong-password"
+INVENTORY_EXTRA_ARGS="--password wrong-password"
 scenario_begin disconnect-ban
 use_cli
 start_server

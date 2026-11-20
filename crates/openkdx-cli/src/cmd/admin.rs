@@ -1,13 +1,10 @@
 use std::time::Duration;
 
-use openkdx_client::admin::set_server_name;
-use openkdx_client::connection::Event;
-use openkdx_client::path::path_string;
-use openkdx_proto::Message;
-use openkdx_proto::msg::admin::{HistoryRecord, MonitoredConnection};
+use kdx_client::{Notice, set_server_name};
+use kdx_proto::msg::admin::{HistoryRecord, MonitoredConnection};
 use serde_json::{Value, json};
 
-use super::{Ctx, find_user};
+use super::{Ctx, find_user, path_string, within};
 use crate::args::ServerCmd;
 use crate::cmd::session::watch;
 use crate::out::{Out, lossy, time_string};
@@ -15,7 +12,7 @@ use crate::out::{Out, lossy, time_string};
 fn history_row(r: &HistoryRecord) -> Vec<Value> {
     vec![
         json!(time_string(r.time)),
-        json!(r.kind.name().unwrap_or("?")),
+        json!(r.kind.title().unwrap_or("?")),
         json!(r.user_id),
         json!(lossy(&r.nick)),
         json!(lossy(&r.login)),
@@ -59,12 +56,13 @@ const MONITOR_COLS: [&str; 10] = [
 
 pub async fn server(ctx: &mut Ctx, cmd: ServerCmd) -> anyhow::Result<()> {
     let out: Out = ctx.out;
-    let session = ctx.session().await?.clone();
+    let timeout = ctx.timeout();
+    let client = ctx.client().await?;
     match cmd {
         ServerCmd::Settings => {
-            let s = session.server_settings().await?;
+            let s = within(timeout, client.server_settings()).await?;
             let main = &s.main;
-            let sections: Vec<u32> = s.table().iter().map(|(_, len)| *len).collect();
+            let sections: Vec<u32> = s.sections().iter().map(|sec| sec.len).collect();
             out.record(
                 "server-settings",
                 &[
@@ -118,23 +116,23 @@ pub async fn server(ctx: &mut Ctx, cmd: ServerCmd) -> anyhow::Result<()> {
             );
         }
         ServerCmd::SetName { name } => {
-            let mut s = session.server_settings().await?;
+            let mut s = within(timeout, client.server_settings()).await?;
             set_server_name(&mut s, name.as_bytes())?;
-            session.set_server_settings(s).await?;
+            within(timeout, client.set_server_settings(&s)).await?;
         }
         ServerCmd::SetHistory { kinds, max_kib } => {
             let kinds = kinds
                 .strip_prefix("0x")
                 .map_or_else(|| kinds.parse::<u32>(), |hex| u32::from_str_radix(hex, 16))?;
-            let mut s = session.server_settings().await?;
+            let mut s = within(timeout, client.server_settings()).await?;
             s.main.history_kinds = kinds;
             if let Some(kib) = max_kib {
                 s.main.history_max_file_size = kib * 1024;
             }
-            session.set_server_settings(s).await?;
+            within(timeout, client.set_server_settings(&s)).await?;
         }
         ServerCmd::Broadcast { text } => {
-            session.broadcast(text.join(" ").as_bytes()).await?;
+            within(timeout, client.broadcast(text.join(" ").as_bytes())).await?;
         }
         ServerCmd::Disconnect {
             user,
@@ -142,26 +140,28 @@ pub async fn server(ctx: &mut Ctx, cmd: ServerCmd) -> anyhow::Result<()> {
             message,
             quiet,
         } => {
-            let id = find_user(&session, &user)?;
-            session
-                .disconnect_user(id, ban, message.as_bytes(), quiet)
-                .await?;
+            let id = find_user(client, &user)?;
+            within(
+                timeout,
+                client.disconnect_user(id, ban, message.as_bytes(), quiet),
+            )
+            .await?;
         }
         ServerCmd::History { follow } => {
-            let list = session.history_join().await?;
+            let list = within(timeout, client.history_join()).await?;
             let rows: Vec<Vec<Value>> = list.records.iter().map(history_row).collect();
             out.table("history", &HISTORY_COLS, &rows);
             if let Some(secs) = follow {
-                watch(&session, out, Duration::from_secs(secs), |_| false).await?;
+                watch(client, out, Duration::from_secs(secs), |_| false).await?;
             }
-            session.history_leave().await?;
+            client.history_leave().await?;
         }
         ServerCmd::Monitor { r#for, every } => {
-            session.monitor_open().await?;
+            client.monitor_open().await?;
             let deadline = tokio::time::Instant::now() + Duration::from_secs(r#for.unwrap_or(0));
             loop {
-                let info = session.monitor_info().await?;
-                let rows: Vec<Vec<Value>> = info.records.iter().map(monitor_row).collect();
+                let info = within(timeout, client.monitor_info()).await?;
+                let rows: Vec<Vec<Value>> = info.iter().map(monitor_row).collect();
                 out.table("connection", &MONITOR_COLS, &rows);
                 if tokio::time::Instant::now() >= deadline {
                     break;
@@ -169,21 +169,18 @@ pub async fn server(ctx: &mut Ctx, cmd: ServerCmd) -> anyhow::Result<()> {
                 out.note("");
                 tokio::time::sleep(Duration::from_secs(every.max(1))).await;
             }
-            session.monitor_close().await?;
+            client.monitor_close().await?;
         }
         ServerCmd::Shutdown { mode, message } => {
-            session.shutdown(mode, message.as_bytes()).await?;
-            let _ = watch(
-                &session,
-                out,
-                Duration::from_secs(5),
-                |e| matches!(e, Event::Message(m) if matches!(**m, Message::DisconnectMessage(_))),
-            )
+            client.shutdown(mode, message.as_bytes()).await?;
+            let _ = watch(client, out, Duration::from_secs(5), |n| {
+                matches!(n, Notice::Disconnect(_))
+            })
             .await;
         }
         ServerCmd::Info => {
-            let extra = session.extra_server_info().await?;
-            let address = session.my_address().await.unwrap_or_default();
+            let extra = within(timeout, client.extra_server_info()).await?;
+            let address = client.my_address().await.unwrap_or_default();
             out.record(
                 "server-extra",
                 &[

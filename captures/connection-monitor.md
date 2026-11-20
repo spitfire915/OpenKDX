@@ -60,7 +60,7 @@ bytes: 4194304
 
 ## Messages
 
-Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/connection-monitor.pcapng`; checked by `crates/openkdx-dissect/tests/captures.rs`.
+Decoded by `kdx-dissect captures/openkdx-connection-monitor.pcapng --inventory --password openkdx-lab`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
 
 ```
 4  C->S  127.0.0.1:46104 -> 127.0.0.1:10700  hello
@@ -70,15 +70,14 @@ Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/connection-monit
 10  C->S  127.0.0.1:46104 -> 127.0.0.1:10700  100 Set Identity
 11  S->C  127.0.0.1:46104 -> 127.0.0.1:10700  101 User List
 12  S->C  127.0.0.1:46104 -> 127.0.0.1:10700  105 Server Info
-13  C->S  127.0.0.1:46104 -> 127.0.0.1:10700  118 (unnamed; license report)
+13  C->S  127.0.0.1:46104 -> 127.0.0.1:10700  118
 17  C->S  127.0.0.1:46110 -> 127.0.0.1:10700  hello
 19  S->C  127.0.0.1:46110 -> 127.0.0.1:10700  hello
 21  C->S  127.0.0.1:46110 -> 127.0.0.1:10700  proof
 22  S->C  127.0.0.1:46110 -> 127.0.0.1:10700  proof
 23  C->S  127.0.0.1:46110 -> 127.0.0.1:10700  412 Download File
 24  S->C  127.0.0.1:46110 -> 127.0.0.1:10700  413 Download File (R) (reply)
-25  S->C  127.0.0.1:46110 -> 127.0.0.1:10700  414 Download File (D) data header, 4194304 bytes
-27  S->C  127.0.0.1:46110 -> 127.0.0.1:10700  transfer data, 4194304 bytes
+25  S->C  127.0.0.1:46110 -> 127.0.0.1:10700  414 Download File (D) (reply)
 54  C->S  127.0.0.1:44682 -> 127.0.0.1:10700  hello
 56  S->C  127.0.0.1:44682 -> 127.0.0.1:10700  hello
 58  C->S  127.0.0.1:44682 -> 127.0.0.1:10700  proof
@@ -87,7 +86,7 @@ Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/connection-monit
 61  S->C  127.0.0.1:44682 -> 127.0.0.1:10700  101 User List
 62  S->C  127.0.0.1:44682 -> 127.0.0.1:10700  105 Server Info
 63  S->C  127.0.0.1:46104 -> 127.0.0.1:10700  103 User Joined
-64  C->S  127.0.0.1:44682 -> 127.0.0.1:10700  118 (unnamed; license report)
+64  C->S  127.0.0.1:44682 -> 127.0.0.1:10700  118
 68  C->S  127.0.0.1:44682 -> 127.0.0.1:10700  140 Open Connection Monitor
 68  C->S  127.0.0.1:44682 -> 127.0.0.1:10700  142 Get Connection Monitor Info
 70  S->C  127.0.0.1:44682 -> 127.0.0.1:10700  143 Connection Monitor Info (reply)
@@ -99,5 +98,5 @@ Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/connection-monit
 235  S->C  127.0.0.1:44682 -> 127.0.0.1:10700  143 Connection Monitor Info (reply)
 237  C->S  127.0.0.1:44682 -> 127.0.0.1:10700  141 Close Connection Monitor
 241  S->C  127.0.0.1:46104 -> 127.0.0.1:10700  104 User Departed
-368  S->C  127.0.0.1:46110 -> 127.0.0.1:10700  414 Download File (D) data header, 0 bytes
+368  S->C  127.0.0.1:46110 -> 127.0.0.1:10700  414 Download File (D)
 ```

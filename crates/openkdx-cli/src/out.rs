@@ -2,18 +2,20 @@
 
 use std::fmt::Display;
 
-use openkdx_client::connection::Event;
-use openkdx_proto::Message;
-use openkdx_proto::msg::common::UserRecord;
+use kdx_client::Notice;
+use kdx_proto::msg::UserRecord;
 use serde_json::{Value, json};
 
 pub fn lossy(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).into_owned()
 }
 
-/// A KDX time as `YYYY-MM-DD HH:MM:SS` UTC.
-pub fn time_string(t: openkdx_proto::msg::common::Time1900) -> String {
-    let ms = t.to_unix_ms();
+/// Milliseconds from 1900-01-01 to the Unix epoch.
+const UNIX_EPOCH_OFFSET_MS: i64 = 2_208_988_800_000;
+
+/// A KDX time (milliseconds since 1900) as `YYYY-MM-DD HH:MM:SS` UTC.
+pub fn time_string(ms_since_1900: u64) -> String {
+    let ms = ms_since_1900 as i64 - UNIX_EPOCH_OFFSET_MS;
     let secs = ms.div_euclid(1000);
     let days = secs.div_euclid(86_400);
     let rem = secs.rem_euclid(86_400);
@@ -118,7 +120,7 @@ impl Out {
     }
 
     /// Print an unsolicited message the way a chat window would.
-    pub fn event(&self, event: &Event, users: &[UserRecord]) {
+    pub fn event(&self, notice: &Notice, users: &[UserRecord]) {
         let nick = |id: u32| -> String {
             users
                 .iter()
@@ -126,132 +128,151 @@ impl Out {
                 .map(|u| lossy(&u.nick))
                 .unwrap_or_else(|| format!("#{id}"))
         };
-        match event {
-            Event::Message(m) => match &**m {
-                Message::UserJoined(j) => self.record(
-                    "joined",
-                    &[
-                        ("user_id", json!(j.user.user_id)),
-                        ("nick", json!(lossy(&j.user.nick))),
-                    ],
-                ),
-                Message::UserDeparted(d) => self.record(
-                    "departed",
-                    &[
-                        ("user_id", json!(d.user_id)),
-                        ("nick", json!(nick(d.user_id))),
-                    ],
-                ),
-                Message::ReceiveChatText(t) => {
-                    if self.json {
-                        self.record(
-                            "chat",
-                            &[
-                                ("chat_id", json!(t.chat_id)),
-                                ("user_id", json!(t.user_id)),
-                                ("nick", json!(nick(t.user_id))),
-                                ("action", json!(t.is_action())),
-                                ("text", json!(lossy(&t.text))),
-                            ],
-                        );
-                    } else if t.is_action() {
-                        println!("* {} {}", nick(t.user_id), lossy(&t.text));
-                    } else {
-                        println!("<{}> {}", nick(t.user_id), lossy(&t.text));
-                    }
-                }
-                Message::ChatTopicChanged(t) => self.record(
-                    "topic",
-                    &[
-                        ("chat_id", json!(t.chat_id)),
-                        ("nick", json!(lossy(&t.nick))),
-                        ("topic", json!(lossy(&t.topic))),
-                    ],
-                ),
-                Message::ChatUserJoined(j) => self.record(
-                    "chat-joined",
-                    &[
-                        ("chat_id", json!(j.chat_id)),
-                        ("nick", json!(nick(j.user_id))),
-                    ],
-                ),
-                Message::ChatUserDeparted(j) => self.record(
-                    "chat-departed",
-                    &[
-                        ("chat_id", json!(j.chat_id)),
-                        ("nick", json!(nick(j.user_id))),
-                    ],
-                ),
-                Message::IncomingPrivateMessage(p) => self.record(
-                    "pm",
-                    &[
-                        ("user_id", json!(p.user_id)),
-                        ("nick", json!(nick(p.user_id))),
-                        ("text", json!(lossy(&p.text))),
-                    ],
-                ),
-                Message::RcvBroadcast(b) => self.record(
-                    "broadcast",
-                    &[
-                        ("user_id", json!(b.user_id)),
-                        ("nick", json!(nick(b.user_id))),
-                        ("text", json!(lossy(&b.text))),
-                    ],
-                ),
-                Message::DisconnectMessage(d) => self.record(
-                    "disconnect",
-                    &[
-                        ("banned", json!(d.flags & 2 != 0)),
-                        ("shutdown", json!(d.flags & 4 != 0)),
-                        ("by", json!(lossy(&d.name))),
-                        ("message", json!(lossy(&d.message))),
-                    ],
-                ),
-                Message::ServerGreeting(g) => {
-                    self.record("greeting", &[("text", json!(lossy(&g.text)))])
-                }
-                Message::HistoryAdded(h) => self.record(
-                    "history",
-                    &[
-                        ("time", json!(h.record.time.0)),
-                        ("event", json!(h.record.kind.name().unwrap_or("?"))),
-                        ("nick", json!(lossy(&h.record.nick))),
-                        ("login", json!(lossy(&h.record.login))),
-                        ("detail", json!(lossy(&h.record.detail))),
-                    ],
-                ),
-                Message::NewsMessagePosted(p) => self.record(
-                    "news-posted",
-                    &[
-                        ("group_id", json!(p.group_id)),
-                        ("message_id", json!(p.message_id)),
-                    ],
-                ),
-                other => {
-                    if !self.quiet {
-                        self.record("message", &[("type", json!(other.kind().to_string()))]);
-                    }
-                }
-            },
-            Event::Undecodable { kind, error, .. } => self.record(
-                "undecodable",
+        match notice {
+            Notice::UserJoined(u) => self.record(
+                "joined",
                 &[
-                    ("type", json!(kind.to_string())),
-                    ("error", json!(error.to_string())),
+                    ("user_id", json!(u.user_id)),
+                    ("nick", json!(lossy(&u.nick))),
                 ],
             ),
-            Event::Disconnected(d) => self.record(
-                "disconnected",
+            Notice::UserChanged(u) => self.record(
+                "changed",
                 &[
-                    (
-                        "message",
-                        json!(d.message.as_ref().map(|m| lossy(&m.message))),
-                    ),
-                    ("error", json!(d.error.as_ref().map(|e| e.to_string()))),
+                    ("user_id", json!(u.user_id)),
+                    ("nick", json!(lossy(&u.nick))),
                 ],
             ),
+            Notice::UserDeparted(d) => self.record(
+                "departed",
+                &[
+                    ("user_id", json!(d.user_id)),
+                    ("nick", json!(nick(d.user_id))),
+                ],
+            ),
+            Notice::ChatText(t) => {
+                if self.json {
+                    self.record(
+                        "chat",
+                        &[
+                            ("chat_id", json!(t.chat_id)),
+                            ("user_id", json!(t.user_id)),
+                            ("nick", json!(nick(t.user_id))),
+                            ("action", json!(t.is_action())),
+                            ("text", json!(lossy(&t.text))),
+                        ],
+                    );
+                } else if t.is_action() {
+                    println!("* {} {}", nick(t.user_id), lossy(&t.text));
+                } else {
+                    println!("<{}> {}", nick(t.user_id), lossy(&t.text));
+                }
+            }
+            Notice::ChatTopicChanged(t) => self.record(
+                "topic",
+                &[
+                    ("chat_id", json!(t.chat_id)),
+                    ("nick", json!(lossy(&t.nick))),
+                    ("topic", json!(lossy(&t.topic))),
+                ],
+            ),
+            Notice::ChatUserJoined(j) => self.record(
+                "chat-joined",
+                &[
+                    ("chat_id", json!(j.chat_id)),
+                    ("nick", json!(nick(j.user_id))),
+                ],
+            ),
+            Notice::ChatUserDeparted(j) => self.record(
+                "chat-departed",
+                &[
+                    ("chat_id", json!(j.chat_id)),
+                    ("nick", json!(nick(j.user_id))),
+                ],
+            ),
+            Notice::ChatInvitation(i) => self.record(
+                "chat-invitation",
+                &[
+                    ("chat_id", json!(i.chat_id)),
+                    ("nick", json!(nick(i.user_id))),
+                    ("message", json!(lossy(&i.message))),
+                ],
+            ),
+            Notice::ChatDeleted(d) => self.record("chat-deleted", &[("chat_id", json!(d.chat_id))]),
+            Notice::PrivateMessage(p) => self.record(
+                "pm",
+                &[
+                    ("user_id", json!(p.user_id)),
+                    ("nick", json!(nick(p.user_id))),
+                    ("text", json!(lossy(&p.text))),
+                ],
+            ),
+            Notice::Broadcast(b) => self.record(
+                "broadcast",
+                &[
+                    ("user_id", json!(b.user_id)),
+                    ("nick", json!(nick(b.user_id))),
+                    ("text", json!(lossy(&b.text))),
+                ],
+            ),
+            Notice::Disconnect(d) => self.record(
+                "disconnect",
+                &[
+                    ("banned", json!(d.flags & 2 != 0)),
+                    ("shutdown", json!(d.flags & 4 != 0)),
+                    ("by", json!(lossy(&d.name))),
+                    ("message", json!(lossy(&d.message))),
+                ],
+            ),
+            Notice::ServerGreeting(g) => {
+                self.record("greeting", &[("text", json!(lossy(&g.text)))])
+            }
+            Notice::HistoryAdded(h) => self.record(
+                "history",
+                &[
+                    ("time", json!(h.time)),
+                    ("event", json!(h.kind.title().unwrap_or("?"))),
+                    ("nick", json!(lossy(&h.nick))),
+                    ("login", json!(lossy(&h.login))),
+                    ("detail", json!(lossy(&h.detail))),
+                ],
+            ),
+            Notice::NewsPosted(p) => self.record(
+                "news-posted",
+                &[
+                    ("group_id", json!(p.group_id)),
+                    ("message_id", json!(p.message_id)),
+                ],
+            ),
+            Notice::NewsDeleted(p) => self.record(
+                "news-deleted",
+                &[
+                    ("group_id", json!(p.group_id)),
+                    ("message_id", json!(p.message_id)),
+                ],
+            ),
+            Notice::Other(header, _) => {
+                if !self.quiet {
+                    self.record("message", &[("type", json!(header.kind.to_string()))]);
+                }
+            }
+            other => {
+                if !self.quiet {
+                    self.record("message", &[("type", json!(notice_name(other)))]);
+                }
+            }
         }
     }
+}
+
+/// The variant name of a notice this output has no special form for.
+fn notice_name(notice: &Notice) -> String {
+    let debug = format!("{notice:?}");
+    debug
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .next()
+        .unwrap_or("notice")
+        .to_string()
 }
 
 fn plain(v: &Value) -> String {

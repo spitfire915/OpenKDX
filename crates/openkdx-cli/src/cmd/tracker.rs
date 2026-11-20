@@ -1,19 +1,23 @@
-use openkdx_client::tracker::Tracker;
+use kdx_client::{Login, Tracker};
 use serde_json::json;
 
-use super::{Ctx, resolve};
+use super::{Ctx, resolve, within};
 use crate::args::TrackerCmd;
 use crate::out::{lossy, time_string};
 
 pub async fn tracker(ctx: &mut Ctx, spec: &str, cmd: TrackerCmd) -> anyhow::Result<()> {
     let out = ctx.out;
+    let timeout = ctx.timeout();
     let addr = resolve(spec, 10800)?;
-    let tracker = Tracker::connect(addr, &ctx.table()?, ctx.globals.timeout()).await?;
+    let mut tracker = within(
+        timeout,
+        Tracker::login(addr, &Login::default(), ctx.table()?),
+    )
+    .await?;
     match cmd {
         TrackerCmd::Groups => {
-            let rows: Vec<Vec<serde_json::Value>> = tracker
-                .groups()
-                .await?
+            let groups = within(timeout, tracker.groups()).await?;
+            let rows: Vec<Vec<serde_json::Value>> = groups
                 .iter()
                 .map(|g| {
                     vec![
@@ -28,16 +32,14 @@ pub async fn tracker(ctx: &mut Ctx, spec: &str, cmd: TrackerCmd) -> anyhow::Resu
         TrackerCmd::Servers { group } => {
             let group = match group {
                 Some(g) => g.into_bytes(),
-                None => tracker
-                    .groups()
+                None => within(timeout, tracker.groups())
                     .await?
                     .first()
                     .map(|g| g.name.clone())
                     .unwrap_or_default(),
             };
-            let rows: Vec<Vec<serde_json::Value>> = tracker
-                .servers(&group)
-                .await?
+            let servers = within(timeout, tracker.servers(&group)).await?;
+            let rows: Vec<Vec<serde_json::Value>> = servers
                 .iter()
                 .map(|s| {
                     vec![
@@ -56,6 +58,5 @@ pub async fn tracker(ctx: &mut Ctx, spec: &str, cmd: TrackerCmd) -> anyhow::Resu
             );
         }
     }
-    tracker.close().await;
     Ok(())
 }

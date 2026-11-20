@@ -1,63 +1,58 @@
-#[path = "../../openkdx-client/tests/common/mock.rs"]
-mod mock;
+//! The `openkdx` binary against `kdx_client::mock`: one scripted server per
+//! test, the CLI run as a child process.
 
 use std::io::Write;
 use std::process::{Command, Stdio};
+use std::sync::Arc;
 
-use mock::{MockServer, Step, key};
-use openkdx_proto::msg::common::{Color, UserRecord};
-use openkdx_proto::msg::session::{ServerInfo, UserList};
-use openkdx_proto::{Message, MessageType, Payload};
+use kdx_client::mock::{MockConfig, MockServer, Step};
+use kdx_proto::AccountKey;
+use kdx_proto::msg::{ServerInfo, Status, UserRecord};
+use kdx_proto::session::MessageType;
 
-/// A user record as the server sends it: padded to a multiple of 4.
+/// The session key the mock's 105 Server Info carries; transfer
+/// connections log in with it.
+const SESSION_KEY: [u8; 32] = [0xab; 32];
+
 fn user(id: u32, nick: &str) -> UserRecord {
-    let mut user = UserRecord {
+    UserRecord {
         user_id: id,
-        status: 0,
-        ignored_05: [0; 5],
         client_port: 10600,
-        text_color: Color { r: 0, g: 0, b: 0 },
-        background_color: Color { r: 0, g: 0, b: 0 },
-        account_color: Color { r: 0, g: 0, b: 0 },
-        flags: 0,
-        ignored_1b: 0,
-        icon: Vec::new(),
-        extra: Vec::new(),
         nick: nick.as_bytes().to_vec(),
-        info: Vec::new(),
-        padding: Vec::new(),
-    };
-    let mut w = openkdx_proto::Writer::new();
-    user.encode(&mut w);
-    user.padding = vec![0; openkdx_proto::wire::pad4_len(w.pos())];
-    user
+        ..UserRecord::default()
+    }
 }
 
 fn login_steps() -> Vec<Step> {
     vec![
         Step::Expect(MessageType::SET_IDENTITY),
-        Step::Expect(MessageType::LICENSE_REPORT),
-        Step::Send(Message::UserList(UserList {
-            users: vec![user(1, "openkdx"), user(2, "bob")],
-        })),
-        Step::Send(Message::ServerInfo(ServerInfo {
-            session_key: [0; 32],
-            file_transfer_port: 0,
-            user_id: 1,
-            version: 0x0654,
-            can_modify_settings: 1,
-            ignored_2c: [0; 26],
-            value_46: 2,
-            ignored_4b: 0,
-            name: b"New Server".to_vec(),
-            description: Vec::new(),
-            address: Vec::new(),
-        })),
+        Step::Send(
+            MessageType::USER_LIST,
+            UserRecord::encode_list(&[user(1, "openkdx"), user(2, "bob")]).unwrap(),
+        ),
+        Step::Send(
+            MessageType::SERVER_INFO,
+            ServerInfo {
+                session_key: SESSION_KEY,
+                user_id: 1,
+                version: 0x0654,
+                can_modify_settings: 1,
+                value_46: 2,
+                name: b"New Server".to_vec(),
+                ..ServerInfo::default()
+            }
+            .encode()
+            .unwrap(),
+        ),
     ]
 }
 
-fn accounts() -> Vec<(Vec<u8>, openkdx_proto::AccountKey)> {
-    vec![(b"admin".to_vec(), key("pw"))]
+fn accounts() -> Vec<(Vec<u8>, AccountKey)> {
+    vec![(b"admin".to_vec(), AccountKey::from_password(b"pw"))]
+}
+
+fn success(value: u32) -> Vec<u8> {
+    Status::Success { value }.encode()
 }
 
 fn openkdx(server: &MockServer, args: &[&str], stdin: &str) -> (i32, String, String) {
@@ -78,8 +73,12 @@ fn openkdx_as(
         .arg("admin")
         .arg("-p")
         .arg(password)
-        .args(args)
-        .stdin(Stdio::piped())
+        .args(args);
+    run(cmd, stdin)
+}
+
+fn run(mut cmd: Command, stdin: &str) -> (i32, String, String) {
+    cmd.stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = cmd.spawn().unwrap();
@@ -99,12 +98,12 @@ fn openkdx_as(
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn login_prints_server_name() {
-    let server = std::sync::Arc::new(MockServer::start(accounts(), vec![login_steps()]).await);
+    let server = Arc::new(MockServer::start(accounts(), vec![login_steps()]).await);
     let s2 = server.clone();
     let (code, stdout, stderr) = tokio::task::spawn_blocking(move || openkdx(&s2, &["login"], ""))
         .await
         .unwrap();
-    server.check();
+    server.finish().await;
     assert_eq!(code, 0, "stdout {stdout}\nstderr {stderr}");
     assert!(stdout.contains("New Server"), "{stdout}");
     assert!(stdout.contains("1.620"), "{stdout}");
@@ -112,13 +111,32 @@ async fn login_prints_server_name() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn wrong_password_exits_2() {
-    let server = MockServer::start(accounts(), vec![vec![]]).await;
+    // Server 1.620 answers a bad password with a proof of status 1.
+    let config = MockConfig {
+        reject: Some(kdx_proto::handshake::Status::Failed),
+        ..MockConfig::default()
+    };
+    let server = MockServer::start_with(config, accounts(), vec![vec![]]).await;
     let (code, _stdout, stderr) =
         tokio::task::spawn_blocking(move || openkdx_as(&server, "nope", &["login"], ""))
             .await
             .unwrap();
     assert_eq!(code, 2, "{stderr}");
     assert!(stderr.contains("login failed"), "{stderr}");
+}
+
+#[test]
+fn login_without_a_table_explains_how_to_get_one() {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_openkdx"));
+    cmd.env_remove("OPENKDX_KDX_TABLE")
+        .env(
+            "OPENKDX_TABLE_CACHE",
+            std::env::temp_dir().join("openkdx-cli-no-table"),
+        )
+        .args(["-s", "127.0.0.1:1", "login"]);
+    let (code, _stdout, stderr) = run(cmd, "");
+    assert_eq!(code, 2, "{stderr}");
+    assert!(stderr.contains("openkdx-table fetch"), "{stderr}");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -156,7 +174,7 @@ async fn chat_say_sends_207_and_run_can_pm_by_nick() {
     let mut steps = login_steps();
     steps.push(Step::Expect(MessageType::SEND_CHAT_TEXT));
     steps.push(Step::Expect(MessageType::SEND_PRIVATE_MESSAGE));
-    let server = std::sync::Arc::new(MockServer::start(accounts(), vec![steps]).await);
+    let server = Arc::new(MockServer::start(accounts(), vec![steps]).await);
     let s2 = server.clone();
     let (code, _stdout, stderr) = tokio::task::spawn_blocking(move || {
         openkdx(
@@ -168,7 +186,7 @@ async fn chat_say_sends_207_and_run_can_pm_by_nick() {
     .await
     .unwrap();
     assert_eq!(code, 0, "{stderr}");
-    server.check();
+    server.finish().await;
     let chat = server.payloads(MessageType::SEND_CHAT_TEXT);
     assert!(chat[0].ends_with(b"hello there"), "{chat:?}");
     let pm = server.payloads(MessageType::SEND_PRIVATE_MESSAGE);
@@ -178,15 +196,22 @@ async fn chat_say_sends_207_and_run_can_pm_by_nick() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn news_post_reports_the_message_id() {
-    use openkdx_proto::msg::news::NewsMessagePosted;
+    use kdx_proto::msg::news::NewsMessageChange;
     let mut steps = login_steps();
     steps.push(Step::Expect(MessageType::POST_NEWS_MESSAGE));
-    steps.push(Step::Send(Message::NewsMessagePosted(NewsMessagePosted {
-        group_id: 1,
-        message_id: 9,
-        message_count: 1,
-    })));
-    let server = std::sync::Arc::new(MockServer::start(accounts(), vec![steps]).await);
+    steps.push(Step::Send(
+        MessageType::NEWS_MESSAGE_POSTED,
+        NewsMessageChange {
+            group_id: 1,
+            message_id: 9,
+            message_count: 1,
+        }
+        .encode()
+        .to_vec(),
+    ));
+    steps.push(Step::Expect(MessageType::GET_MY_ADDRESS));
+    steps.push(Step::Reply(MessageType::YOUR_ADDRESS, vec![127, 0, 0, 1]));
+    let server = Arc::new(MockServer::start(accounts(), vec![steps]).await);
     let s2 = server.clone();
     let (code, stdout, stderr) = tokio::task::spawn_blocking(move || {
         openkdx(
@@ -207,7 +232,7 @@ async fn news_post_reports_the_message_id() {
     .await
     .unwrap();
     assert_eq!(code, 0, "{stderr}");
-    server.check();
+    server.finish().await;
     let v: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
     assert_eq!(v["message_id"], 9);
 }
@@ -219,44 +244,46 @@ mod out;
 #[test]
 fn time_string_formats_a_known_instant() {
     // `date -u -r 1794060399` = 2026-11-07 14:06:39.
-    let t = openkdx_proto::msg::common::Time1900::from_unix_ms(1_794_060_399_000);
-    assert_eq!(out::time_string(t), "2026-11-07 14:06:39");
+    assert_eq!(
+        out::time_string(1_794_060_399_000 + 2_208_988_800_000),
+        "2026-11-07 14:06:39"
+    );
     assert_eq!(out::version_string(0x0654), "1.620");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn files_ls_prints_a_listing_with_non_utf8_names() {
-    use openkdx_proto::msg::files::{FileList, FileListEntry};
+    use kdx_proto::msg::file::{ATTR_FILE, ATTR_FOLDER, FileListEntry};
     let mut steps = login_steps();
     steps.push(Step::Expect(MessageType::GET_FILE_LIST));
-    steps.push(Step::Reply(Message::FileList(FileList {
-        entries: vec![
+    steps.push(Step::Reply(
+        MessageType::FILE_LIST,
+        FileListEntry::encode_list(&[
             FileListEntry {
                 size: 3,
-                attributes: FileListEntry::ATTR_FILE,
+                attributes: ATTR_FILE,
                 name: b"caf\xa5.txt".to_vec(),
                 kind: b"text/plain".to_vec(),
-                padding: vec![0; 1],
                 ..FileListEntry::default()
             },
             FileListEntry {
                 size: 0x1000,
-                attributes: FileListEntry::ATTR_FOLDER,
+                attributes: ATTR_FOLDER,
                 access_item: 0x2b,
                 name: b"Uploads".to_vec(),
-                padding: vec![0; 2],
                 ..FileListEntry::default()
             },
-        ],
-    })));
-    let server = std::sync::Arc::new(MockServer::start(accounts(), vec![steps]).await);
+        ])
+        .unwrap(),
+    ));
+    let server = Arc::new(MockServer::start(accounts(), vec![steps]).await);
     let s2 = server.clone();
     let (code, stdout, stderr) =
         tokio::task::spawn_blocking(move || openkdx(&s2, &["files", "ls", "-L"], ""))
             .await
             .unwrap();
     assert_eq!(code, 0, "{stderr}");
-    server.check();
+    server.finish().await;
     assert!(stdout.contains("caf\u{fffd}.txt"), "{stdout}");
     assert!(stdout.contains("Uploads/"), "{stdout}");
     assert!(stdout.contains("[UL]"), "{stdout}");
@@ -264,21 +291,26 @@ async fn files_ls_prints_a_listing_with_non_utf8_names() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn files_get_and_put_use_a_transfer_connection() {
-    use openkdx_proto::msg::files::{DownloadInfo, FileStrings, UploadFileComplete, UploadReply};
+    use kdx_proto::msg::transfer::{DownloadInfo, FileStrings, UploadReply};
     let mut transfer_login = vec![0u8];
     transfer_login.extend_from_slice(&1u32.to_be_bytes());
     let mut accounts = accounts();
-    accounts.push((transfer_login, openkdx_proto::AccountKey([0; 32])));
+    accounts.push((transfer_login, AccountKey(SESSION_KEY)));
     let get_script = vec![
         Step::Expect(MessageType::DOWNLOAD_FILE),
-        Step::Reply(Message::DownloadInfo(DownloadInfo {
-            data_size: 3,
-            strings: FileStrings {
-                name: b"tiny.txt".to_vec(),
-                ..FileStrings::default()
-            },
-            ..DownloadInfo::default()
-        })),
+        Step::Reply(
+            MessageType::DOWNLOAD_FILE_REPLY,
+            DownloadInfo {
+                data_size: 3,
+                strings: FileStrings {
+                    name: b"tiny.txt".to_vec(),
+                    ..FileStrings::default()
+                },
+                ..DownloadInfo::default()
+            }
+            .encode()
+            .unwrap(),
+        ),
         Step::DataReply {
             kind: MessageType::DOWNLOAD_FILE_DATA,
             reply: true,
@@ -292,18 +324,22 @@ async fn files_get_and_put_use_a_transfer_connection() {
     ];
     let put_script = vec![
         Step::Expect(MessageType::UPLOAD_FILE),
-        Step::Reply(Message::UploadReply(UploadReply {
-            data_offset: 0,
-            rsrc_offset: u64::MAX,
-            ignored: [0; 8],
-        })),
+        Step::Reply(
+            MessageType::UPLOAD_FILE_REPLY,
+            UploadReply {
+                data_offset: 0,
+                rsrc_offset: u64::MAX,
+                ..UploadReply::default()
+            }
+            .encode()
+            .to_vec(),
+        ),
         Step::ExpectData,
         Step::ExpectData,
-        Step::Send(Message::UploadFileComplete(UploadFileComplete)),
+        Step::Send(MessageType::UPLOAD_FILE_COMPLETE, Vec::new()),
     ];
-    let server = std::sync::Arc::new(
-        MockServer::start(accounts, vec![login_steps(), get_script, put_script]).await,
-    );
+    let server =
+        Arc::new(MockServer::start(accounts, vec![login_steps(), get_script, put_script]).await);
     let dir = tempfile::tempdir().unwrap();
     let dest = dir.path().join("tiny.txt");
     let up = dir.path().join("up.bin");
@@ -321,7 +357,7 @@ async fn files_get_and_put_use_a_transfer_connection() {
     .await
     .unwrap();
     assert_eq!(code, 0, "{stdout}\n{stderr}");
-    server.check();
+    server.finish().await;
     assert_eq!(std::fs::read(&dest).unwrap(), b"abc");
     assert_eq!(server.captured.lock().unwrap().data[0].1, b"hello upload");
     assert!(stdout.contains("3 bytes"), "{stdout}");
@@ -329,16 +365,12 @@ async fn files_get_and_put_use_a_transfer_connection() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn accounts_create_sends_507_with_the_password_key() {
-    use openkdx_proto::msg::Status;
-    use openkdx_proto::msg::accounts::CreateAccount;
+    use kdx_proto::msg::admin::Account;
+    use kdx_proto::msg::privileges::Privilege;
     let mut steps = login_steps();
     steps.push(Step::Expect(MessageType::CREATE_ACCOUNT));
-    steps.push(Step::Reply(Message::Status(Status {
-        code: 0,
-        request_type_or_value: 0x1fb,
-        detail: None,
-    })));
-    let server = std::sync::Arc::new(MockServer::start(accounts(), vec![steps]).await);
+    steps.push(Step::Reply(MessageType::STATUS, success(0x1fb)));
+    let server = Arc::new(MockServer::start(accounts(), vec![steps]).await);
     let s2 = server.clone();
     let (code, _stdout, stderr) = tokio::task::spawn_blocking(move || {
         openkdx(
@@ -362,33 +394,24 @@ async fn accounts_create_sends_507_with_the_password_key() {
     .await
     .unwrap();
     assert_eq!(code, 0, "{stderr}");
-    server.check();
-    let sent = CreateAccount::decode(&server.payloads(MessageType::CREATE_ACCOUNT)[0]).unwrap();
-    assert_eq!(sent.account.login, b"tester");
-    assert_eq!(sent.account.class_index, 1);
-    assert_eq!(
-        sent.account.key,
-        openkdx_proto::AccountKey::from_password(b"t").0
-    );
-    assert!(
-        sent.account
-            .privileges
-            .has(openkdx_proto::msg::accounts::Privilege::Download)
-    );
+    server.finish().await;
+    let sent = Account::decode(&server.payloads(MessageType::CREATE_ACCOUNT)[0]).unwrap();
+    assert_eq!(sent.login, b"tester");
+    assert_eq!(sent.class_index, 1);
+    assert_eq!(sent.key, AccountKey::from_password(b"t").0);
+    assert!(sent.privileges.contains(Privilege::Download));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn server_broadcast_and_disconnect_send_154_and_150() {
-    use openkdx_proto::msg::admin::DisconnectUser;
+    use kdx_proto::msg::admin::DisconnectUser;
     let mut steps = login_steps();
     steps.push(Step::Expect(MessageType::SEND_BROADCAST_MESSAGE));
+    steps.push(Step::Expect(MessageType::GET_MY_ADDRESS));
+    steps.push(Step::Reply(MessageType::YOUR_ADDRESS, vec![127, 0, 0, 1]));
     steps.push(Step::Expect(MessageType::DISCONNECT_USER));
-    steps.push(Step::Reply(Message::Status(openkdx_proto::msg::Status {
-        code: 0,
-        request_type_or_value: 150,
-        detail: None,
-    })));
-    let server = std::sync::Arc::new(MockServer::start(accounts(), vec![steps]).await);
+    steps.push(Step::Reply(MessageType::STATUS, success(150)));
+    let server = Arc::new(MockServer::start(accounts(), vec![steps]).await);
     let s2 = server.clone();
     let (code, _stdout, stderr) = tokio::task::spawn_blocking(move || {
         openkdx(
@@ -400,8 +423,7 @@ async fn server_broadcast_and_disconnect_send_154_and_150() {
     .await
     .unwrap();
     assert_eq!(code, 0, "{stderr}");
-    std::thread::sleep(std::time::Duration::from_millis(100));
-    server.check();
+    server.finish().await;
     assert!(server.payloads(MessageType::SEND_BROADCAST_MESSAGE)[0].ends_with(b"hello all"));
     let d = DisconnectUser::decode(&server.payloads(MessageType::DISCONNECT_USER)[0]).unwrap();
     assert_eq!((d.user_id, d.ban_seconds), (2, 10));
@@ -410,23 +432,30 @@ async fn server_broadcast_and_disconnect_send_154_and_150() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn tracker_servers_prints_addresses() {
-    use openkdx_proto::msg::tracker::{ServerListEntry, TrackerServerList};
-    let tracker = std::sync::Arc::new(
+    use kdx_proto::msg::tracker::ServerListEntry;
+    let tracker = Arc::new(
         MockServer::start_as(
             0x30,
-            vec![(Vec::new(), key(""))],
+            vec![(Vec::new(), AccountKey::from_password(b""))],
             vec![vec![
                 Step::Expect(MessageType::GET_TRACKER_SERVER_LIST),
-                Step::Reply(Message::TrackerServerList(TrackerServerList {
-                    servers: vec![ServerListEntry {
+                Step::Reply(
+                    MessageType::TRACKER_SERVER_LIST,
+                    ServerListEntry::encode_list(&[ServerListEntry {
+                        first_seen: 0,
+                        ignored_08: [0; 6],
+                        flags: 0,
                         users: 2,
-                        address: u32::from_be_bytes([127, 0, 0, 1]),
+                        ignored_12: [0; 6],
+                        address: std::net::Ipv4Addr::new(127, 0, 0, 1),
                         port: 10700,
                         name: b"New Server".to_vec(),
-                        padding: vec![0; 2],
-                        ..ServerListEntry::default()
-                    }],
-                })),
+                        description: Vec::new(),
+                        extra: Vec::new(),
+                        padding: Vec::new(),
+                    }])
+                    .unwrap(),
+                ),
             ]],
         )
         .await,
@@ -443,7 +472,22 @@ async fn tracker_servers_prints_addresses() {
     .await
     .unwrap();
     assert_eq!(code, 0, "{stderr}");
-    tracker.check();
+    tracker.finish().await;
     assert!(stdout.contains("127.0.0.1:10700"), "{stdout}");
     assert!(stdout.contains("New Server"), "{stdout}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn connection_lost_during_a_wait_exits_3_and_names_the_cause() {
+    let mut steps = login_steps();
+    steps.push(Step::Sleep(std::time::Duration::from_millis(300)));
+    steps.push(Step::Close);
+    let server = MockServer::start(accounts(), vec![steps]).await;
+    let (code, _stdout, stderr) =
+        tokio::task::spawn_blocking(move || openkdx(&server, &["pm", "wait", "--for", "10"], ""))
+            .await
+            .unwrap();
+    assert_eq!(code, 3, "{stderr}");
+    assert!(stderr.contains("disconnected"), "{stderr}");
+    assert!(stderr.contains("connection closed"), "{stderr}");
 }

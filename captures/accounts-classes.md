@@ -82,7 +82,7 @@ guest  Guest          2      2026-11-13 14:53:39  1900-01-01 00:00:00
 
 ## Messages
 
-Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/accounts-classes.pcapng`; checked by `crates/openkdx-dissect/tests/captures.rs`.
+Decoded by `kdx-dissect captures/openkdx-accounts-classes.pcapng --inventory --password openkdx-lab`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
 
 ```
 4  C->S  127.0.0.1:46784 -> 127.0.0.1:10700  hello
@@ -92,7 +92,7 @@ Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/accounts-classes
 10  C->S  127.0.0.1:46784 -> 127.0.0.1:10700  100 Set Identity
 11  S->C  127.0.0.1:46784 -> 127.0.0.1:10700  101 User List
 12  S->C  127.0.0.1:46784 -> 127.0.0.1:10700  105 Server Info
-13  C->S  127.0.0.1:46784 -> 127.0.0.1:10700  118 (unnamed; license report)
+13  C->S  127.0.0.1:46784 -> 127.0.0.1:10700  118
 15  C->S  127.0.0.1:46784 -> 127.0.0.1:10700  505 Get Account Class List
 17  S->C  127.0.0.1:46784 -> 127.0.0.1:10700  506 Account Class List (reply)
 18  C->S  127.0.0.1:46784 -> 127.0.0.1:10700  502 Get Account Class

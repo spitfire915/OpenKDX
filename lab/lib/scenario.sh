@@ -27,11 +27,21 @@ step() {
 scenario_begin() {
   SCENARIO=$1; STEP_N=0
   echo "scenario $SCENARIO:"
-  # One lab session at a time: refuse if another holds the lock or a namespace is up.
-  exec 9>"$RUN/lab.lock"
-  flock -n 9 || { echo "scenario: the lab is in use (lock $RUN/lab.lock)" >&2; exit 1; }
-  if "$LAB" ns status | grep -q running && [[ "${FORCE:-0}" != 1 ]]; then
-    echo "scenario: a lab session is running; stop it (kdx-lab ns stop) or set FORCE=1" >&2; exit 1
+  # One lab session at a time: refuse if another holds the lock or a namespace
+  # is up. A caller that already holds the lock on fd 9 (lab/legacy.sh) says
+  # so with OPENKDX_LAB_LOCK_HELD=1, and the scenario runs under its lock.
+  if [[ "${OPENKDX_LAB_LOCK_HELD:-0}" != 1 ]]; then
+    exec 9>"$RUN/lab.lock"
+    if [[ "${LAB_WAIT:-0}" == 1 ]]; then
+      flock -w 2400 9 || { echo "scenario: the lab stayed busy for 40 min (lock $RUN/lab.lock)" >&2; exit 1; }
+    else
+      flock -n 9 || { echo "scenario: the lab is in use (lock $RUN/lab.lock)" >&2; exit 1; }
+    fi
+  fi
+  # Holding the lock, a namespace that is still up was left by a run that
+  # died (or by the caller that lent us its lock); it goes.
+  if "$LAB" ns status | grep -q running && [[ "${FORCE:-0}" != 1 && "${OPENKDX_LAB_LOCK_HELD:-0}" != 1 ]]; then
+    echo "scenario: a namespace was left running; stopping it" >&2
   fi
   "$LAB" ns stop >/dev/null 2>&1 || true
   "$LAB" reset all >/dev/null 2>&1 || true
@@ -209,19 +219,23 @@ scenario_end() {
       echo '```'
     fi
   } > "$CAPTURES/$SCENARIO.md"
-  # The decoded message inventory; crates/openkdx-dissect/tests/captures.rs checks it.
-  if command -v cargo >/dev/null 2>&1 || [[ -x "$HOME/.cargo/bin/cargo" ]]; then
+  # The decoded message inventory, from kdx-dissect in the kdx checkout
+  # (spec §6.1); crates/kdx-dissect/tests/inventory.rs checks the fork's copy.
+  local kdx_src="${OPENKDX_KDX_SRC:-$HOME/kdx-src}"
+  if [[ -f "$kdx_src/Cargo.toml" ]] && { command -v cargo >/dev/null 2>&1 || [[ -x "$HOME/.cargo/bin/cargo" ]]; }; then
     {
       echo
       echo "## Messages"
       echo
-      echo "Decoded by \`openkdx-dissect --inventory -p openkdx-lab ${INVENTORY_EXTRA_ARGS:+$INVENTORY_EXTRA_ARGS }captures/$SCENARIO.pcapng\`; checked by \`crates/openkdx-dissect/tests/captures.rs\`."
+      echo "Decoded by \`kdx-dissect captures/openkdx-$SCENARIO.pcapng --inventory --password openkdx-lab${INVENTORY_EXTRA_ARGS:+ $INVENTORY_EXTRA_ARGS}\`; checked by \`crates/kdx-dissect/tests/inventory.rs\` in the kdx fork."
       echo
       # shellcheck disable=SC2086
-      PATH="$HOME/.cargo/bin:$PATH" cargo run -q -p openkdx-dissect --manifest-path "$HERE/../Cargo.toml" -- \
-        --inventory -p "$KDX_ADMIN_PASSWORD" ${INVENTORY_EXTRA_ARGS:-} "$CAPTURES/$SCENARIO.pcapng" 2>/dev/null \
-        || echo "(openkdx-dissect failed; run it by hand and paste the inventory here)"
+      PATH="$HOME/.cargo/bin:$PATH" cargo run -q -p kdx-dissect --manifest-path "$kdx_src/Cargo.toml" -- \
+        "$CAPTURES/$SCENARIO.pcapng" --inventory --password "$KDX_ADMIN_PASSWORD" ${INVENTORY_EXTRA_ARGS:-} 2>/dev/null \
+        || echo "(kdx-dissect failed; run it by hand and paste the inventory here)"
     } >> "$CAPTURES/$SCENARIO.md"
+  else
+    echo "scenario $SCENARIO: no kdx checkout at $kdx_src; inventory not written" >&2
   fi
   "$LAB" ns stop >/dev/null
   echo "scenario $SCENARIO: done ($frames frames)"

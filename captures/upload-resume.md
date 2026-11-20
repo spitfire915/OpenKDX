@@ -64,7 +64,7 @@ bytes: 262144
 
 ## Messages
 
-Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/upload-resume.pcapng`; checked by `crates/openkdx-dissect/tests/captures.rs`.
+Decoded by `kdx-dissect captures/openkdx-upload-resume.pcapng --inventory --password openkdx-lab`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
 
 ```
 4  C->S  127.0.0.1:36654 -> 127.0.0.1:10700  hello
@@ -74,16 +74,14 @@ Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/upload-resume.pc
 10  C->S  127.0.0.1:36654 -> 127.0.0.1:10700  100 Set Identity
 11  S->C  127.0.0.1:36654 -> 127.0.0.1:10700  101 User List
 12  S->C  127.0.0.1:36654 -> 127.0.0.1:10700  105 Server Info
-14  C->S  127.0.0.1:36654 -> 127.0.0.1:10700  118 (unnamed; license report)
+14  C->S  127.0.0.1:36654 -> 127.0.0.1:10700  118
 18  C->S  127.0.0.1:36662 -> 127.0.0.1:10700  hello
 20  S->C  127.0.0.1:36662 -> 127.0.0.1:10700  hello
 22  C->S  127.0.0.1:36662 -> 127.0.0.1:10700  proof
 23  S->C  127.0.0.1:36662 -> 127.0.0.1:10700  proof
 24  C->S  127.0.0.1:36662 -> 127.0.0.1:10700  415 Upload File
 25  S->C  127.0.0.1:36662 -> 127.0.0.1:10700  416 Upload File (R) (reply)
-26  C->S  127.0.0.1:36662 -> 127.0.0.1:10700  417 Upload File (D) data header, 262144 bytes
-29  C->S  127.0.0.1:36662 -> 127.0.0.1:10700  transfer data, 150000 bytes
-37  C->S  127.0.0.1:36662 -> 127.0.0.1:10700  transfer data cut, 150000 of 262144 bytes
+26  C->S  127.0.0.1:36662 -> 127.0.0.1:10700  stopped: need 262144 payload bytes
 48  C->S  127.0.0.1:36672 -> 127.0.0.1:10700  hello
 50  S->C  127.0.0.1:36672 -> 127.0.0.1:10700  hello
 52  C->S  127.0.0.1:36672 -> 127.0.0.1:10700  proof
@@ -91,7 +89,7 @@ Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/upload-resume.pc
 54  C->S  127.0.0.1:36672 -> 127.0.0.1:10700  100 Set Identity
 55  S->C  127.0.0.1:36672 -> 127.0.0.1:10700  101 User List
 56  S->C  127.0.0.1:36672 -> 127.0.0.1:10700  105 Server Info
-57  C->S  127.0.0.1:36672 -> 127.0.0.1:10700  118 (unnamed; license report)
+57  C->S  127.0.0.1:36672 -> 127.0.0.1:10700  118
 59  C->S  127.0.0.1:36672 -> 127.0.0.1:10700  400 Get File List
 61  S->C  127.0.0.1:36672 -> 127.0.0.1:10700  401 File List (reply)
 68  C->S  127.0.0.1:36678 -> 127.0.0.1:10700  hello
@@ -101,16 +99,15 @@ Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/upload-resume.pc
 74  C->S  127.0.0.1:36678 -> 127.0.0.1:10700  100 Set Identity
 75  S->C  127.0.0.1:36678 -> 127.0.0.1:10700  101 User List
 76  S->C  127.0.0.1:36678 -> 127.0.0.1:10700  105 Server Info
-77  C->S  127.0.0.1:36678 -> 127.0.0.1:10700  118 (unnamed; license report)
+77  C->S  127.0.0.1:36678 -> 127.0.0.1:10700  118
 81  C->S  127.0.0.1:36680 -> 127.0.0.1:10700  hello
 83  S->C  127.0.0.1:36680 -> 127.0.0.1:10700  hello
 85  C->S  127.0.0.1:36680 -> 127.0.0.1:10700  proof
 86  S->C  127.0.0.1:36680 -> 127.0.0.1:10700  proof
 87  C->S  127.0.0.1:36680 -> 127.0.0.1:10700  415 Upload File
 88  S->C  127.0.0.1:36680 -> 127.0.0.1:10700  416 Upload File (R) (reply)
-89  C->S  127.0.0.1:36680 -> 127.0.0.1:10700  417 Upload File (D) data header, 131072 bytes
-92  C->S  127.0.0.1:36680 -> 127.0.0.1:10700  transfer data, 131072 bytes
-100  C->S  127.0.0.1:36680 -> 127.0.0.1:10700  417 Upload File (D) data header, 0 bytes
+89  C->S  127.0.0.1:36680 -> 127.0.0.1:10700  417 Upload File (D) (reply)
+100  C->S  127.0.0.1:36680 -> 127.0.0.1:10700  417 Upload File (D)
 102  S->C  127.0.0.1:36680 -> 127.0.0.1:10700  418 Upload File (C)
 112  C->S  127.0.0.1:36696 -> 127.0.0.1:10700  hello
 114  S->C  127.0.0.1:36696 -> 127.0.0.1:10700  hello
@@ -119,7 +116,7 @@ Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/upload-resume.pc
 118  C->S  127.0.0.1:36696 -> 127.0.0.1:10700  100 Set Identity
 119  S->C  127.0.0.1:36696 -> 127.0.0.1:10700  101 User List
 120  S->C  127.0.0.1:36696 -> 127.0.0.1:10700  105 Server Info
-121  C->S  127.0.0.1:36696 -> 127.0.0.1:10700  118 (unnamed; license report)
+121  C->S  127.0.0.1:36696 -> 127.0.0.1:10700  118
 123  C->S  127.0.0.1:36696 -> 127.0.0.1:10700  400 Get File List
 125  S->C  127.0.0.1:36696 -> 127.0.0.1:10700  401 File List (reply)
 132  C->S  127.0.0.1:36700 -> 127.0.0.1:10700  hello
@@ -129,14 +126,13 @@ Decoded by `openkdx-dissect --inventory -p openkdx-lab captures/upload-resume.pc
 138  C->S  127.0.0.1:36700 -> 127.0.0.1:10700  100 Set Identity
 139  S->C  127.0.0.1:36700 -> 127.0.0.1:10700  101 User List
 140  S->C  127.0.0.1:36700 -> 127.0.0.1:10700  105 Server Info
-142  C->S  127.0.0.1:36700 -> 127.0.0.1:10700  118 (unnamed; license report)
+142  C->S  127.0.0.1:36700 -> 127.0.0.1:10700  118
 146  C->S  127.0.0.1:36712 -> 127.0.0.1:10700  hello
 148  S->C  127.0.0.1:36712 -> 127.0.0.1:10700  hello
 150  C->S  127.0.0.1:36712 -> 127.0.0.1:10700  proof
 151  S->C  127.0.0.1:36712 -> 127.0.0.1:10700  proof
 152  C->S  127.0.0.1:36712 -> 127.0.0.1:10700  412 Download File
 153  S->C  127.0.0.1:36712 -> 127.0.0.1:10700  413 Download File (R) (reply)
-154  S->C  127.0.0.1:36712 -> 127.0.0.1:10700  414 Download File (D) data header, 262144 bytes
-156  S->C  127.0.0.1:36712 -> 127.0.0.1:10700  transfer data, 262144 bytes
-177  S->C  127.0.0.1:36712 -> 127.0.0.1:10700  414 Download File (D) data header, 0 bytes
+154  S->C  127.0.0.1:36712 -> 127.0.0.1:10700  414 Download File (D) (reply)
+177  S->C  127.0.0.1:36712 -> 127.0.0.1:10700  414 Download File (D)
 ```

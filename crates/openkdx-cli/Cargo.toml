@@ -5,25 +5,24 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-description = "A thin command-line KDX client over openkdx-client."
+description = "A thin command-line KDX client over kdx-client."
 
 [[bin]]
 name = "openkdx"
 path = "src/main.rs"
 
 [dependencies]
-openkdx-client.workspace = true
-openkdx-proto.workspace = true
+kdx-client.workspace = true
+kdx-proto.workspace = true
+openkdx-table.workspace = true
 clap = { workspace = true, features = ["env"] }
 tokio.workspace = true
 anyhow.workspace = true
+thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 hex.workspace = true
 
 [dev-dependencies]
-openkdx-codec.workspace = true
-tokio-util.workspace = true
-futures-util = { workspace = true, features = ["sink"] }
-bytes.workspace = true
+kdx-client = { workspace = true, features = ["mock"] }
 tempfile.workspace = true

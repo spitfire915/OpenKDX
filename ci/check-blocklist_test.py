@@ -63,6 +63,17 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class ArgsTest(unittest.TestCase):
+    def test_root_option_selects_another_tree(self):
+        other = make_repo({"x.bin": STORY})
+        root, rng = check_blocklist.parse_args(["--root", str(other)])
+        self.assertEqual((root, rng), (other.resolve(), None))
+
+    def test_range_option_is_kept(self):
+        root, rng = check_blocklist.parse_args(["--range", "a", "b"])
+        self.assertEqual((root, rng), (check_blocklist.ROOT, ("a", "b")))
+
+
 class HistoryAndEncodingTest(unittest.TestCase):
     def test_base64_encoded_story_is_reported(self):
         import base64
