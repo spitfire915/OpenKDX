@@ -67,6 +67,8 @@ WINCLASS=kdxclient.exe
 LNXCLASS=KDX
 start_winclient() {
   local name=${1:-labuser}
+  # The fork names captures from the Windows client win-<scenario>, the rest cli-<scenario>.
+  FORK_CAPTURE_PREFIX=win-
   "$LAB" winclient start >/dev/null
   ui_first_run_client "$name" $WINCLASS
   PALETTE=$(ui_wait_sized KDX 164x310 20 $WINCLASS) || { echo "no palette window" >&2; exit 1; }
@@ -227,7 +229,7 @@ scenario_end() {
       echo
       echo "## Messages"
       echo
-      echo "Decoded by \`kdx-dissect captures/openkdx-$SCENARIO.pcapng --inventory --password openkdx-lab${INVENTORY_EXTRA_ARGS:+ $INVENTORY_EXTRA_ARGS}\`; checked by \`crates/kdx-dissect/tests/inventory.rs\` in the kdx fork."
+      echo "Decoded by \`kdx-dissect captures/${FORK_CAPTURE_PREFIX:-cli-}$SCENARIO.pcapng --inventory --password openkdx-lab${INVENTORY_EXTRA_ARGS:+ $INVENTORY_EXTRA_ARGS}\`; checked by \`crates/kdx-dissect/tests/inventory.rs\` in the kdx fork."
       echo
       # shellcheck disable=SC2086
       PATH="$HOME/.cargo/bin:$PATH" cargo run -q -p kdx-dissect --manifest-path "$kdx_src/Cargo.toml" -- \

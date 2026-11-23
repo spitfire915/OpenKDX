@@ -78,7 +78,7 @@ can_modify_settings: 0
 
 ## Messages
 
-Decoded by `kdx-dissect captures/openkdx-disconnect-ban.pcapng --inventory --password openkdx-lab --password wrong-password`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
+Decoded by `kdx-dissect captures/cli-disconnect-ban.pcapng --inventory --password openkdx-lab --password wrong-password`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
 
 ```
 4  C->S  127.0.0.1:54320 -> 127.0.0.1:10700  hello

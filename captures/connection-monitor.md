@@ -60,7 +60,7 @@ bytes: 4194304
 
 ## Messages
 
-Decoded by `kdx-dissect captures/openkdx-connection-monitor.pcapng --inventory --password openkdx-lab`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
+Decoded by `kdx-dissect captures/cli-connection-monitor.pcapng --inventory --password openkdx-lab`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
 
 ```
 4  C->S  127.0.0.1:46104 -> 127.0.0.1:10700  hello

@@ -29,7 +29,7 @@ Frames: 20.
 
 ## Messages
 
-Decoded by `kdx-dissect captures/openkdx-tracker-basic.pcapng --inventory --password openkdx-lab`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
+Decoded by `kdx-dissect captures/win-tracker-basic.pcapng --inventory --password openkdx-lab`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
 
 ```
 1  127.0.0.1:44251 -> 127.0.0.1:10800  UDP registration

@@ -41,7 +41,7 @@ Every capture starts before the client connects, so each holds the full
 handshake; a transfer connection (`files-basic`) is keyed by the session key
 its parent received in 105 Server Info.
 
-The same bytes are `captures/openkdx-<name>.pcapng` in the kdx fork
+The same bytes are `captures/win-<name>.pcapng` / `captures/cli-<name>.pcapng` in the kdx fork
 (https://github.com/spitfire915/kdx), where `kdx-dissect` audits them and
 `kdx-proto` fact tests read fixtures exported from them.
 
