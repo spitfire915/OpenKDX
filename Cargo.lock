@@ -774,7 +774,7 @@ dependencies = [
 [[package]]
 name = "kdx-client"
 version = "0.1.0"
-source = "git+https://github.com/spitfire915/kdx?rev=552114a62bdb2c5d1c9cd4b921373b70241282b7#552114a62bdb2c5d1c9cd4b921373b70241282b7"
+source = "git+https://github.com/spitfire915/kdx?rev=382534e5c493177a7f97c06e8c1432f4f02e732e#382534e5c493177a7f97c06e8c1432f4f02e732e"
 dependencies = [
  "anyhow",
  "bytes",
@@ -793,7 +793,7 @@ dependencies = [
 [[package]]
 name = "kdx-codec"
 version = "0.1.0"
-source = "git+https://github.com/spitfire915/kdx?rev=552114a62bdb2c5d1c9cd4b921373b70241282b7#552114a62bdb2c5d1c9cd4b921373b70241282b7"
+source = "git+https://github.com/spitfire915/kdx?rev=382534e5c493177a7f97c06e8c1432f4f02e732e#382534e5c493177a7f97c06e8c1432f4f02e732e"
 dependencies = [
  "bytes",
  "kdx-proto",
@@ -804,7 +804,7 @@ dependencies = [
 [[package]]
 name = "kdx-legacy"
 version = "0.1.0"
-source = "git+https://github.com/spitfire915/kdx?rev=552114a62bdb2c5d1c9cd4b921373b70241282b7#552114a62bdb2c5d1c9cd4b921373b70241282b7"
+source = "git+https://github.com/spitfire915/kdx?rev=382534e5c493177a7f97c06e8c1432f4f02e732e#382534e5c493177a7f97c06e8c1432f4f02e732e"
 dependencies = [
  "kdx-proto",
  "thiserror",
@@ -813,7 +813,7 @@ dependencies = [
 [[package]]
 name = "kdx-proto"
 version = "0.1.0"
-source = "git+https://github.com/spitfire915/kdx?rev=552114a62bdb2c5d1c9cd4b921373b70241282b7#552114a62bdb2c5d1c9cd4b921373b70241282b7"
+source = "git+https://github.com/spitfire915/kdx?rev=382534e5c493177a7f97c06e8c1432f4f02e732e#382534e5c493177a7f97c06e8c1432f4f02e732e"
 dependencies = [
  "sha1",
  "sha2 0.11.1",

@@ -12,10 +12,10 @@ rust-version = "1.96"
 [workspace.dependencies]
 # The kdx-* crates live in the fork spitfire915/kdx (spec §6.1); pinned by revision,
 # patched to a sibling checkout for local work (CONTRIBUTING "Working on kdx-* and OpenKDX together").
-kdx-proto = { git = "https://github.com/spitfire915/kdx", rev = "552114a62bdb2c5d1c9cd4b921373b70241282b7" }
-kdx-codec = { git = "https://github.com/spitfire915/kdx", rev = "552114a62bdb2c5d1c9cd4b921373b70241282b7" }
-kdx-client = { git = "https://github.com/spitfire915/kdx", rev = "552114a62bdb2c5d1c9cd4b921373b70241282b7" }
-kdx-legacy = { git = "https://github.com/spitfire915/kdx", rev = "552114a62bdb2c5d1c9cd4b921373b70241282b7" }
+kdx-proto = { git = "https://github.com/spitfire915/kdx", rev = "382534e5c493177a7f97c06e8c1432f4f02e732e" }
+kdx-codec = { git = "https://github.com/spitfire915/kdx", rev = "382534e5c493177a7f97c06e8c1432f4f02e732e" }
+kdx-client = { git = "https://github.com/spitfire915/kdx", rev = "382534e5c493177a7f97c06e8c1432f4f02e732e" }
+kdx-legacy = { git = "https://github.com/spitfire915/kdx", rev = "382534e5c493177a7f97c06e8c1432f4f02e732e" }
 
 openkdx-table = { path = "crates/openkdx-table", default-features = false }
 openkdx-ui = { path = "crates/openkdx-ui" }
