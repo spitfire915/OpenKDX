@@ -104,7 +104,7 @@ pub async fn server(ctx: &mut Ctx, cmd: ServerCmd) -> anyhow::Result<()> {
                                 .iter()
                                 .map(|a| format!(
                                     "{} {}",
-                                    if a.allow { "allow" } else { "deny" },
+                                    if a.allow() { "allow" } else { "deny" },
                                     lossy(&a.address)
                                 ))
                                 .collect::<Vec<_>>()
