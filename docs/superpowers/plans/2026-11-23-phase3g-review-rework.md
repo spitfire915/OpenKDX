@@ -190,3 +190,4 @@ Procedure, in stack order; each branch starts from its parent's new tip (the fir
 
 | Session | Date | Tasks | Fork PRs | OpenKDX commits | Pinned fork SHA | Upstream | Rulings / carried |
 |---|---|---|---|---|---|---|---|
+| 3G-1 | 2026-11-23 | 1 | none (fork main merge `968c47f` = upstream `1a6ebd3` merged --no-ff) | `98e4b5d` CONTRIBUTING: trailer names the model | `6fb82b4` (unchanged) | #89 reply handed to the user (win-/cli- naming, stack rebuild) | Fork `check`/`docs` red on main until Task 2 (check-docs: 16 `lab/scenarios/*.sh` paths, 1 handshake path, 4 frameless tags in `captures/openkdx-*.md`); 10 pre-merge fork commits fail UC1 (history, kept). Ruling: trailers name the model that wrote the commit (Sonnet 5.5 implementers, Fable 5.1 controller, Opus 5.5 reviews). |
