@@ -52,8 +52,9 @@ in the body, the doc update in the same commit as the code, prose wrapped at
 80 columns, evidence as `<!-- [O ...] -->` / `<!-- [S ...] -->` comments,
 `python3 -I ci/check-docs.py` and `codespell` clean, `cargo clippy
 --workspace --all-targets` with no warnings (use the 1.96 toolchain: `cargo
-+1.96 clippy ...`), `cargo fmt`, and the same `Co-Authored-By: Claude
-<noreply@anthropic.com>` trailer as here. Before every push to the fork run
++1.96 clippy ...`), `cargo fmt`, and the same `Co-Authored-By: Claude <model>
+<noreply@anthropic.com>` trailer as here (naming the model that wrote the
+commit, e.g. Claude Fable 5.1; upstream lints this with gitlint, UC1). Before every push to the fork run
 `python3 ci/check-blocklist.py --root ../kdx`: nothing of Haxial's goes
 there either.
 
@@ -116,8 +117,9 @@ with its pull request, so a reader of this repository finds it.
 `type(scope): summary` — types `feat`, `fix`, `docs`, `test`, `build`, `ci`,
 `lab`, `captures`, `refactor`. One logical change per commit.
 
-Every commit carries the trailer `Co-Authored-By: Claude <noreply@anthropic.com>`:
-the code is written with Claude (Anthropic) as a co-author, and the squash-merge
+Every commit carries the trailer `Co-Authored-By: Claude <model> <noreply@anthropic.com>`,
+naming the model that wrote the commit, e.g. Claude Fable 5.1 (upstream lints this
+(gitlint, UC1)): the code is written with Claude (Anthropic) as a co-author, and the squash-merge
 message of a pull request carries it too. Commits before 2026-11-19 lack the
 trailer; `NOTICE.md` states the co-authorship for them, and history is not
 rewritten.
