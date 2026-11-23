@@ -31,7 +31,7 @@ The lab admin password is `openkdx-lab` (see `captures/README.md`), so the sessi
 
 ## Messages
 
-Decoded by `kdx-dissect captures/openkdx-first-connect.pcapng --inventory --password openkdx-lab`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
+Decoded by `kdx-dissect captures/win-first-connect.pcapng --inventory --password openkdx-lab`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
 
 ```
 4  C->S  127.0.0.1:58652 -> 127.0.0.1:10700  hello

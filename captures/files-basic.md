@@ -29,7 +29,7 @@ Frames: 38.
 
 ## Messages
 
-Decoded by `kdx-dissect captures/openkdx-files-basic.pcapng --inventory --password openkdx-lab`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
+Decoded by `kdx-dissect captures/win-files-basic.pcapng --inventory --password openkdx-lab`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
 
 ```
 4  C->S  127.0.0.1:55866 -> 127.0.0.1:10700  hello

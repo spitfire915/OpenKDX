@@ -87,7 +87,7 @@ bump.
 
 **What goes where.** A protocol fact, a decoder, a client request, a format
 reader: the fork, with the capture or fixture that pins it (our captures are
-`captures/openkdx-<name>.pcapng` there, the legacy fixtures
+`captures/win-<name>.pcapng` / `captures/cli-<name>.pcapng` there, the legacy fixtures
 `crates/kdx-legacy/tests/fixtures/`). A scenario, a lab script, a capture's
 notes, the CLI, the GUI, the server program: here. A fact our captures add
 that upstream has not merged yet is also listed in `docs/protocol/README.md`
@@ -109,7 +109,7 @@ with its pull request, so a reader of this repository finds it.
 - A new or changed capture is committed with its scenario script and notes;
   the notes end with the `## Messages` inventory that `kdx-dissect
   --inventory` prints from the kdx checkout (the scenario framework appends
-  it), and the same bytes go to the fork as `captures/openkdx-<name>.pcapng`
+  it), and the same bytes go to the fork as `captures/win-<name>.pcapng` / `captures/cli-<name>.pcapng`
   with a fact test for what they pin.
 
 ## Commits

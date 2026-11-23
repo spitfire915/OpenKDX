@@ -82,7 +82,7 @@ guest  Guest          2      2026-11-13 14:53:39  1900-01-01 00:00:00
 
 ## Messages
 
-Decoded by `kdx-dissect captures/openkdx-accounts-classes.pcapng --inventory --password openkdx-lab`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
+Decoded by `kdx-dissect captures/cli-accounts-classes.pcapng --inventory --password openkdx-lab`; checked by `crates/kdx-dissect/tests/inventory.rs` in the kdx fork.
 
 ```
 4  C->S  127.0.0.1:46784 -> 127.0.0.1:10700  hello
